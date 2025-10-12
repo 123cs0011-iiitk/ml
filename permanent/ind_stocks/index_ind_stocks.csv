@@ -1,0 +1,501 @@
+symbol,company_name,sector,market_cap,headquarters,exchange
+360ONE,360 ONE WAM,Financial Services,,India,NSE
+3MINDIA,3M India,Diversified,,India,NSE
+AADHARHFC,Aadhar Housing Finance,Financial Services,,India,NSE
+AARTIIND,Aarti Industries,Chemicals,,India,NSE
+AAVAS,Aavas Financiers,Financial Services,,India,NSE
+ABB,ABB India,Capital Goods,,India,NSE
+ABBOTINDIA,Abbott India,Healthcare,,India,NSE
+ABCAPITAL,Aditya Birla Capital,Financial Services,,India,NSE
+ABFRL,Aditya Birla Fashion and Retail,Consumer Services,,India,NSE
+ABLBL,Aditya Birla Lifestyle Brands,Consumer Services,,India,NSE
+ABREL,Aditya Birla Real Estate,Forest Materials,,India,NSE
+ABSLAMC,Aditya Birla Sun Life AMC,Financial Services,,India,NSE
+ACC,ACC,Construction Materials,,India,NSE
+ACE,Action Construction Equipment,Capital Goods,,India,NSE
+ACMESOLAR,ACME Solar Holdings,Power,,India,NSE
+ADANIENSOL,Adani Energy Solutions,Power,,India,NSE
+ADANIENT,Adani Enterprises,Metals & Mining,,India,NSE
+ADANIGREEN,Adani Green Energy,Power,,India,NSE
+ADANIPORTS,Adani Ports and Special Economic Zone,Services,,India,NSE
+ADANIPOWER,Adani Power,Power,,India,NSE
+AEGISLOG,Aegis Logistics,Oil Gas & Consumable Fuels,,India,NSE
+AEGISVOPAK,Aegis Vopak Terminals,Oil Gas & Consumable Fuels,,India,NSE
+AFCONS,Afcons Infrastructure,Construction,,India,NSE
+AFFLE,Affle 3i,Information Technology,,India,NSE
+AGARWALEYE,Dr. Agarwal's Health Care,Healthcare,,India,NSE
+AIAENG,AIA Engineering,Capital Goods,,India,NSE
+AIIL,Authum Investment & Infrastructure,Financial Services,,India,NSE
+AJANTPHARM,Ajanta Pharmaceuticals,Healthcare,,India,NSE
+AKUMS,Akums Drugs and Pharmaceuticals,Healthcare,,India,NSE
+AKZOINDIA,Akzo Nobel India,Consumer Durables,,India,NSE
+ALKEM,Alkem Laboratories,Healthcare,,India,NSE
+ALKYLAMINE,Alkyl Amines Chemicals,Chemicals,,India,NSE
+ALOKINDS,Alok Industries,Textiles,,India,NSE
+AMBER,Amber Enterprises India,Consumer Durables,,India,NSE
+AMBUJACEM,Ambuja Cements,Construction Materials,,India,NSE
+ANANDRATHI,Anand Rathi Wealth,Financial Services,,India,NSE
+ANANTRAJ,Anant Raj,Realty,,India,NSE
+ANGELONE,Angel One,Financial Services,,India,NSE
+APARINDS,Apar Industries,Capital Goods,,India,NSE
+APLAPOLLO,APL Apollo Tubes,Capital Goods,,India,NSE
+APLLTD,Alembic Pharmaceuticals,Healthcare,,India,NSE
+APOLLOHOSP,Apollo Hospitals Enterprise,Healthcare,,India,NSE
+APOLLOTYRE,Apollo Tyres,Automobile and Auto Components,,India,NSE
+APTUS,Aptus Value Housing Finance India,Financial Services,,India,NSE
+ARE&M,Amara Raja Energy & Mobility,Automobile and Auto Components,,India,NSE
+ASAHIINDIA,Asahi India Glass,Automobile and Auto Components,,India,NSE
+ASHOKLEY,Ashok Leyland,Capital Goods,,India,NSE
+ASIANPAINT,Asian Paints,Consumer Durables,,India,NSE
+ASTERDM,Aster DM Healthcare,Healthcare,,India,NSE
+ASTRAL,Astral,Capital Goods,,India,NSE
+ASTRAZEN,AstraZenca Pharma India,Healthcare,,India,NSE
+ATGL,Adani Total Gas,Oil Gas & Consumable Fuels,,India,NSE
+ATHERENERG,Ather Energy,Automobile and Auto Components,,India,NSE
+ATUL,Atul,Chemicals,,India,NSE
+AUBANK,AU Small Finance Bank,Financial Services,,India,NSE
+AUROPHARMA,Aurobindo Pharma,Healthcare,,India,NSE
+AWL,AWL Agri Business,Fast Moving Consumer Goods,,India,NSE
+AXISBANK,Axis Bank,Financial Services,,India,NSE
+BAJAJ-AUTO,Bajaj Auto,Automobile and Auto Components,,India,NSE
+BAJAJFINSV,Bajaj Finserv,Financial Services,,India,NSE
+BAJAJHFL,Bajaj Housing Finance,Financial Services,,India,NSE
+BAJAJHLDNG,Bajaj Holdings & Investment,Financial Services,,India,NSE
+BAJFINANCE,Bajaj Finance,Financial Services,,India,NSE
+BALKRISIND,Balkrishna Industries,Automobile and Auto Components,,India,NSE
+BALRAMCHIN,Balrampur Chini Mills,Fast Moving Consumer Goods,,India,NSE
+BANDHANBNK,Bandhan Bank,Financial Services,,India,NSE
+BANKBARODA,Bank of Baroda,Financial Services,,India,NSE
+BANKINDIA,Bank of India,Financial Services,,India,NSE
+BASF,BASF India,Chemicals,,India,NSE
+BATAINDIA,Bata India,Consumer Durables,,India,NSE
+BAYERCROP,Bayer Cropscience,Chemicals,,India,NSE
+BBTC,Bombay Burmah Trading Corporation,Fast Moving Consumer Goods,,India,NSE
+BDL,Bharat Dynamics,Capital Goods,,India,NSE
+BEL,Bharat Electronics,Capital Goods,,India,NSE
+BEML,BEML,Capital Goods,,India,NSE
+BERGEPAINT,Berger Paints India,Consumer Durables,,India,NSE
+BHARATFORG,Bharat Forge,Automobile and Auto Components,,India,NSE
+BHARTIARTL,Bharti Airtel,Telecommunication,,India,NSE
+BHARTIHEXA,Bharti Hexacom,Telecommunication,,India,NSE
+BHEL,Bharat Heavy Electricals,Capital Goods,,India,NSE
+BIKAJI,Bikaji Foods International,Fast Moving Consumer Goods,,India,NSE
+BIOCON,Biocon,Healthcare,,India,NSE
+BLS,BLS International Services,Consumer Services,,India,NSE
+BLUEDART,Blue Dart Express,Services,,India,NSE
+BLUEJET,Blue Jet Healthcare,Healthcare,,India,NSE
+BLUESTARCO,Blue Star,Consumer Durables,,India,NSE
+BOSCHLTD,Bosch,Automobile and Auto Components,,India,NSE
+BPCL,Bharat Petroleum Corporation,Oil Gas & Consumable Fuels,,India,NSE
+BRIGADE,Brigade Enterprises,Realty,,India,NSE
+BRITANNIA,Britannia Industries,Fast Moving Consumer Goods,,India,NSE
+BSE,BSE,Financial Services,,India,NSE
+BSOFT,Birlasoft,Information Technology,,India,NSE
+CAMPUS,Campus Activewear,Consumer Durables,,India,NSE
+CAMS,Computer Age Management Services,Financial Services,,India,NSE
+CANBK,Canara Bank,Financial Services,,India,NSE
+CANFINHOME,Can Fin Homes,Financial Services,,India,NSE
+CAPLIPOINT,Caplin Point Laboratories,Healthcare,,India,NSE
+CARBORUNIV,Carborundum Universal,Capital Goods,,India,NSE
+CASTROLIND,Castrol India,Oil Gas & Consumable Fuels,,India,NSE
+CCL,CCL Products (I),Fast Moving Consumer Goods,,India,NSE
+CDSL,Central Depository Services (India),Financial Services,,India,NSE
+CEATLTD,Ceat,Automobile and Auto Components,,India,NSE
+CENTRALBK,Central Bank of India,Financial Services,,India,NSE
+CENTURYPLY,Century Plyboards (India),Consumer Durables,,India,NSE
+CERA,Cera Sanitaryware,Consumer Durables,,India,NSE
+CESC,CESC,Power,,India,NSE
+CGCL,Capri Global Capital,Financial Services,,India,NSE
+CGPOWER,CG Power and Industrial Solutions,Capital Goods,,India,NSE
+CHALET,Chalet Hotels,Consumer Services,,India,NSE
+CHAMBLFERT,Chambal Fertilizers & Chemicals,Chemicals,,India,NSE
+CHENNPETRO,Chennai Petroleum Corporation,Oil Gas & Consumable Fuels,,India,NSE
+CHOICEIN,Choice International,Financial Services,,India,NSE
+CHOLAFIN,Cholamandalam Investment and Finance Company,Financial Services,,India,NSE
+CHOLAHLDNG,Cholamandalam Financial Holdings,Financial Services,,India,NSE
+CIPLA,Cipla,Healthcare,,India,NSE
+CLEAN,Clean Science and Technology,Chemicals,,India,NSE
+COALINDIA,Coal India,Oil Gas & Consumable Fuels,,India,NSE
+COCHINSHIP,Cochin Shipyard,Capital Goods,,India,NSE
+COFORGE,Coforge,Information Technology,,India,NSE
+COHANCE,Cohance Lifesciences,Healthcare,,India,NSE
+COLPAL,Colgate Palmolive (India),Fast Moving Consumer Goods,,India,NSE
+CONCOR,Container Corporation of India,Services,,India,NSE
+CONCORDBIO,Concord Biotech,Healthcare,,India,NSE
+COROMANDEL,Coromandel International,Chemicals,,India,NSE
+CRAFTSMAN,Craftsman Automation,Automobile and Auto Components,,India,NSE
+CREDITACC,CreditAccess Grameen,Financial Services,,India,NSE
+CRISIL,CRISIL,Financial Services,,India,NSE
+CROMPTON,Crompton Greaves Consumer Electricals,Consumer Durables,,India,NSE
+CUB,City Union Bank,Financial Services,,India,NSE
+CUMMINSIND,Cummins India,Capital Goods,,India,NSE
+CYIENT,Cyient,Information Technology,,India,NSE
+DABUR,Dabur India,Fast Moving Consumer Goods,,India,NSE
+DALBHARAT,Dalmia Bharat,Construction Materials,,India,NSE
+DATAPATTNS,Data Patterns (India),Capital Goods,,India,NSE
+DBREALTY,Valor Estate,Consumer Services,,India,NSE
+DCMSHRIRAM,DCM Shriram,Diversified,,India,NSE
+DEEPAKFERT,Deepak Fertilisers & Petrochemicals Corp.,Chemicals,,India,NSE
+DEEPAKNTR,Deepak Nitrite,Chemicals,,India,NSE
+DELHIVERY,Delhivery,Services,,India,NSE
+DEVYANI,Devyani International,Consumer Services,,India,NSE
+DIVISLAB,Divi's Laboratories,Healthcare,,India,NSE
+DIXON,Dixon Technologies (India),Consumer Durables,,India,NSE
+DLF,DLF,Realty,,India,NSE
+DMART,Avenue Supermarts,Consumer Services,,India,NSE
+DOMS,DOMS Industries,Fast Moving Consumer Goods,,India,NSE
+DRREDDY,Dr. Reddy's Laboratories,Healthcare,,India,NSE
+ECLERX,eClerx Services,Services,,India,NSE
+EICHERMOT,Eicher Motors,Automobile and Auto Components,,India,NSE
+EIDPARRY,E.I.D. Parry (India),Fast Moving Consumer Goods,,India,NSE
+EIHOTEL,EIH,Consumer Services,,India,NSE
+ELECON,Elecon Engineering Co.,Capital Goods,,India,NSE
+ELGIEQUIP,Elgi Equipments,Capital Goods,,India,NSE
+EMAMILTD,Emami,Fast Moving Consumer Goods,,India,NSE
+EMCURE,Emcure Pharmaceuticals,Healthcare,,India,NSE
+ENDURANCE,Endurance Technologies,Automobile and Auto Components,,India,NSE
+ENGINERSIN,Engineers India,Construction,,India,NSE
+ENRIN,Siemens Energy India,Capital Goods,,India,NSE
+ERIS,Eris Lifesciences,Healthcare,,India,NSE
+ESCORTS,Escorts Kubota,Capital Goods,,India,NSE
+ETERNAL,Eternal,Consumer Services,,India,NSE
+EXIDEIND,Exide Industries,Automobile and Auto Components,,India,NSE
+FACT,Fertilisers and Chemicals Travancore,Chemicals,,India,NSE
+FEDERALBNK,Federal Bank,Financial Services,,India,NSE
+FINCABLES,Finolex Cables,Capital Goods,,India,NSE
+FINPIPE,Finolex Industries,Capital Goods,,India,NSE
+FIRSTCRY,Brainbees Solutions,Consumer Services,,India,NSE
+FIVESTAR,Five-Star Business Finance,Financial Services,,India,NSE
+FLUOROCHEM,Gujarat Fluorochemicals,Chemicals,,India,NSE
+FORCEMOT,Force Motors,Automobile and Auto Components,,India,NSE
+FORTIS,Fortis Healthcare,Healthcare,,India,NSE
+FSL,Firstsource Solutions,Services,,India,NSE
+GAIL,GAIL (India),Oil Gas & Consumable Fuels,,India,NSE
+GESHIP,Great Eastern Shipping Co.,Services,,India,NSE
+GICRE,General Insurance Corporation of India,Financial Services,,India,NSE
+GILLETTE,Gillette India,Fast Moving Consumer Goods,,India,NSE
+GLAND,Gland Pharma,Healthcare,,India,NSE
+GLAXO,Glaxosmithkline Pharmaceuticals,Healthcare,,India,NSE
+GLENMARK,Glenmark Pharmaceuticals,Healthcare,,India,NSE
+GMDCLTD,Gujarat Mineral Development Corporation,Metals & Mining,,India,NSE
+GMRAIRPORT,GMR Airports,Services,,India,NSE
+GODFRYPHLP,Godfrey Phillips India,Fast Moving Consumer Goods,,India,NSE
+GODIGIT,Go Digit General Insurance,Financial Services,,India,NSE
+GODREJAGRO,Godrej Agrovet,Fast Moving Consumer Goods,,India,NSE
+GODREJCP,Godrej Consumer Products,Fast Moving Consumer Goods,,India,NSE
+GODREJIND,Godrej Industries,Diversified,,India,NSE
+GODREJPROP,Godrej Properties,Realty,,India,NSE
+GPIL,Godawari Power & Ispat,Capital Goods,,India,NSE
+GRANULES,Granules India,Healthcare,,India,NSE
+GRAPHITE,Graphite India,Capital Goods,,India,NSE
+GRASIM,Grasim Industries,Construction Materials,,India,NSE
+GRAVITA,Gravita India,Metals & Mining,,India,NSE
+GRSE,Garden Reach Shipbuilders & Engineers,Capital Goods,,India,NSE
+GSPL,Gujarat State Petronet,Oil Gas & Consumable Fuels,,India,NSE
+GUJGASLTD,Gujarat Gas,Oil Gas & Consumable Fuels,,India,NSE
+GVT&D,GE Vernova T&D India,Capital Goods,,India,NSE
+HAL,Hindustan Aeronautics,Capital Goods,,India,NSE
+HAPPSTMNDS,Happiest Minds Technologies,Information Technology,,India,NSE
+HAVELLS,Havells India,Consumer Durables,,India,NSE
+HBLENGINE,HBL Engineering,Capital Goods,,India,NSE
+HCLTECH,HCL Technologies,Information Technology,,India,NSE
+HDFCAMC,HDFC Asset Management Company,Financial Services,,India,NSE
+HDFCBANK,HDFC Bank,Financial Services,,India,NSE
+HDFCLIFE,HDFC Life Insurance Company,Financial Services,,India,NSE
+HEG,H.E.G.,Capital Goods,,India,NSE
+HEROMOTOCO,Hero MotoCorp,Automobile and Auto Components,,India,NSE
+HEXT,Hexaware Technologies,Information Technology,,India,NSE
+HFCL,HFCL,Telecommunication,,India,NSE
+HINDALCO,Hindalco Industries,Metals & Mining,,India,NSE
+HINDCOPPER,Hindustan Copper,Metals & Mining,,India,NSE
+HINDPETRO,Hindustan Petroleum Corporation,Oil Gas & Consumable Fuels,,India,NSE
+HINDUNILVR,Hindustan Unilever,Fast Moving Consumer Goods,,India,NSE
+HINDZINC,Hindustan Zinc,Metals & Mining,,India,NSE
+HOMEFIRST,Home First Finance Company India,Financial Services,,India,NSE
+HONASA,Honasa Consumer,Fast Moving Consumer Goods,,India,NSE
+HONAUT,Honeywell Automation India,Capital Goods,,India,NSE
+HSCL,Himadri Speciality Chemical,Chemicals,,India,NSE
+HUDCO,Housing & Urban Development Corporation,Financial Services,,India,NSE
+HYUNDAI,Hyundai Motor India,Automobile and Auto Components,,India,NSE
+ICICIBANK,ICICI Bank,Financial Services,,India,NSE
+ICICIGI,ICICI Lombard General Insurance Company,Financial Services,,India,NSE
+ICICIPRULI,ICICI Prudential Life Insurance Company,Financial Services,,India,NSE
+IDBI,IDBI Bank,Financial Services,,India,NSE
+IDEA,Vodafone Idea,Telecommunication,,India,NSE
+IDFCFIRSTB,IDFC First Bank,Financial Services,,India,NSE
+IEX,Indian Energy Exchange,Financial Services,,India,NSE
+IFCI,IFCI,Financial Services,,India,NSE
+IGIL,International Gemmological Institute (India),Services,,India,NSE
+IGL,Indraprastha Gas,Oil Gas & Consumable Fuels,,India,NSE
+IIFL,IIFL Finance,Financial Services,,India,NSE
+IKS,Inventurus Knowledge Solutions,Information Technology,,India,NSE
+INDGN,Indegene,Healthcare,,India,NSE
+INDHOTEL,Indian Hotels Co.,Consumer Services,,India,NSE
+INDIACEM,India Cements,Construction Materials,,India,NSE
+INDIAMART,Indiamart Intermesh,Consumer Services,,India,NSE
+INDIANB,Indian Bank,Financial Services,,India,NSE
+INDIGO,InterGlobe Aviation,Services,,India,NSE
+INDUSINDBK,IndusInd Bank,Financial Services,,India,NSE
+INDUSTOWER,Indus Towers,Telecommunication,,India,NSE
+INFY,Infosys,Information Technology,,India,NSE
+INOXINDIA,INOX India,Capital Goods,,India,NSE
+INOXWIND,Inox Wind,Capital Goods,,India,NSE
+INTELLECT,Intellect Design Arena,Information Technology,,India,NSE
+IOB,Indian Overseas Bank,Financial Services,,India,NSE
+IOC,Indian Oil Corporation,Oil Gas & Consumable Fuels,,India,NSE
+IPCALAB,Ipca Laboratories,Healthcare,,India,NSE
+IRB,IRB Infrastructure Developers,Construction,,India,NSE
+IRCON,IRCON International,Construction,,India,NSE
+IRCTC,Indian Railway Catering And Tourism Corporation,Consumer Services,,India,NSE
+IREDA,Indian Renewable Energy Development Agency,Financial Services,,India,NSE
+IRFC,Indian Railway Finance Corporation,Financial Services,,India,NSE
+ITC,ITC,Fast Moving Consumer Goods,,India,NSE
+ITCHOTELS,ITC Hotels,Consumer Services,,India,NSE
+ITI,ITI,Telecommunication,,India,NSE
+J&KBANK,Jammu & Kashmir Bank,Financial Services,,India,NSE
+JBCHEPHARM,J.B. Chemicals & Pharmaceuticals,Healthcare,,India,NSE
+JBMA,JBM Auto,Automobile and Auto Components,,India,NSE
+JINDALSAW,Jindal Saw,Capital Goods,,India,NSE
+JINDALSTEL,Jindal Steel,Metals & Mining,,India,NSE
+JIOFIN,Jio Financial Services,Financial Services,,India,NSE
+JKCEMENT,J.K. Cement,Construction Materials,,India,NSE
+JKTYRE,JK Tyre & Industries,Automobile and Auto Components,,India,NSE
+JMFINANCIL,JM Financial,Financial Services,,India,NSE
+JPPOWER,Jaiprakash Power Ventures,Power,,India,NSE
+JSL,Jindal Stainless,Metals & Mining,,India,NSE
+JSWENERGY,JSW Energy,Power,,India,NSE
+JSWINFRA,JSW Infrastructure,Services,,India,NSE
+JSWSTEEL,JSW Steel,Metals & Mining,,India,NSE
+JUBLFOOD,Jubilant Foodworks,Consumer Services,,India,NSE
+JUBLINGREA,Jubilant Ingrevia,Chemicals,,India,NSE
+JUBLPHARMA,Jubilant Pharmova,Healthcare,,India,NSE
+JWL,Jupiter Wagons,Capital Goods,,India,NSE
+JYOTHYLAB,Jyothy Labs,Fast Moving Consumer Goods,,India,NSE
+JYOTICNC,Jyoti CNC Automation,Capital Goods,,India,NSE
+KAJARIACER,Kajaria Ceramics,Consumer Durables,,India,NSE
+KALYANKJIL,Kalyan Jewellers India,Consumer Durables,,India,NSE
+KARURVYSYA,Karur Vysya Bank,Financial Services,,India,NSE
+KAYNES,Kaynes Technology India,Capital Goods,,India,NSE
+KEC,Kec International,Construction,,India,NSE
+KEI,KEI Industries,Capital Goods,,India,NSE
+KFINTECH,Kfin Technologies,Financial Services,,India,NSE
+KIMS,Krishna Institute of Medical Sciences,Healthcare,,India,NSE
+KIRLOSBROS,Kirloskar Brothers,Capital Goods,,India,NSE
+KIRLOSENG,Kirloskar Oil Eng,Capital Goods,,India,NSE
+KOTAKBANK,Kotak Mahindra Bank,Financial Services,,India,NSE
+KPIL,Kalpataru Projects International,Construction,,India,NSE
+KPITTECH,KPIT Technologies,Information Technology,,India,NSE
+KPRMILL,K.P.R. Mill,Textiles,,India,NSE
+KSB,KSB,Capital Goods,,India,NSE
+LALPATHLAB,Dr. Lal Path Labs,Healthcare,,India,NSE
+LATENTVIEW,Latent View Analytics,Information Technology,,India,NSE
+LAURUSLABS,Laurus Labs,Healthcare,,India,NSE
+LEMONTREE,Lemon Tree Hotels,Consumer Services,,India,NSE
+LICHSGFIN,LIC Housing Finance,Financial Services,,India,NSE
+LICI,Life Insurance Corporation of India,Financial Services,,India,NSE
+LINDEINDIA,Linde India,Chemicals,,India,NSE
+LLOYDSME,Lloyds Metals And Energy,Metals & Mining,,India,NSE
+LODHA,Lodha Developers,Realty,,India,NSE
+LT,Larsen & Toubro,Construction,,India,NSE
+LTF,L&T Finance,Financial Services,,India,NSE
+LTFOODS,LT Foods,Fast Moving Consumer Goods,,India,NSE
+LTIM,LTIMindtree,Information Technology,,India,NSE
+LTTS,L&T Technology Services,Information Technology,,India,NSE
+LUPIN,Lupin,Healthcare,,India,NSE
+M&M,Mahindra & Mahindra,Automobile and Auto Components,,India,NSE
+M&MFIN,Mahindra & Mahindra Financial Services,Financial Services,,India,NSE
+MAHABANK,Bank of Maharashtra,Financial Services,,India,NSE
+MAHSCOOTER,Maharashtra Scooters,Financial Services,,India,NSE
+MAHSEAMLES,Maharashtra Seamless,Capital Goods,,India,NSE
+MANAPPURAM,Manappuram Finance,Financial Services,,India,NSE
+MANKIND,Mankind Pharma,Healthcare,,India,NSE
+MANYAVAR,Vedant Fashions,Consumer Services,,India,NSE
+MAPMYINDIA,C.E. Info Systems,Information Technology,,India,NSE
+MARICO,Marico,Fast Moving Consumer Goods,,India,NSE
+MARUTI,Maruti Suzuki India,Automobile and Auto Components,,India,NSE
+MAXHEALTH,Max Healthcare Institute,Healthcare,,India,NSE
+MAZDOCK,Mazagoan Dock Shipbuilders,Capital Goods,,India,NSE
+MCX,Multi Commodity Exchange of India,Financial Services,,India,NSE
+MEDANTA,Global Health,Healthcare,,India,NSE
+METROPOLIS,Metropolis Healthcare,Healthcare,,India,NSE
+MFSL,Max Financial Services,Financial Services,,India,NSE
+MGL,Mahanagar Gas,Oil Gas & Consumable Fuels,,India,NSE
+MINDACORP,Minda Corporation,Automobile and Auto Components,,India,NSE
+MMTC,MMTC,Services,,India,NSE
+MOTHERSON,Samvardhana Motherson International,Automobile and Auto Components,,India,NSE
+MOTILALOFS,Motilal Oswal Financial Services,Financial Services,,India,NSE
+MPHASIS,MphasiS,Information Technology,,India,NSE
+MRF,MRF,Automobile and Auto Components,,India,NSE
+MRPL,Mangalore Refinery & Petrochemicals,Oil Gas & Consumable Fuels,,India,NSE
+MSUMI,Motherson Sumi Wiring India,Automobile and Auto Components,,India,NSE
+MUTHOOTFIN,Muthoot Finance,Financial Services,,India,NSE
+NAM-INDIA,Nippon Life India Asset Management,Financial Services,,India,NSE
+NATCOPHARM,NATCO Pharma,Healthcare,,India,NSE
+NATIONALUM,National Aluminium Co.,Metals & Mining,,India,NSE
+NAUKRI,Info Edge (India),Consumer Services,,India,NSE
+NAVA,Nava,Power,,India,NSE
+NAVINFLUOR,Navin Fluorine International,Chemicals,,India,NSE
+NBCC,NBCC (India),Construction,,India,NSE
+NCC,NCC,Construction,,India,NSE
+NESTLEIND,Nestle India,Fast Moving Consumer Goods,,India,NSE
+NETWEB,Netweb Technologies India,Information Technology,,India,NSE
+NEULANDLAB,Neuland Laboratories,Healthcare,,India,NSE
+NEWGEN,Newgen Software Technologies,Information Technology,,India,NSE
+NH,Narayana Hrudayalaya,Healthcare,,India,NSE
+NHPC,NHPC,Power,,India,NSE
+NIACL,The New India Assurance Company,Financial Services,,India,NSE
+NIVABUPA,Niva Bupa Health Insurance Company,Financial Services,,India,NSE
+NLCINDIA,NLC India,Power,,India,NSE
+NMDC,NMDC,Metals & Mining,,India,NSE
+NSLNISP,NMDC Steel,Metals & Mining,,India,NSE
+NTPC,NTPC,Power,,India,NSE
+NTPCGREEN,NTPC Green Energy,Power,,India,NSE
+NUVAMA,Nuvama Wealth Management,Financial Services,,India,NSE
+NUVOCO,Nuvoco Vistas Corporation,Construction Materials,,India,NSE
+NYKAA,FSN E-Commerce Ventures,Consumer Services,,India,NSE
+OBEROIRLTY,Oberoi Realty,Realty,,India,NSE
+OFSS,Oracle Financial Services Software,Information Technology,,India,NSE
+OIL,Oil India,Oil Gas & Consumable Fuels,,India,NSE
+OLAELEC,Ola Electric Mobility,Automobile and Auto Components,,India,NSE
+OLECTRA,Olectra Greentech,Automobile and Auto Components,,India,NSE
+ONESOURCE,Onesource Specialty Pharma,Healthcare,,India,NSE
+ONGC,Oil & Natural Gas Corporation,Oil Gas & Consumable Fuels,,India,NSE
+PAGEIND,Page Industries,Textiles,,India,NSE
+PATANJALI,Patanjali Foods,Fast Moving Consumer Goods,,India,NSE
+PAYTM,One 97 Communications,Financial Services,,India,NSE
+PCBL,PCBL Chemical,Chemicals,,India,NSE
+PERSISTENT,Persistent Systems,Information Technology,,India,NSE
+PETRONET,Petronet LNG,Oil Gas & Consumable Fuels,,India,NSE
+PFC,Power Finance Corporation,Financial Services,,India,NSE
+PFIZER,Pfizer,Healthcare,,India,NSE
+PGEL,PG Electroplast,Consumer Durables,,India,NSE
+PGHH,Procter & Gamble Hygiene & Health Care,Fast Moving Consumer Goods,,India,NSE
+PHOENIXLTD,Phoenix Mills,Realty,,India,NSE
+PIDILITIND,Pidilite Industries,Chemicals,,India,NSE
+PIIND,PI Industries,Chemicals,,India,NSE
+PNB,Punjab National Bank,Financial Services,,India,NSE
+PNBHOUSING,PNB Housing Finance,Financial Services,,India,NSE
+POLICYBZR,PB Fintech,Financial Services,,India,NSE
+POLYCAB,Polycab India,Capital Goods,,India,NSE
+POLYMED,Poly Medicure,Healthcare,,India,NSE
+POONAWALLA,Poonawalla Fincorp,Financial Services,,India,NSE
+POWERGRID,Power Grid Corporation of India,Power,,India,NSE
+POWERINDIA,Hitachi Energy India,Capital Goods,,India,NSE
+PPLPHARMA,Piramal Pharma,Healthcare,,India,NSE
+PRAJIND,Praj Industries,Capital Goods,,India,NSE
+PREMIERENE,Premier Energies,Capital Goods,,India,NSE
+PRESTIGE,Prestige Estates Projects,Realty,,India,NSE
+PTCIL,PTC Industries,Capital Goods,,India,NSE
+PVRINOX,PVR INOX,Media Entertainment & Publication,,India,NSE
+RADICO,Radico Khaitan,Fast Moving Consumer Goods,,India,NSE
+RAILTEL,Railtel Corporation Of India,Telecommunication,,India,NSE
+RAINBOW,Rainbow Childrens Medicare,Healthcare,,India,NSE
+RAMCOCEM,The Ramco Cements,Construction Materials,,India,NSE
+RBLBANK,RBL Bank,Financial Services,,India,NSE
+RCF,Rashtriya Chemicals & Fertilizers,Chemicals,,India,NSE
+RECLTD,REC,Financial Services,,India,NSE
+REDINGTON,Redington,Services,,India,NSE
+RELIANCE,Reliance Industries,Oil Gas & Consumable Fuels,,India,NSE
+RELINFRA,Reliance Infrastructure,Power,,India,NSE
+RHIM,RHI MAGNESITA INDIA,Capital Goods,,India,NSE
+RITES,RITES,Construction,,India,NSE
+RKFORGE,Ramkrishna Forgings,Automobile and Auto Components,,India,NSE
+RPOWER,Reliance Power,Power,,India,NSE
+RRKABEL,R R Kabel,Capital Goods,,India,NSE
+RVNL,Rail Vikas Nigam,Construction,,India,NSE
+SAGILITY,Sagility,Information Technology,,India,NSE
+SAIL,Steel Authority of India,Metals & Mining,,India,NSE
+SAILIFE,Sai Life Sciences,Healthcare,,India,NSE
+SAMMAANCAP,Sammaan Capital,Financial Services,,India,NSE
+SAPPHIRE,Sapphire Foods India,Consumer Services,,India,NSE
+SARDAEN,Sarda Energy and Minerals,Metals & Mining,,India,NSE
+SAREGAMA,Saregama India,Media Entertainment & Publication,,India,NSE
+SBFC,SBFC Finance,Financial Services,,India,NSE
+SBICARD,SBI Cards and Payment Services,Financial Services,,India,NSE
+SBILIFE,SBI Life Insurance Company,Financial Services,,India,NSE
+SBIN,State Bank of India,Financial Services,,India,NSE
+SCHAEFFLER,Schaeffler India,Automobile and Auto Components,,India,NSE
+SCHNEIDER,Schneider Electric Infrastructure,Capital Goods,,India,NSE
+SCI,Shipping Corporation of India,Services,,India,NSE
+SHREECEM,Shree Cement,Construction Materials,,India,NSE
+SHRIRAMFIN,Shriram Finance,Financial Services,,India,NSE
+SHYAMMETL,Shyam Metalics and Energy,Capital Goods,,India,NSE
+SIEMENS,Siemens,Capital Goods,,India,NSE
+SIGNATURE,Signatureglobal (India),Realty,,India,NSE
+SJVN,SJVN,Power,,India,NSE
+SKFINDIA,SKF India,Capital Goods,,India,NSE
+SOBHA,Sobha,Realty,,India,NSE
+SOLARINDS,Solar Industries India,Chemicals,,India,NSE
+SONACOMS,Sona BLW Precision Forgings,Automobile and Auto Components,,India,NSE
+SONATSOFTW,Sonata Software,Information Technology,,India,NSE
+SRF,SRF,Chemicals,,India,NSE
+STARHEALTH,Star Health and Allied Insurance Company,Financial Services,,India,NSE
+SUMICHEM,Sumitomo Chemical India,Chemicals,,India,NSE
+SUNDARMFIN,Sundaram Finance,Financial Services,,India,NSE
+SUNDRMFAST,Sundram Fasteners,Automobile and Auto Components,,India,NSE
+SUNPHARMA,Sun Pharmaceutical Industries,Healthcare,,India,NSE
+SUNTV,Sun TV Network,Media Entertainment & Publication,,India,NSE
+SUPREMEIND,Supreme Industries,Capital Goods,,India,NSE
+SUZLON,Suzlon Energy,Capital Goods,,India,NSE
+SWANCORP,Swan Corp,Chemicals,,India,NSE
+SWIGGY,Swiggy,Consumer Services,,India,NSE
+SYNGENE,Syngene International,Healthcare,,India,NSE
+SYRMA,Syrma SGS Technology,Capital Goods,,India,NSE
+TARIL,Transformers And Rectifiers (India),Capital Goods,,India,NSE
+TATACHEM,Tata Chemicals,Chemicals,,India,NSE
+TATACOMM,Tata Communications,Telecommunication,,India,NSE
+TATACONSUM,Tata Consumer Products,Fast Moving Consumer Goods,,India,NSE
+TATAELXSI,Tata Elxsi,Information Technology,,India,NSE
+TATAINVEST,Tata Investment Corporation,Financial Services,,India,NSE
+TATAMOTORS,Tata Motors,Automobile and Auto Components,,India,NSE
+TATAPOWER,Tata Power Co.,Power,,India,NSE
+TATASTEEL,Tata Steel,Metals & Mining,,India,NSE
+TATATECH,Tata Technologies,Information Technology,,India,NSE
+TBOTEK,TBO Tek,Consumer Services,,India,NSE
+TCS,Tata Consultancy Services,Information Technology,,India,NSE
+TECHM,Tech Mahindra,Information Technology,,India,NSE
+TECHNOE,Techno Electric & Engineering Company,Construction,,India,NSE
+TEJASNET,Tejas Networks,Telecommunication,,India,NSE
+THELEELA,Schloss Bangalore,Consumer Services,,India,NSE
+THERMAX,Thermax,Capital Goods,,India,NSE
+TIINDIA,Tube Investments of India,Automobile and Auto Components,,India,NSE
+TIMKEN,Timken India,Capital Goods,,India,NSE
+TITAGARH,Titagarh Rail Systems,Capital Goods,,India,NSE
+TITAN,Titan Company,Consumer Durables,,India,NSE
+TORNTPHARM,Torrent Pharmaceuticals,Healthcare,,India,NSE
+TORNTPOWER,Torrent Power,Power,,India,NSE
+TRENT,Trent,Consumer Services,,India,NSE
+TRIDENT,Trident,Textiles,,India,NSE
+TRITURBINE,Triveni Turbine,Capital Goods,,India,NSE
+TRIVENI,Triveni Engineering & Industries,Fast Moving Consumer Goods,,India,NSE
+TTML,Tata Teleservices (Maharashtra),Telecommunication,,India,NSE
+TVSMOTOR,TVS Motor Company,Automobile and Auto Components,,India,NSE
+UBL,United Breweries,Fast Moving Consumer Goods,,India,NSE
+UCOBANK,UCO Bank,Financial Services,,India,NSE
+ULTRACEMCO,UltraTech Cement,Construction Materials,,India,NSE
+UNIONBANK,Union Bank of India,Financial Services,,India,NSE
+UNITDSPR,United Spirits,Fast Moving Consumer Goods,,India,NSE
+UNOMINDA,UNO Minda,Automobile and Auto Components,,India,NSE
+UPL,UPL,Chemicals,,India,NSE
+USHAMART,Usha Martin,Capital Goods,,India,NSE
+UTIAMC,UTI Asset Management Company,Financial Services,,India,NSE
+VBL,Varun Beverages,Fast Moving Consumer Goods,,India,NSE
+VEDL,Vedanta,Metals & Mining,,India,NSE
+VENTIVE,Ventive Hospitality,Consumer Services,,India,NSE
+VGUARD,V-Guard Industries,Consumer Durables,,India,NSE
+VIJAYA,Vijaya Diagnostic Centre,Healthcare,,India,NSE
+VMM,Vishal Mega Mart,Consumer Services,,India,NSE
+VOLTAS,Voltas,Consumer Durables,,India,NSE
+VTL,Vardhman Textiles,Textiles,,India,NSE
+WAAREEENER,Waaree Energies,Capital Goods,,India,NSE
+WELCORP,Welspun Corp,Capital Goods,,India,NSE
+WELSPUNLIV,Welspun Living,Textiles,,India,NSE
+WHIRLPOOL,Whirlpool of India,Consumer Durables,,India,NSE
+WIPRO,Wipro,Information Technology,,India,NSE
+WOCKPHARMA,Wockhardt,Healthcare,,India,NSE
+YESBANK,Yes Bank,Financial Services,,India,NSE
+ZEEL,Zee Entertainment Enterprises,Media Entertainment & Publication,,India,NSE
+ZENSARTECH,Zensar Technolgies,Information Technology,,India,NSE
+ZENTEC,Zen Technologies,Capital Goods,,India,NSE
+ZFCVINDIA,ZF Commercial Vehicle Control Systems India,Automobile and Auto Components,,India,NSE
+ZYDUSLIFE,Zydus Lifesciences,Healthcare,,India,NSE
