@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BarChart3, AlertCircle } from 'lucide-react';
 import { StockSearch } from './components/StockSearch';
 import { StockInfo } from './components/StockInfo';
@@ -7,12 +7,13 @@ import { StockPrediction } from './components/StockPrediction';
 import { CurrencyToggle } from './components/CurrencyToggle';
 import { Card, CardHeader, CardTitle, CardContent } from './components/ui/card';
 import { Alert, AlertDescription } from './components/ui/alert';
-import { stockService, StockData, PricePoint, PredictionResult } from './services/stockService';
+import { stockService, StockData, PricePoint, PredictionResult, LivePriceResponse } from './services/stockService';
 import { Currency } from './utils/currency';
 
 export default function App() {
   const [selectedSymbol, setSelectedSymbol] = useState<string>('');
   const [stockData, setStockData] = useState<StockData | null>(null);
+  const [livePriceData, setLivePriceData] = useState<LivePriceResponse | null>(null);
   const [chartData, setChartData] = useState<PricePoint[]>([]);
   const [prediction, setPrediction] = useState<PredictionResult | null>(null);
   const [chartPeriod, setChartPeriod] = useState<'week' | 'month' | 'year'>('month');
@@ -48,6 +49,11 @@ export default function App() {
     setLoading(prev => ({ ...prev, stock: true }));
     setErrors(prev => ({ ...prev, stock: '' }));
     try {
+      // Fetch live price data
+      const livePrice = await stockService.getLivePrice(symbol);
+      setLivePriceData(livePrice);
+
+      // Convert to StockData format for compatibility
       const data = await stockService.getStockData(symbol);
       setStockData(data);
     } catch (error) {
@@ -55,6 +61,7 @@ export default function App() {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load stock data';
       setErrors(prev => ({ ...prev, stock: errorMessage }));
       setStockData(null);
+      setLivePriceData(null);
     } finally {
       setLoading(prev => ({ ...prev, stock: false }));
     }
@@ -114,10 +121,10 @@ export default function App() {
             <h1>Stock Prediction Dashboard</h1>
           </div>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            Analyze real-time stock data and get AI-powered price predictions using machine learning algorithms. 
+            Analyze real-time stock data and get AI-powered price predictions using machine learning algorithms.
             Always conduct your own research before making investment decisions.
           </p>
-          
+
           {/* Currency Toggle */}
           <div className="flex justify-center mt-4">
             <CurrencyToggle currency={currency} onCurrencyChange={handleCurrencyChange} />
@@ -128,9 +135,9 @@ export default function App() {
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            <strong>Investment Warning:</strong> Stock market predictions are inherently uncertain. 
-            This tool provides statistical analysis for educational purposes only. Past performance 
-            does not guarantee future results. Always consult with financial advisors and do thorough 
+            <strong>Investment Warning:</strong> Stock market predictions are inherently uncertain.
+            This tool provides statistical analysis for educational purposes only. Past performance
+            does not guarantee future results. Always consult with financial advisors and do thorough
             research before making investment decisions.
           </AlertDescription>
         </Alert>
@@ -138,15 +145,16 @@ export default function App() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Sidebar */}
           <div className="space-y-6">
-            <StockSearch 
+            <StockSearch
               onStockSelect={handleStockSelect}
               selectedSymbol={selectedSymbol}
             />
-            <StockInfo 
+            <StockInfo
               data={stockData}
               loading={loading.stock}
               error={errors.stock}
               currency={currency}
+              livePriceData={livePriceData}
             />
           </div>
 
@@ -161,7 +169,7 @@ export default function App() {
               error={errors.chart}
               currency={currency}
             />
-            
+
             <StockPrediction
               prediction={prediction}
               currentPrice={stockData?.price}
@@ -180,8 +188,8 @@ export default function App() {
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              This stock prediction dashboard uses k-nearest neighbor (KNN) machine learning algorithm 
-              to analyze recent price patterns and predict short-term price movements. The algorithm 
+              This stock prediction dashboard uses k-nearest neighbor (KNN) machine learning algorithm
+              to analyze recent price patterns and predict short-term price movements. The algorithm
               examines the most recent trading data to identify similar patterns and estimate future prices.
             </p>
             <div className="text-xs text-muted-foreground space-y-1">
