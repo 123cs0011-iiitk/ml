@@ -1,7 +1,7 @@
 
   # Stock Prediction Web Application
 
-  This is a code bundle for Stock Prediction Web Application. The original project is available at https://www.figma.com/design/QPHdWHaYppyTguA0eA64Zv/Stock-Prediction-Web-Application.
+  This is a Stock Prediction Web Application built with React, TypeScript, and Vite.
 
   ## Running the code
 
