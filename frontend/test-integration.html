@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Stock Price API Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .test-section h3 {
+            margin-top: 0;
+            color: #555;
+        }
+
+        input[type="text"] {
+            width: 200px;
+            padding: 8px;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            padding: 8px 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .loading {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        .status.online {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .status.offline {
+            background-color: #dc3545;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🧪 Live Stock Price API Test</h1>
+
+        <div class="test-section">
+            <h3>Backend Status <span id="backend-status" class="status offline">Checking...</span></h3>
+            <button onclick="checkBackendStatus()">Check Backend Health</button>
+            <div id="backend-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Live Price Test</h3>
+            <input type="text" id="symbol-input" placeholder="Enter symbol (e.g., AAPL)" value="AAPL">
+            <button onclick="testLivePrice()">Get Live Price</button>
+            <button onclick="testMultipleSymbols()">Test Multiple Symbols</button>
+            <div id="price-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Latest Prices</h3>
+            <button onclick="testLatestPrices()">Get All Latest Prices</button>
+            <div id="latest-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Available Symbols</h3>
+            <button onclick="testSymbols()">Get Available Symbols</button>
+            <div id="symbols-result" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'http://localhost:5000';
+
+        async function makeRequest(url, options = {}) {
+            try {
+                const response = await fetch(url, {
+                    ...options,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    }
+                });
+
+                const data = await response.json();
+                return { success: response.ok, status: response.status, data };
+            } catch (error) {
+                return { success: false, status: 0, data: null, error: error.message };
+            }
+        }
+
+        function showResult(elementId, result, className = '') {
+            const element = document.getElementById(elementId);
+            element.className = `result ${className}`;
+
+            if (result.success) {
+                element.textContent = JSON.stringify(result.data, null, 2);
+            } else {
+                element.textContent = `Error: ${result.error || result.data?.message || 'Unknown error'}`;
+            }
+        }
+
+        async function checkBackendStatus() {
+            const statusElement = document.getElementById('backend-status');
+            statusElement.textContent = 'Checking...';
+            statusElement.className = 'status';
+
+            const result = await makeRequest(`${BACKEND_URL}/health`);
+
+            if (result.success) {
+                statusElement.textContent = 'Online';
+                statusElement.className = 'status online';
+                showResult('backend-result', result, 'success');
+            } else {
+                statusElement.textContent = 'Offline';
+                statusElement.className = 'status offline';
+                showResult('backend-result', result, 'error');
+            }
+        }
+
+        async function testLivePrice() {
+            const symbol = document.getElementById('symbol-input').value.trim();
+            if (!symbol) {
+                showResult('price-result', { success: false, error: 'Please enter a symbol' }, 'error');
+                return;
+            }
+
+            showResult('price-result', { success: false, error: 'Loading...' }, 'loading');
+
+            const result = await makeRequest(`${BACKEND_URL}/live_price?symbol=${encodeURIComponent(symbol)}`);
+
+            if (result.success && result.data.success) {
+                const priceData = result.data.data;
+                const formattedResult = {
+                    symbol: priceData.symbol,
+                    price: `$${priceData.price.toFixed(2)}`,
+                    source: priceData.source,
+                    timestamp: new Date(priceData.timestamp).toLocaleString(),
+                    company_name: priceData.company_name
+                };
+                showResult('price-result', { success: true, data: formattedResult }, 'success');
+            } else {
+                showResult('price-result', result, 'error');
+            }
+        }
+
+        async function testMultipleSymbols() {
+            const symbols = ['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'INVALID'];
+            showResult('price-result', { success: false, error: 'Testing multiple symbols...' }, 'loading');
+
+            const results = [];
+            for (const symbol of symbols) {
+                const result = await makeRequest(`${BACKEND_URL}/live_price?symbol=${symbol}`);
+                results.push({
+                    symbol,
+                    success: result.success && result.data?.success,
+                    data: result.data?.data || null,
+                    error: result.data?.message || result.error
+                });
+                await new Promise(resolve => setTimeout(resolve, 500)); // Rate limiting
+            }
+
+            showResult('price-result', { success: true, data: results }, 'success');
+        }
+
+        async function testLatestPrices() {
+            showResult('latest-result', { success: false, error: 'Loading...' }, 'loading');
+
+            const result = await makeRequest(`${BACKEND_URL}/latest_prices`);
+            showResult('latest-result', result, result.success ? 'success' : 'error');
+        }
+
+        async function testSymbols() {
+            showResult('symbols-result', { success: false, error: 'Loading...' }, 'loading');
+
+            const result = await makeRequest(`${BACKEND_URL}/symbols`);
+            showResult('symbols-result', result, result.success ? 'success' : 'error');
+        }
+
+        // Auto-check backend status on page load
+        window.addEventListener('load', checkBackendStatus);
+    </script>
+</body>
+
+</html>

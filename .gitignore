@@ -89,3 +89,9 @@ temp/
 # Permanent Directories
 /permanent/
 /data/
+
+# Backend specific
+backend/__pycache__/
+backend/*.pyc
+backend/venv/
+backend/.env
