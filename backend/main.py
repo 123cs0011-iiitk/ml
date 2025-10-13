@@ -1,45 +1,58 @@
+"""
+Main Coordinator Module
+
+This is the central coordinator for the stock prediction system.
+It orchestrates all components:
+- Live data fetching (live-data module)
+- Company information (company-info module) 
+- Algorithm selection and execution (algorithms module)
+- Prediction generation (prediction module)
+- Shared utilities (shared module)
+
+The main.py serves as the entry point and API coordinator.
+"""
+
 import os
-import socket
-from datetime import datetime
+import logging
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-import logging
 from dotenv import load_dotenv
-from live_data.live_fetcher import LiveFetcher
+
+# Import modules
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), 'live-data'))
+from live_data_manager import LiveFetcher
+from shared.utilities import Config, setup_logger, Constants, StockDataError, get_current_timestamp
 
 # Load environment variables
 load_dotenv()
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Setup logging
+logger = setup_logger(__name__)
 
 # Initialize Flask app
 app = Flask(__name__)
-CORS(app)  # Enable CORS for frontend communication
+CORS(app)
 
-# Initialize live fetcher
+# Initialize configuration
+config = Config()
+
+# Initialize components
 live_fetcher = LiveFetcher()
 
-def find_free_port(start_port=5000):
-    """Find a free port starting from start_port"""
-    port = start_port
-    while port < start_port + 100:  # Try up to 100 ports
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.bind(('localhost', port))
-                return port
-        except OSError:
-            port += 1
-    raise RuntimeError("Could not find a free port")
+# [FUTURE] Initialize other components when implemented
+# company_info_fetcher = CompanyInfoFetcher()
+# prediction_engine = PredictionEngine()
 
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
     return jsonify({
         'status': 'healthy',
-        'service': 'Live Stock Price API',
-        'timestamp': datetime.now().isoformat()
+        'service': 'Stock Prediction API',
+        'version': '1.0.0',
+        'timestamp': get_current_timestamp()
     })
 
 @app.route('/live_price', methods=['GET'])
@@ -82,29 +95,29 @@ def get_live_price():
 @app.route('/latest_prices', methods=['GET'])
 def get_latest_prices():
     """Get latest prices for all or specific category"""
-    category = request.args.get('category')  # us_stocks, ind_stocks, others_stocks
+    category = request.args.get('category')
     
     try:
-            data = live_fetcher.get_latest_prices(category)
-            
-            if not data or (hasattr(data, 'empty') and data.empty):
-                return jsonify({
-                    'success': True,
-                    'data': [],
-                    'message': 'No data available'
-                })
-            
-            # Handle both pandas DataFrame and list
-            if hasattr(data, 'to_dict'):
-                return jsonify({
-                    'success': True,
-                    'data': data.to_dict('records')
-                })
-            else:
-                return jsonify({
-                    'success': True,
-                    'data': data
-                })
+        data = live_fetcher.get_latest_prices(category)
+        
+        if not data or (hasattr(data, 'empty') and data.empty):
+            return jsonify({
+                'success': True,
+                'data': [],
+                'message': 'No data available'
+            })
+        
+        # Handle both pandas DataFrame and list
+        if hasattr(data, 'to_dict'):
+            return jsonify({
+                'success': True,
+                'data': data.to_dict('records')
+            })
+        else:
+            return jsonify({
+                'success': True,
+                'data': data
+            })
         
     except Exception as e:
         logger.error(f"Error getting latest prices: {str(e)}")
@@ -131,8 +144,8 @@ def search_stocks():
         
         # Define paths to search
         search_paths = [
-            os.path.join(os.path.dirname(os.path.dirname(__file__)), 'permanent', 'us_stocks', 'index_us_stocks.csv'),
-            os.path.join(os.path.dirname(os.path.dirname(__file__)), 'permanent', 'ind_stocks', 'index_ind_stocks.csv')
+            os.path.join(config.permanent_dir, 'us_stocks', 'index_us_stocks.csv'),
+            os.path.join(config.permanent_dir, 'ind_stocks', 'index_ind_stocks.csv')
         ]
         
         # Search each CSV file
@@ -149,7 +162,7 @@ def search_stocks():
                     ]
                     
                     # Convert to list of dictionaries
-                    for _, row in matches.head(10).iterrows():  # Limit to 10 per file
+                    for _, row in matches.head(10).iterrows():
                         results.append({
                             'symbol': row['symbol'],
                             'name': row['company_name']
@@ -167,7 +180,7 @@ def search_stocks():
                                     'symbol': row['symbol'],
                                     'name': row['company_name']
                                 })
-                                if len(results) >= 20:  # Limit total results
+                                if len(results) >= Constants.MAX_SEARCH_RESULTS:
                                     break
         
         # Remove duplicates and limit results
@@ -177,7 +190,7 @@ def search_stocks():
             if result['symbol'] not in seen:
                 seen.add(result['symbol'])
                 unique_results.append(result)
-                if len(unique_results) >= 20:
+                if len(unique_results) >= Constants.MAX_SEARCH_RESULTS:
                     break
         
         return jsonify({
@@ -201,7 +214,7 @@ def get_symbols():
     try:
         if category:
             # Get symbols for specific category
-            csv_path = os.path.join(live_fetcher.data_dir, f'index_{category}_dynamic.csv')
+            csv_path = os.path.join(config.data_dir, f'index_{category}_dynamic.csv')
             if os.path.exists(csv_path):
                 try:
                     import pandas as pd
@@ -220,8 +233,8 @@ def get_symbols():
         else:
             # Get symbols for all categories
             symbols = {}
-            for cat in ['us_stocks', 'ind_stocks', 'others_stocks']:
-                csv_path = os.path.join(live_fetcher.data_dir, f'index_{cat}_dynamic.csv')
+            for cat in [Constants.US_STOCKS, Constants.INDIAN_STOCKS, Constants.OTHER_STOCKS]:
+                csv_path = os.path.join(config.data_dir, f'index_{cat}_dynamic.csv')
                 if os.path.exists(csv_path):
                     try:
                         import pandas as pd
@@ -252,6 +265,96 @@ def get_symbols():
             'message': str(e)
         }), 500
 
+# [FUTURE] Prediction endpoints
+@app.route('/predict', methods=['POST'])
+def predict_stock_price():
+    """
+    [FUTURE] Generate stock price prediction using selected algorithm
+    
+    Expected JSON payload:
+    {
+        "symbol": "AAPL",
+        "algorithm": "LSTM",
+        "days_ahead": 7
+    }
+    """
+    try:
+        data = request.get_json()
+        symbol = data.get('symbol')
+        algorithm = data.get('algorithm', 'LSTM')
+        days_ahead = data.get('days_ahead', 7)
+        
+        if not symbol:
+            return jsonify({
+                'success': False,
+                'error': 'Symbol is required'
+            }), 400
+        
+        # [FUTURE] Implement prediction logic
+        return jsonify({
+            'success': False,
+            'error': 'Prediction feature not yet implemented',
+            'message': 'This endpoint will be available in a future update'
+        }), 501
+        
+    except Exception as e:
+        logger.error(f"Error in prediction: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Prediction failed',
+            'message': str(e)
+        }), 500
+
+@app.route('/company_info', methods=['GET'])
+def get_company_info():
+    """
+    [FUTURE] Get comprehensive company information
+    
+    Query parameters:
+    - symbol: Stock symbol
+    - info_type: fundamentals, metadata, news, etc.
+    """
+    symbol = request.args.get('symbol')
+    info_type = request.args.get('info_type', 'all')
+    
+    if not symbol:
+        return jsonify({
+            'success': False,
+            'error': 'Symbol parameter is required'
+        }), 400
+    
+    # [FUTURE] Implement company info fetching
+    return jsonify({
+        'success': False,
+        'error': 'Company info feature not yet implemented',
+        'message': 'This endpoint will be available in a future update'
+    }), 501
+
+@app.route('/algorithms', methods=['GET'])
+def get_available_algorithms():
+    """
+    [FUTURE] Get list of available prediction algorithms
+    """
+    # [FUTURE] Return actual algorithm list
+    return jsonify({
+        'success': True,
+        'data': {
+            'available_algorithms': [
+                'Random Forest',
+                'LSTM',
+                'ARIMA',
+                'Linear Regression',
+                'Support Vector Machine',
+                'Gradient Boosting',
+                'Neural Network',
+                'Technical Analysis',
+                'Sentiment Analysis',
+                'Ensemble Method'
+            ],
+            'status': 'Placeholder - algorithms not yet implemented'
+        }
+    })
+
 @app.errorhandler(404)
 def not_found(error):
     """Handle 404 errors"""
@@ -270,21 +373,31 @@ def internal_error(error):
         'message': 'An unexpected error occurred'
     }), 500
 
+def find_free_port(start_port=5000):
+    """Find a free port starting from start_port"""
+    import socket
+    port = start_port
+    while port < start_port + 100:
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind(('localhost', port))
+                return port
+        except OSError:
+            port += 1
+    raise RuntimeError("Could not find a free port")
+
 def start_server(port=None):
     """Start the Flask server"""
     if port is None:
-        port = int(os.getenv('PORT', 5000))
+        port = config.port
     
     try:
-        # Try to use the specified port
         app.run(host='0.0.0.0', port=port, debug=False)
     except OSError:
-        # Port is busy, find a free port
         free_port = find_free_port(port)
         logger.info(f"Port {port} is busy, using port {free_port}")
         app.run(host='0.0.0.0', port=free_port, debug=False)
 
 if __name__ == '__main__':
-    port = int(os.getenv('PORT', 5000))
-    logger.info(f"Starting Live Stock Price API server on port {port}")
-    start_server(port)
+    logger.info(f"Starting Stock Prediction API server on port {config.port}")
+    start_server(config.port)

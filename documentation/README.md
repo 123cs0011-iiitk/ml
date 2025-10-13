@@ -24,14 +24,17 @@ A comprehensive full-stack web application that leverages machine learning algor
 
 ## 🛠️ Technology Stack
 
-### Backend
+### Backend (Modular Architecture)
 - **Flask** - Python web framework for API development
+- **Modular Design** - Organized into specialized modules (live-data, algorithms, prediction, etc.)
 - **CSV Files** - Lightweight data storage for stock prices and historical records
 - **Pandas** - Data manipulation and CSV file operations
 - **NumPy** - Numerical computations
-- **Scikit-learn** - Machine learning algorithms
-- **TensorFlow/Keras** - Deep learning models (LSTM)
+- **Scikit-learn** - Machine learning algorithms (Random Forest, SVM, etc.)
+- **TensorFlow/Keras** - Deep learning models (LSTM, Neural Networks)
 - **Matplotlib/Seaborn** - Data visualization
+- **yfinance** - Real-time stock data fetching
+- **Multiple API Fallbacks** - Finnhub, Alpha Vantage for reliability
 
 ### Frontend
 - **React** - Frontend library for building user interfaces
@@ -44,6 +47,36 @@ A comprehensive full-stack web application that leverages machine learning algor
 - **CSV Files** - Human-readable data storage format
 - **JSON** - Configuration and metadata storage
 - **File System** - Organized directory structure for data management
+
+## 🏗️ Backend Architecture
+
+The backend has been restructured with a modular architecture for better organization and maintainability:
+
+```
+backend/
+├── main.py                 # Central coordinator and API entry point
+├── app.py                  # Legacy Flask app (backward compatibility)
+├── live-data/             # Live market data fetching
+│   ├── live_data_manager.py
+│   └── live_fetcher.py    # Multi-API fallback system
+├── company-info/          # Company information management
+│   └── company_info_manager.py  # [FUTURE] Fundamentals, metadata
+├── algorithms/            # Stock prediction algorithms
+│   └── prediction_algorithms.py  # [FUTURE] 10+ ML algorithms
+├── prediction/           # Prediction orchestration
+│   └── prediction_engine.py  # [FUTURE] Algorithm coordination
+├── shared/               # Shared utilities and common code
+│   └── utilities.py      # Configuration, logging, validation
+└── requirements.txt
+```
+
+### Module Responsibilities
+
+- **live-data/**: Real-time stock price fetching with multiple API fallbacks
+- **company-info/**: Company fundamentals, metadata, and financial data
+- **algorithms/**: 10+ prediction algorithms (Random Forest, LSTM, ARIMA, etc.)
+- **prediction/**: Algorithm selection, data preprocessing, and result formatting
+- **shared/**: Common utilities, configuration, and data structures
 
 ## 📋 Prerequisites
 
