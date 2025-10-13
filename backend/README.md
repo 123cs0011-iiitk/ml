@@ -1,14 +1,108 @@
-# Live Stock Price API
+# Stock Prediction API - Backend
 
-A Flask-based API for fetching live stock prices with multiple data source fallbacks.
+A Flask-based API for stock prediction with organized modular architecture.
 
-## Features
+## Directory Structure
 
-- **Multi-API Fallback**: yfinance → Finnhub → Alpha Vantage
-- **Automatic Stock Categorization**: US stocks, Indian stocks, Others
-- **Dynamic CSV Storage**: Stores latest prices with automatic index updates
-- **CORS Enabled**: Ready for frontend integration
-- **Error Handling**: Comprehensive error handling and logging
+The backend has been reorganized for better code organization:
+
+```
+backend/
+├── scripts/                    # Utility scripts
+│   └── run_server.py          # Server startup script
+├── tests/                     # All test files
+│   ├── __init__.py           # Test package
+│   ├── test_api.py           # API endpoint tests
+│   ├── test_simple.py        # Simple functionality tests
+│   └── test_improvements.py  # Rate limiting tests
+├── docs/                      # Documentation
+│   └── RATE_LIMITING_IMPROVEMENTS.md  # Technical docs
+├── live-data/                 # Live market data fetching
+│   ├── __init__.py           # Package initialization
+│   ├── live_data_manager.py  # Module manager
+│   ├── live_fetcher.py       # Live stock price fetcher
+│   └── test/                 # Live data tests
+│       ├── __init__.py
+│       └── test_live_fetcher.py
+├── company-info/              # Company information management
+│   └── company_info_manager.py
+├── algorithms/                # Stock prediction algorithms
+│   └── prediction_algorithms.py
+├── prediction/               # Prediction orchestration
+│   └── prediction_engine.py
+├── shared/                   # Shared utilities and common code
+│   └── utilities.py
+├── main.py                   # Main API coordinator
+├── requirements.txt
+└── README.md
+```
+
+## Module Descriptions
+
+### 🚀 Live Data (`live-data/`)
+Handles all live market data fetching and updates:
+- **live_fetcher.py**: Multi-API fallback system (yfinance → Finnhub → Alpha Vantage)
+- Real-time stock price fetching with caching
+- Automatic stock categorization (US, Indian, Others)
+- CSV storage with dynamic index updates
+
+### 🏢 Company Info (`company-info/`) - *Future Implementation*
+Will handle company-related data:
+- Company fundamentals (P/E ratio, market cap, etc.)
+- Company metadata (sector, industry, description)
+- Financial statements
+- Company news and events
+- Corporate actions
+
+### 🤖 Algorithms (`algorithms/`) - *Future Implementation*
+Will contain 10+ prediction algorithms:
+- **Random Forest**: Ensemble learning for stock prediction
+- **LSTM**: Long Short-Term Memory neural networks
+- **ARIMA**: AutoRegressive Integrated Moving Average
+- **Linear Regression**: Statistical prediction model
+- **Support Vector Machine (SVM)**: Classification-based prediction
+- **Gradient Boosting**: Advanced ensemble method
+- **Neural Networks**: Deep learning approaches
+- **Technical Analysis**: Indicator-based predictions
+- **Sentiment Analysis**: News and social media sentiment
+- **Ensemble Methods**: Combining multiple algorithms
+
+### 📊 Prediction (`prediction/`) - *Future Implementation*
+Will orchestrate algorithm usage:
+- Algorithm selection and configuration
+- Data preprocessing for different algorithms
+- Prediction generation and validation
+- Result aggregation and formatting
+- Performance evaluation and comparison
+
+### 🔧 Shared (`shared/`)
+Common utilities used across modules:
+- **Configuration Management**: Centralized config handling
+- **Logging Utilities**: Consistent logging across modules
+- **Data Validation**: Common validation functions
+- **Data Structures**: Standardized stock data formats
+- **Utility Functions**: Helper functions and constants
+- **Error Handling**: Custom exception classes
+
+## Current Features
+
+✅ **Live Stock Prices**: Multi-API fallback system
+✅ **Stock Search**: Symbol and company name search
+✅ **Stock Categorization**: Automatic US/Indian/Others classification
+✅ **CSV Storage**: Dynamic data storage with index management
+✅ **CORS Support**: Frontend integration ready
+✅ **Error Handling**: Comprehensive error management
+✅ **Rate Limiting**: API request throttling
+✅ **Caching**: Performance optimization
+
+## Future Features (Placeholders Implemented)
+
+🔄 **Stock Predictions**: Multiple algorithm support
+🔄 **Company Information**: Comprehensive company data
+🔄 **Algorithm Management**: Dynamic algorithm selection
+🔄 **Performance Metrics**: Algorithm comparison and evaluation
+🔄 **Historical Data**: Extended historical data fetching
+🔄 **News Integration**: Market news and sentiment analysis
 
 ## Setup
 
@@ -30,29 +124,43 @@ A Flask-based API for fetching live stock prices with multiple data source fallb
    ```
 
 3. **Environment Variables** (Optional):
-   Create a `.env` file in the backend directory with:
+   Create a `.env` file in the backend directory:
    ```
-   # Finnhub API Key (Optional - for fallback when Yahoo Finance fails)
-   # Get your free API key at: https://finnhub.io/register
+   # API Keys (Optional - for fallback when Yahoo Finance fails)
    FINNHUB_API_KEY=your_finnhub_api_key_here
-
-   # Alpha Vantage API Key (Optional - for fallback when Yahoo Finance fails)
-   # Get your free API key at: https://www.alphavantage.co/support/#api-key
    ALPHAVANTAGE_API_KEY=your_alphavantage_api_key_here
-
-   # Server Configuration (Optional)
+   
+   # Server Configuration
    PORT=5000
+   CACHE_DURATION=60
+   MIN_REQUEST_DELAY=2.0
    ```
 
-4. **Run the Server**:
-   ```bash
-   py run_server.py
-   ```
+## Quick Start
+
+### **One Command to Start Backend:**
+```bash
+cd backend
+py run.py
+```
+
+### **One Command to Start Frontend:**
+```bash
+cd frontend
+npm run dev
+```
+
+That's it! Your stock price API will be running at `http://localhost:5000` and frontend at `http://localhost:5173`
 
 ## API Endpoints
 
-### GET /live_price?symbol=SYMBOL
-Fetch live stock price for a symbol.
+### Current Endpoints
+
+#### GET /health
+Health check endpoint.
+
+#### GET /live_price?symbol=SYMBOL
+Fetch live stock price for a symbol using yfinance with fallback APIs.
 
 **Example**: `GET /live_price?symbol=AAPL`
 
@@ -62,49 +170,47 @@ Fetch live stock price for a symbol.
   "success": true,
   "data": {
     "symbol": "AAPL",
-    "price": 175.43,
-    "timestamp": "2024-01-15T10:30:00",
+    "price": 252.20,
+    "timestamp": "2025-10-13T12:41:08.296683",
     "source": "yfinance",
     "company_name": "Apple Inc."
   }
 }
 ```
 
-### GET /health
-Health check endpoint.
+**Error Handling**:
+- Invalid symbol: Returns 404 with error message
+- API failures: Tries fallback APIs (Finnhub, Alpha Vantage, permanent directory)
+- Network issues: Proper timeout handling and retry logic
 
-**Response**:
-```json
-{
-  "status": "healthy",
-  "service": "Live Stock Price API",
-  "timestamp": "2024-01-15T10:30:00"
-}
-```
-
-### GET /latest_prices?category=CATEGORY
+#### GET /latest_prices?category=CATEGORY
 Get latest prices for a category (us_stocks, ind_stocks, others_stocks).
 
-### GET /symbols?category=CATEGORY
+#### GET /symbols?category=CATEGORY
 Get all available symbols by category.
 
-### GET /search?q=QUERY
+#### GET /search?q=QUERY
 Search for stocks by symbol or company name.
 
-**Example**: `GET /search?q=Apple`
+### Future Endpoints (Placeholders)
 
-**Response**:
+#### POST /predict
+Generate stock price prediction using selected algorithm.
+
+**Expected JSON payload**:
 ```json
 {
-  "success": true,
-  "data": [
-    {
-      "symbol": "AAPL",
-      "name": "Apple Inc."
-    }
-  ]
+    "symbol": "AAPL",
+    "algorithm": "LSTM",
+    "days_ahead": 7
 }
 ```
+
+#### GET /company_info?symbol=SYMBOL&info_type=TYPE
+Get comprehensive company information.
+
+#### GET /algorithms
+Get list of available prediction algorithms.
 
 ## Stock Categorization
 
@@ -112,7 +218,7 @@ Search for stocks by symbol or company name.
 - **Indian Stocks**: Symbols ending with .NS or .BO
 - **Others**: Everything else
 
-## CSV Storage
+## Data Storage
 
 Data is automatically saved to:
 - `data/latest/us_stocks/latest_prices.csv`
@@ -124,14 +230,88 @@ Dynamic indexes are maintained in:
 - `data/index_ind_stocks_dynamic.csv`
 - `data/index_others_stocks_dynamic.csv`
 
+## Development Roadmap
+
+### Phase 1: Core Infrastructure ✅
+- [x] Modular architecture setup
+- [x] Live data fetching
+- [x] Shared utilities
+- [x] Basic API endpoints
+
+### Phase 2: Prediction Algorithms 🔄
+- [ ] Implement Random Forest predictor
+- [ ] Implement LSTM neural network
+- [ ] Implement ARIMA model
+- [ ] Implement Linear Regression
+- [ ] Implement SVM predictor
+- [ ] Implement Gradient Boosting
+- [ ] Implement Neural Networks
+- [ ] Implement Technical Analysis
+- [ ] Implement Sentiment Analysis
+- [ ] Implement Ensemble methods
+
+### Phase 3: Company Information 🔄
+- [ ] Company fundamentals fetcher
+- [ ] Company metadata management
+- [ ] Financial statements integration
+- [ ] News and events fetcher
+
+### Phase 4: Advanced Features 🔄
+- [ ] Algorithm performance evaluation
+- [ ] Dynamic algorithm selection
+- [ ] Historical data integration
+- [ ] Advanced caching strategies
+- [ ] Real-time prediction updates
+
 ## Error Handling
 
 - **Invalid Symbol**: Returns 404 with error message
 - **API Failures**: Tries fallback APIs, returns 500 if all fail
 - **Network Issues**: Proper timeout handling and error messages
+- **Data Validation**: Input validation with clear error messages
 
 ## Port Management
 
 - Default port: 5000
 - Auto-selects free port if default is busy
 - Configurable via PORT environment variable
+
+## Contributing
+
+When adding new features:
+
+1. **Follow the modular structure**: Place code in appropriate directories
+2. **Use shared utilities**: Leverage common functions from `shared/`
+3. **Add proper error handling**: Use custom exception classes
+4. **Update documentation**: Keep README and docstrings current
+5. **Test thoroughly**: Ensure backward compatibility
+
+## Testing
+
+### Running Tests
+```bash
+# Run all tests
+py -m pytest tests/ -v
+
+# Run specific test file
+py -m pytest tests/test_api.py -v
+
+# Run live data tests
+py -m pytest live-data/test/ -v
+```
+
+### Test Coverage
+- ✅ Live price fetching (US and Indian stocks)
+- ✅ Error handling and fallback APIs
+- ✅ Caching functionality
+- ✅ Rate limiting
+- ✅ Data format validation
+- ✅ Stock categorization
+
+## Migration Notes
+
+- **Reorganized Structure**: Files moved to appropriate directories (scripts/, tests/, docs/)
+- **Import Fixes**: Fixed hyphenated directory imports using sys.path
+- **Package Structure**: Added __init__.py files for proper Python packages
+- **Configuration**: Centralized in `shared/Config` class
+- **Legacy Cleanup**: Removed duplicate app.py file

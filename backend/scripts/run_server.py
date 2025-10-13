@@ -97,7 +97,7 @@ def main():
     
     try:
         # Import and run the Flask app
-        from app import app
+        from main import app
         app.run(host='0.0.0.0', port=port, debug=False)
     except KeyboardInterrupt:
         print("\n👋 Server stopped by user")

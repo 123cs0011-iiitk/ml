@@ -48,7 +48,7 @@ interface ApiResponse<T> {
 
 // Backend API configuration
 const BACKEND_BASE_URL = 'http://localhost:5000';
-const REQUEST_TIMEOUT = 10000; // 10 seconds
+const REQUEST_TIMEOUT = 30000; // 30 seconds
 
 // Cache for storing live price data
 const cache = new Map<string, { data: any; timestamp: number }>();

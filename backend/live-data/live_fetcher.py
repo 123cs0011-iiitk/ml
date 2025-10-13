@@ -7,6 +7,11 @@ import logging
 import time
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
+# Import shared utilities
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from shared.utilities import Config, Constants, categorize_stock
+
 # Try to import pandas, fallback to CSV module if not available
 try:
     import pandas as pd
@@ -28,19 +33,21 @@ class LiveFetcher:
     """
     
     def __init__(self):
-        self.data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data')
+        # Use shared configuration
+        self.config = Config()
+        self.data_dir = self.config.data_dir
         self.latest_dir = os.path.join(self.data_dir, 'latest')
         
         # Ensure directories exist
         self._ensure_directories()
         
         # API configurations
-        self.finnhub_api_key = os.getenv('FINNHUB_API_KEY')
-        self.alphavantage_api_key = os.getenv('ALPHAVANTAGE_API_KEY')
+        self.finnhub_api_key = self.config.finnhub_api_key
+        self.alphavantage_api_key = self.config.alphavantage_api_key
         
         # Cache configuration
-        self.cache_duration = int(os.getenv('CACHE_DURATION', 60))
-        self.min_request_delay = float(os.getenv('MIN_REQUEST_DELAY', 2.0))
+        self.cache_duration = self.config.cache_duration
+        self.min_request_delay = self.config.min_request_delay
         self.cache = {}  # {symbol: {data: dict, timestamp: datetime}}
         self.last_request_time = 0  # Track last API request time
         
@@ -62,61 +69,59 @@ class LiveFetcher:
     
     def _categorize_stock(self, symbol: str) -> str:
         """Categorize stock based on symbol suffix"""
-        symbol_upper = symbol.upper()
-        
-        for suffix in self.indian_stock_suffixes:
-            if symbol_upper.endswith(suffix):
-                return 'ind_stocks'
-        
-        for suffix in self.us_stock_suffixes:
-            if symbol_upper.endswith(suffix):
-                return 'us_stocks'
-        
-        # Default to US stocks for common symbols, others for everything else
-        common_us_symbols = ['AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 'META', 'NVDA', 'NFLX', 'SPY', 'QQQ']
-        if symbol_upper.split('.')[0] in common_us_symbols:
-            return 'us_stocks'
-        
-        return 'others_stocks'
+        return categorize_stock(symbol)
     
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=2, min=4, max=30),
-        retry=retry_if_exception_type((requests.exceptions.RequestException, Exception))
-    )
     def _fetch_from_yfinance(self, symbol: str) -> Tuple[float, str]:
-        """Fetch stock price from yfinance with retry logic"""
-        try:
-            # Enforce rate limiting
-            self._enforce_rate_limit()
-            
-            # Add delay to avoid rate limiting
-            time.sleep(1.5)
-            
-            ticker = yf.Ticker(symbol)
-            info = ticker.info
-            
-            if 'currentPrice' in info:
-                price = info['currentPrice']
-                company_name = info.get('longName', symbol)
+        """
+        Fetch stock price from yfinance using proven history-based approach.
+        Adapted from inspiration project for better reliability.
+        
+        Handles Indian stocks by automatically adding .NS suffix when needed.
+        """
+        for attempt in range(3):  # Manual retry logic instead of Tenacity decorator
+            try:
+                # Enforce rate limiting
+                self._enforce_rate_limit()
+                
+                # Add shorter delay to avoid rate limiting
+                time.sleep(0.5)
+                
+                # Handle Indian stocks - add .NS suffix if not present
+                # This is required for yfinance to recognize NSE stocks
+                yfinance_symbol = symbol
+                if self._categorize_stock(symbol) == 'ind_stocks' and not symbol.endswith('.NS'):
+                    yfinance_symbol = f"{symbol}.NS"
+                    logger.debug(f"Added .NS suffix for Indian stock: {symbol} -> {yfinance_symbol}")
+                
+                ticker = yf.Ticker(yfinance_symbol)
+                
+                # Use history-based approach (more reliable than ticker.info)
+                # This is the proven pattern from inspiration project with auto_adjust=False
+                hist = ticker.history(period="1d", auto_adjust=False)
+                
+                if hist.empty:
+                    raise ValueError(f"No price data available for {yfinance_symbol}")
+                
+                # Extract price from most recent close (proven reliable method)
+                price = hist['Close'].iloc[-1]
+                
+                # Try to get company name from info, fallback to symbol
+                try:
+                    info = ticker.info
+                    company_name = info.get('longName', info.get('shortName', symbol))
+                except:
+                    company_name = symbol
+                
+                logger.debug(f"Successfully fetched {symbol}: ${price} ({company_name})")
                 return float(price), company_name
-            elif 'regularMarketPrice' in info:
-                price = info['regularMarketPrice']
-                company_name = info.get('longName', symbol)
-                return float(price), company_name
-            else:
-                # Try getting recent price data
-                hist = ticker.history(period="1d")
-                if not hist.empty:
-                    price = hist['Close'].iloc[-1]
-                    company_name = info.get('longName', symbol)
-                    return float(price), company_name
+                        
+            except Exception as e:
+                logger.warning(f"yfinance attempt {attempt + 1} failed for {symbol}: {str(e)}")
+                if attempt < 2:  # If not the last attempt
+                    time.sleep(1.0)  # Shorter retry delay
                 else:
-                    raise ValueError(f"No price data available for {symbol}")
-                    
-        except Exception as e:
-            logger.error(f"yfinance error for {symbol}: {str(e)}")
-            raise
+                    logger.error(f"All yfinance attempts failed for {symbol}")
+                    raise
     
     def _fetch_from_finnhub(self, symbol: str) -> Tuple[float, str]:
         """Fetch stock price from Finnhub API"""
@@ -178,6 +183,100 @@ class LiveFetcher:
             logger.error(f"Alpha Vantage error for {symbol}: {str(e)}")
             raise
     
+    def _fetch_from_permanent_directory(self, symbol: str) -> Tuple[float, str]:
+        """
+        Fetch stock price from permanent directory as fallback.
+        Checks both US and Indian stock directories.
+        """
+        try:
+            # Determine category and check permanent directory
+            category = self._categorize_stock(symbol)
+            
+            # Map category to permanent directory path
+            permanent_mapping = {
+                'us_stocks': 'us_stocks',
+                'ind_stocks': 'ind_stocks', 
+                'others_stocks': 'ind_stocks'  # Default others to Indian format for testing
+            }
+            
+            permanent_category = permanent_mapping.get(category, 'us_stocks')
+            
+            # Check permanent index file first
+            index_path = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                'permanent', permanent_category, f'index_{permanent_category}.csv'
+            )
+            
+            if not os.path.exists(index_path):
+                raise ValueError(f"Permanent index file not found: {index_path}")
+            
+            # Read index file to get company info
+            company_name = symbol
+            if PANDAS_AVAILABLE:
+                df = pd.read_csv(index_path)
+                symbol_row = df[df['symbol'] == symbol]
+                if not symbol_row.empty:
+                    company_name = symbol_row.iloc[0]['company_name']
+            else:
+                # Fallback to csv module
+                import csv
+                with open(index_path, 'r', newline='', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        if row['symbol'] == symbol:
+                            company_name = row['company_name']
+                            break
+            
+            # Check individual file
+            individual_path = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                'permanent', permanent_category, 'individual_files', f'{symbol}.csv'
+            )
+            
+            if not os.path.exists(individual_path):
+                raise ValueError(f"Permanent individual file not found: {individual_path}")
+            
+            # Read the most recent price from CSV
+            # All files now use unified lowercase format (fixed case inconsistencies)
+            if PANDAS_AVAILABLE:
+                df = pd.read_csv(individual_path)
+                if df.empty:
+                    raise ValueError(f"No data in permanent file for {symbol}")
+                
+                # Check for both lowercase and titlecase columns for compatibility
+                if 'close' in df.columns:
+                    price = df['close'].iloc[-1]
+                elif 'Close' in df.columns:
+                    price = df['Close'].iloc[-1]
+                else:
+                    raise ValueError(f"Missing 'close' or 'Close' column in permanent file for {symbol}")
+            else:
+                # Fallback to csv module
+                import csv
+                rows = []
+                with open(individual_path, 'r', newline='', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    rows = list(reader)
+                
+                if not rows:
+                    raise ValueError(f"No data in permanent file for {symbol}")
+                
+                # Get last row
+                last_row = rows[-1]
+                if 'close' in last_row:
+                    price = float(last_row['close'])
+                elif 'Close' in last_row:
+                    price = float(last_row['Close'])
+                else:
+                    raise ValueError(f"Missing 'close' or 'Close' column in permanent file for {symbol}")
+            
+            logger.info(f"Fetched {symbol} from permanent directory: ${price} ({company_name})")
+            return float(price), company_name
+            
+        except Exception as e:
+            logger.error(f"Permanent directory error for {symbol}: {str(e)}")
+            raise
+    
     def _is_cache_valid(self, symbol: str) -> bool:
         """Check if cached data for symbol is still valid"""
         if symbol not in self.cache:
@@ -220,7 +319,8 @@ class LiveFetcher:
         apis = [
             ('yfinance', self._fetch_from_yfinance),
             ('finnhub', self._fetch_from_finnhub),
-            ('alphavantage', self._fetch_from_alphavantage)
+            ('alphavantage', self._fetch_from_alphavantage),
+            ('permanent_directory', self._fetch_from_permanent_directory)
         ]
         
         last_error = None
@@ -255,8 +355,15 @@ class LiveFetcher:
                 logger.warning(f"{api_name} failed for {symbol}: {str(e)}")
                 continue
         
-        # All APIs failed
-        raise Exception(f"All APIs failed to fetch price for {symbol}. Last error: {str(last_error)}")
+        # All APIs failed - provide better error message
+        error_msg = f"Unable to fetch price for {symbol}."
+        if "timed out" in str(last_error).lower():
+            error_msg += " Request timed out - try again."
+        elif "No data" in str(last_error):
+            error_msg += " Symbol may not exist or market is closed."
+        else:
+            error_msg += f" All sources failed. Last error: {str(last_error)}"
+        raise Exception(error_msg)
     
     def save_to_csv(self, data: Dict):
         """Save stock data to appropriate CSV file"""
@@ -400,3 +507,22 @@ class LiveFetcher:
                 return pd.concat(all_data, ignore_index=True)
             else:
                 return pd.DataFrame()
+    
+    def fetch_historical_data(self, symbol: str, start_date: str, end_date: str) -> Dict:
+        """
+        [FUTURE FEATURE] Fetch historical stock data for a date range.
+        This will use the same proven logic from inspiration project.
+        
+        Args:
+            symbol: Stock symbol
+            start_date: Start date (YYYY-MM-DD)
+            end_date: End date (YYYY-MM-DD)
+        
+        Returns:
+            Dict with historical data
+            
+        Note: This method will be implemented in a future update using the
+        proven patterns from inspirations/code/us_stocks/download_us_data.py
+        and inspirations/code/ind_stocks/download_ind_data.py
+        """
+        raise NotImplementedError("Historical data fetching - to be implemented")
