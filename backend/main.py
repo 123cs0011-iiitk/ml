@@ -21,9 +21,12 @@ from dotenv import load_dotenv
 # Import modules
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), 'live-data'))
-from live_data_manager import LiveFetcher
-from shared.utilities import Config, setup_logger, Constants, StockDataError, get_current_timestamp
+sys.path.append(os.path.join(os.path.dirname(__file__), 'data-fetching'))
+sys.path.append(os.path.join(os.path.dirname(__file__), 'data-fetching', 'ind_stocks', 'current-fetching'))
+from data_manager import LiveFetcher
+from ind_current_fetcher import IndianCurrentFetcher
+from shared.utilities import Config, setup_logger, Constants, StockDataError, get_current_timestamp, categorize_stock, validate_and_categorize_stock
+from shared.currency_converter import convert_usd_to_inr, convert_inr_to_usd, get_exchange_rate_info
 
 # Load environment variables
 load_dotenv()
@@ -40,6 +43,7 @@ config = Config()
 
 # Initialize components
 live_fetcher = LiveFetcher()
+indian_fetcher = IndianCurrentFetcher()
 
 # [FUTURE] Initialize other components when implemented
 # company_info_fetcher = CompanyInfoFetcher()
@@ -68,7 +72,30 @@ def get_live_price():
     
     try:
         logger.info(f"Fetching live price for symbol: {symbol}")
-        result = live_fetcher.fetch_live_price(symbol)
+        
+        # Use appropriate fetcher based on stock category (simplified to only Indian or US)
+        # Use validation-based categorization for more accuracy
+        category = validate_and_categorize_stock(symbol)
+        if category == 'ind_stocks':
+            result = indian_fetcher.fetch_current_price(symbol)
+        else:  # Default to US stocks
+            result = live_fetcher.fetch_live_price(symbol)
+        
+        # Add currency conversion information
+        try:
+            exchange_info = get_exchange_rate_info()
+            result['exchange_rate'] = exchange_info['rate']
+            result['exchange_source'] = exchange_info['source']
+            
+            # Add converted prices
+            if result.get('currency') == 'USD':
+                result['price_inr'] = convert_usd_to_inr(result['price'])
+            elif result.get('currency') == 'INR':
+                result['price_usd'] = convert_inr_to_usd(result['price'])
+                
+        except Exception as e:
+            logger.warning(f"Currency conversion failed: {e}")
+            # Continue without currency conversion if it fails
         
         return jsonify({
             'success': True,
@@ -142,8 +169,10 @@ def search_stocks():
         results = []
         query_lower = query.lower()
         
-        # Define paths to search
+        # Define paths to search (dynamic first, then permanent fallback)
         search_paths = [
+            os.path.join(config.data_dir, 'index_us_stocks_dynamic.csv'),
+            os.path.join(config.data_dir, 'index_ind_stocks_dynamic.csv'),
             os.path.join(config.permanent_dir, 'us_stocks', 'index_us_stocks.csv'),
             os.path.join(config.permanent_dir, 'ind_stocks', 'index_ind_stocks.csv')
         ]
@@ -156,16 +185,20 @@ def search_stocks():
                     df = pd.read_csv(csv_path)
                     
                     # Filter results based on query
-                    matches = df[
-                        (df['symbol'].str.lower().str.contains(query_lower, na=False)) |
-                        (df['company_name'].str.lower().str.contains(query_lower, na=False))
-                    ]
+                    if 'company_name' in df.columns:
+                        matches = df[
+                            (df['symbol'].str.lower().str.contains(query_lower, na=False)) |
+                            (df['company_name'].str.lower().str.contains(query_lower, na=False))
+                        ]
+                    else:
+                        # For dynamic index files that only have symbol column
+                        matches = df[df['symbol'].str.lower().str.contains(query_lower, na=False)]
                     
                     # Convert to list of dictionaries
                     for _, row in matches.head(10).iterrows():
                         results.append({
                             'symbol': row['symbol'],
-                            'name': row['company_name']
+                            'name': row.get('company_name', row['symbol'])  # Use symbol as name if company_name not available
                         })
                         
                 except ImportError:
@@ -175,10 +208,10 @@ def search_stocks():
                         reader = csv.DictReader(f)
                         for row in reader:
                             if (query_lower in row['symbol'].lower() or 
-                                query_lower in row['company_name'].lower()):
+                                (row.get('company_name') and query_lower in row['company_name'].lower())):
                                 results.append({
                                     'symbol': row['symbol'],
-                                    'name': row['company_name']
+                                    'name': row.get('company_name', row['symbol'])
                                 })
                                 if len(results) >= Constants.MAX_SEARCH_RESULTS:
                                     break
@@ -303,6 +336,119 @@ def predict_stock_price():
             'success': False,
             'error': 'Prediction failed',
             'message': str(e)
+        }), 500
+
+@app.route('/stock_info', methods=['GET'])
+def get_stock_info():
+    """
+    Get stock metadata quickly without live price data.
+    
+    Query parameters:
+    - symbol: Stock symbol
+    """
+    symbol = request.args.get('symbol')
+    
+    if not symbol:
+        return jsonify({
+            'success': False,
+            'error': 'Symbol parameter is required'
+        }), 400
+    
+    try:
+        logger.info(f"Fetching stock info for symbol: {symbol}")
+        
+        # Determine category and get metadata
+        category = validate_and_categorize_stock(symbol)
+        
+        # Read from appropriate permanent index file
+        if category == 'ind_stocks':
+            index_path = os.path.join(config.permanent_dir, 'ind_stocks', 'index_ind_stocks.csv')
+        else:  # Default to US stocks
+            index_path = os.path.join(config.permanent_dir, 'us_stocks', 'index_us_stocks.csv')
+        
+        if not os.path.exists(index_path):
+            return jsonify({
+                'success': False,
+                'error': 'Index file not found',
+                'message': f'Index file not found for {category}'
+            }), 404
+        
+        # Read metadata from index file
+        try:
+            import pandas as pd
+            df = pd.read_csv(index_path)
+            symbol_row = df[df['symbol'] == symbol]
+            
+            if symbol_row.empty:
+                return jsonify({
+                    'success': False,
+                    'error': 'Symbol not found',
+                    'message': f'Symbol {symbol} not found in {category} index'
+                }), 404
+            
+            row = symbol_row.iloc[0]
+            
+            # Clean metadata values
+            def clean_value(value):
+                if not value or str(value).strip() == '' or str(value).lower() in ['nan', 'none', 'null']:
+                    return 'N/A'
+                return str(value).strip()
+            
+            result = {
+                'symbol': symbol,
+                'company_name': clean_value(row.get('company_name', symbol)),
+                'sector': clean_value(row.get('sector', 'N/A')),
+                'market_cap': clean_value(row.get('market_cap', 'N/A')),
+                'headquarters': clean_value(row.get('headquarters', 'N/A')),
+                'exchange': clean_value(row.get('exchange', 'N/A')),
+                'category': category
+            }
+            
+            return jsonify({
+                'success': True,
+                'data': result
+            })
+            
+        except ImportError:
+            # Fallback to csv module
+            import csv
+            with open(index_path, 'r', newline='', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row['symbol'] == symbol:
+                        def clean_value(value):
+                            if not value or str(value).strip() == '' or str(value).lower() in ['nan', 'none', 'null']:
+                                return 'N/A'
+                            return str(value).strip()
+                        
+                        result = {
+                            'symbol': symbol,
+                            'company_name': clean_value(row.get('company_name', symbol)),
+                            'sector': clean_value(row.get('sector', 'N/A')),
+                            'market_cap': clean_value(row.get('market_cap', 'N/A')),
+                            'headquarters': clean_value(row.get('headquarters', 'N/A')),
+                            'exchange': clean_value(row.get('exchange', 'N/A')),
+                            'category': category
+                        }
+                        
+                        return jsonify({
+                            'success': True,
+                            'data': result
+                        })
+            
+            return jsonify({
+                'success': False,
+                'error': 'Symbol not found',
+                'message': f'Symbol {symbol} not found in {category} index'
+            }), 404
+        
+    except Exception as e:
+        logger.error(f"Error fetching stock info for {symbol}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to fetch stock info',
+            'message': f'Unable to fetch stock info for {symbol}. Please try again later.',
+            'details': str(e)
         }), 500
 
 @app.route('/company_info', methods=['GET'])

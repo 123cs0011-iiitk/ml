@@ -7,13 +7,14 @@ import { StockPrediction } from './components/StockPrediction';
 import { CurrencyToggle } from './components/CurrencyToggle';
 import { Card, CardHeader, CardTitle, CardContent } from './components/ui/card';
 import { Alert, AlertDescription } from './components/ui/alert';
-import { stockService, StockData, PricePoint, PredictionResult, LivePriceResponse } from './services/stockService';
+import { stockService, StockData, PricePoint, PredictionResult, LivePriceResponse, StockInfoResponse } from './services/stockService';
 import { Currency } from './utils/currency';
 
 export default function App() {
   const [selectedSymbol, setSelectedSymbol] = useState<string>('');
   const [stockData, setStockData] = useState<StockData | null>(null);
   const [livePriceData, setLivePriceData] = useState<LivePriceResponse | null>(null);
+  const [stockInfoData, setStockInfoData] = useState<StockInfoResponse | null>(null);
   const [chartData, setChartData] = useState<PricePoint[]>([]);
   const [prediction, setPrediction] = useState<PredictionResult | null>(null);
   const [chartPeriod, setChartPeriod] = useState<'week' | 'month' | 'year'>('month');
@@ -45,12 +46,21 @@ export default function App() {
     }
   }, [chartPeriod, selectedSymbol]);
 
-  const loadStockData = async (symbol: string) => {
+  const loadStockData = async (symbol: string, forceRefresh: boolean = false) => {
     setLoading(prev => ({ ...prev, stock: true }));
     setErrors(prev => ({ ...prev, stock: '' }));
     try {
-      // Fetch live price data
-      const livePrice = await stockService.getLivePrice(symbol);
+      // First, fetch stock info quickly (metadata)
+      try {
+        const stockInfo = await stockService.getStockInfo(symbol);
+        setStockInfoData(stockInfo);
+      } catch (error) {
+        console.warn('Failed to load stock info:', error);
+        // Continue without stock info - live price will provide fallback
+      }
+
+      // Then, fetch live price data (slower)
+      const livePrice = await stockService.getLivePrice(symbol, forceRefresh);
       setLivePriceData(livePrice);
 
       // Convert to StockData format for compatibility
@@ -62,6 +72,7 @@ export default function App() {
       setErrors(prev => ({ ...prev, stock: errorMessage }));
       setStockData(null);
       setLivePriceData(null);
+      setStockInfoData(null);
     } finally {
       setLoading(prev => ({ ...prev, stock: false }));
     }
@@ -124,11 +135,6 @@ export default function App() {
             Analyze real-time stock data and get AI-powered price predictions using machine learning algorithms.
             Always conduct your own research before making investment decisions.
           </p>
-
-          {/* Currency Toggle */}
-          <div className="flex justify-center mt-4">
-            <CurrencyToggle currency={currency} onCurrencyChange={handleCurrencyChange} />
-          </div>
         </div>
 
         {/* Warning Banner */}
@@ -154,7 +160,10 @@ export default function App() {
               loading={loading.stock}
               error={errors.stock}
               currency={currency}
+              onCurrencyChange={handleCurrencyChange}
               livePriceData={livePriceData}
+              stockInfoData={stockInfoData}
+              onRefresh={() => selectedSymbol && loadStockData(selectedSymbol, true)}
             />
           </div>
 

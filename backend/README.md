@@ -17,13 +17,21 @@ backend/
 │   └── test_improvements.py  # Rate limiting tests
 ├── docs/                      # Documentation
 │   └── RATE_LIMITING_IMPROVEMENTS.md  # Technical docs
-├── live-data/                 # Live market data fetching
+├── data-fetching/             # Stock data fetching modules
 │   ├── __init__.py           # Package initialization
-│   ├── live_data_manager.py  # Module manager
-│   ├── live_fetcher.py       # Live stock price fetcher
-│   └── test/                 # Live data tests
+│   ├── data_manager.py       # Module manager
+│   ├── current_fetcher.py    # Current live price fetcher
+│   ├── us_stocks/            # US stocks data fetching
+│   │   ├── current-fetching/ # Live prices (Finnhub)
+│   │   ├── historical-fetching/ # 2020-2024 data (yfinance)
+│   │   └── latest-fetching/  # 2025-current data (yfinance + Alpha Vantage)
+│   ├── ind_stocks/           # Indian stocks data fetching
+│   │   ├── current-fetching/ # Live prices (Finnhub)
+│   │   ├── historical-fetching/ # 2020-2024 data (yfinance)
+│   │   └── latest-fetching/  # 2025-current data (yfinance + Alpha Vantage)
+│   └── test/                 # Data fetching tests
 │       ├── __init__.py
-│       └── test_live_fetcher.py
+│       └── test_data_fetcher.py
 ├── company-info/              # Company information management
 │   └── company_info_manager.py
 ├── algorithms/                # Stock prediction algorithms
@@ -39,12 +47,15 @@ backend/
 
 ## Module Descriptions
 
-### 🚀 Live Data (`live-data/`)
-Handles all live market data fetching and updates:
-- **live_fetcher.py**: Multi-API fallback system (yfinance → Finnhub → Alpha Vantage)
-- Real-time stock price fetching with caching
+### 🚀 Data Fetching (`data-fetching/`)
+Handles all stock data fetching and updates:
+- **current_fetcher.py**: Multi-API fallback system for live prices (yfinance → Finnhub → Alpha Vantage)
+- **Historical Data**: 2020-2024 data using yfinance (no rate limits)
+- **Latest Data**: 2025-current data using yfinance + Alpha Vantage fallback
+- **Current Data**: Live prices using Finnhub (rate-limited: 60 calls/min)
 - Automatic stock categorization (US, Indian, Others)
-- CSV storage with dynamic index updates
+- CSV storage with dynamic index updates in alphabetical order
+- Standardized lowercase column format across all data
 
 ### 🏢 Company Info (`company-info/`) - *Future Implementation*
 Will handle company-related data:
@@ -296,8 +307,8 @@ py -m pytest tests/ -v
 # Run specific test file
 py -m pytest tests/test_api.py -v
 
-# Run live data tests
-py -m pytest live-data/test/ -v
+# Run data fetching tests
+py -m pytest data-fetching/test/ -v
 ```
 
 ### Test Coverage

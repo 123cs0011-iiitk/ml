@@ -1,7 +1,82 @@
+# Core Flask dependencies
 Flask==2.3.3
-Flask-CORS==4.0.0
+Flask-Cors==4.0.0
+python-dotenv==1.0.0
+
+# Data processing and analysis
+pandas==2.3.3
+numpy==2.3.3
+scipy==1.16.2
+
+# Stock data fetching
 yfinance==0.2.28
 requests==2.31.0
-pandas
-python-dotenv==1.0.0
-tenacity
+alpha_vantage==3.0.0
+
+# Indian stock market APIs
+nsepython==2.97
+nselib==1.9
+india_stocks_api==1.0.0
+
+# Currency conversion
+forex-python==1.9.2
+
+# Web scraping and parsing
+beautifulsoup4==4.14.2
+lxml==6.0.2
+
+# Retry and error handling
+tenacity==9.1.2
+
+# Testing
+pytest==8.4.2
+pytest-mock==3.15.1
+
+# Development tools
+black==25.9.0
+flake8==7.3.0
+
+# Additional dependencies (auto-installed)
+aiohappyeyeballs==2.6.1
+aiohttp==3.13.0
+aiosignal==1.4.0
+appdirs==1.4.4
+attrs==25.4.0
+blinker==1.9.0
+certifi==2025.10.5
+charset-normalizer==3.4.4
+click==8.3.0
+colorama==0.4.6
+frozendict==2.4.6
+frozenlist==1.8.0
+html5lib==1.1
+idna==3.11
+iniconfig==2.1.0
+itsdangerous==2.2.0
+Jinja2==3.1.6
+MarkupSafe==3.0.3
+mccabe==0.7.0
+multidict==6.7.0
+multitasking==0.0.12
+mypy_extensions==1.1.0
+packaging==25.0
+pathspec==1.1.0
+platformdirs==4.5.0
+pluggy==1.6.0
+propcache==0.4.1
+pycodestyle==2.14.0
+pyflakes==3.4.0
+Pygments==2.19.2
+pyotp==2.9.0
+python-dateutil==2.9.0.post0
+pytokens==0.2.0
+pytz==2025.2
+simplejson==3.20.2
+six==1.17.0
+soupsieve==2.8
+typing_extensions==4.15.0
+tzdata==2025.2
+urllib3==2.5.0
+webencodings==0.5.1
+Werkzeug==3.1.3
+yarl==1.22.0

@@ -1,3 +1,10 @@
+"""
+Current Stock Price Fetcher
+
+Main fetcher for current live stock prices with multiple API fallbacks.
+Maintains all existing functionality while working with the new data-fetching structure.
+"""
+
 import os
 import requests
 import yfinance as yf
@@ -10,7 +17,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 # Import shared utilities
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from shared.utilities import Config, Constants, categorize_stock
+from shared.utilities import Config, Constants, categorize_stock, get_currency_for_category
 
 # Try to import pandas, fallback to CSV module if not available
 try:
@@ -24,12 +31,14 @@ except ImportError:
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class LiveFetcher:
+class CurrentFetcher:
     """
-    Live stock price fetcher with multiple API fallbacks:
+    Current stock price fetcher with multiple API fallbacks:
     1. yfinance (primary, free)
     2. Finnhub (fallback, requires API key)
     3. Alpha Vantage (fallback, requires API key)
+    
+    This maintains all existing functionality while working with the new structure.
     """
     
     def __init__(self):
@@ -60,8 +69,7 @@ class LiveFetcher:
         directories = [
             self.latest_dir,
             os.path.join(self.latest_dir, 'us_stocks'),
-            os.path.join(self.latest_dir, 'ind_stocks'),
-            os.path.join(self.latest_dir, 'others_stocks')
+            os.path.join(self.latest_dir, 'ind_stocks')
         ]
         
         for directory in directories:
@@ -183,6 +191,101 @@ class LiveFetcher:
             logger.error(f"Alpha Vantage error for {symbol}: {str(e)}")
             raise
     
+    def _get_stock_metadata(self, symbol: str) -> Dict[str, str]:
+        """
+        Get stock metadata (sector, market_cap, headquarters, exchange) from index CSV files.
+        
+        Args:
+            symbol: Stock symbol
+            
+        Returns:
+            Dict with metadata fields, or 'N/A' for missing fields
+        """
+        try:
+            # Determine category and check permanent directory
+            category = self._categorize_stock(symbol)
+            
+            # Map category to permanent directory path
+            permanent_mapping = {
+                'us_stocks': 'us_stocks',
+                'ind_stocks': 'ind_stocks'
+            }
+            
+            permanent_category = permanent_mapping.get(category, 'us_stocks')
+            
+            # Check permanent index file
+            index_path = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                'permanent', permanent_category, f'index_{permanent_category}.csv'
+            )
+            
+            if not os.path.exists(index_path):
+                logger.warning(f"Index file not found: {index_path}")
+                return {
+                    'sector': 'N/A',
+                    'market_cap': 'N/A',
+                    'headquarters': 'N/A',
+                    'exchange': 'N/A'
+                }
+            
+            # Read metadata from index file
+            if PANDAS_AVAILABLE:
+                df = pd.read_csv(index_path)
+                symbol_row = df[df['symbol'] == symbol]
+                if not symbol_row.empty:
+                    row = symbol_row.iloc[0]
+                    return {
+                        'sector': self._clean_metadata_value(str(row.get('sector', 'N/A'))),
+                        'market_cap': self._clean_metadata_value(str(row.get('market_cap', 'N/A'))),
+                        'headquarters': self._clean_metadata_value(str(row.get('headquarters', 'N/A'))),
+                        'exchange': self._clean_metadata_value(str(row.get('exchange', 'N/A')))
+                    }
+            else:
+                # Fallback to csv module
+                import csv
+                with open(index_path, 'r', newline='', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        if row['symbol'] == symbol:
+                            return {
+                                'sector': self._clean_metadata_value(row.get('sector', 'N/A')),
+                                'market_cap': self._clean_metadata_value(row.get('market_cap', 'N/A')),
+                                'headquarters': self._clean_metadata_value(row.get('headquarters', 'N/A')),
+                                'exchange': self._clean_metadata_value(row.get('exchange', 'N/A'))
+                            }
+            
+            # Symbol not found in index
+            logger.warning(f"Symbol {symbol} not found in index file: {index_path}")
+            return {
+                'sector': 'N/A',
+                'market_cap': 'N/A',
+                'headquarters': 'N/A',
+                'exchange': 'N/A'
+            }
+            
+        except Exception as e:
+            logger.error(f"Error fetching metadata for {symbol}: {str(e)}")
+            return {
+                'sector': 'N/A',
+                'market_cap': 'N/A',
+                'headquarters': 'N/A',
+                'exchange': 'N/A'
+            }
+    
+    def _clean_metadata_value(self, value: str) -> str:
+        """
+        Clean metadata value by handling empty strings, NaN, and whitespace.
+        
+        Args:
+            value: Raw value from CSV
+            
+        Returns:
+            Cleaned value or 'N/A' if empty/invalid
+        """
+        if not value or value.strip() == '' or value.lower() in ['nan', 'none', 'null']:
+            return 'N/A'
+        return value.strip()
+
     def _fetch_from_permanent_directory(self, symbol: str) -> Tuple[float, str]:
         """
         Fetch stock price from permanent directory as fallback.
@@ -195,8 +298,7 @@ class LiveFetcher:
             # Map category to permanent directory path
             permanent_mapping = {
                 'us_stocks': 'us_stocks',
-                'ind_stocks': 'ind_stocks', 
-                'others_stocks': 'ind_stocks'  # Default others to Indian format for testing
+                'ind_stocks': 'ind_stocks'
             }
             
             permanent_category = permanent_mapping.get(category, 'us_stocks')
@@ -330,12 +432,32 @@ class LiveFetcher:
                 logger.info(f"Trying {api_name} for symbol {symbol}")
                 price, company_name = api_func(symbol)
                 
+                # Get currency for the category
+                category = self._categorize_stock(symbol)
+                currency = get_currency_for_category(category)
+                
+                # Get additional metadata from index files
+                metadata = self._get_stock_metadata(symbol)
+                
+                # Get additional data from latest CSV files
+                additional_data = self._get_latest_day_data(symbol)
+                
                 result = {
                     'symbol': symbol,
                     'price': price,
                     'timestamp': timestamp,
                     'source': api_name,
-                    'company_name': company_name
+                    'company_name': company_name,
+                    'currency': currency,
+                    'sector': metadata['sector'],
+                    'market_cap': metadata['market_cap'],
+                    'headquarters': metadata['headquarters'],
+                    'exchange': metadata['exchange'],
+                    'open': additional_data.get('open'),
+                    'high': additional_data.get('high'),
+                    'low': additional_data.get('low'),
+                    'volume': additional_data.get('volume'),
+                    'close': additional_data.get('close')
                 }
                 
                 # Cache the result
@@ -392,7 +514,12 @@ class LiveFetcher:
             'price': data['price'],
             'timestamp': data['timestamp'],
             'source': data['source'],
-            'company_name': data['company_name']
+            'company_name': data['company_name'],
+            'currency': data.get('currency', get_currency_for_category(category)),
+            'sector': data.get('sector', 'N/A'),
+            'market_cap': data.get('market_cap', 'N/A'),
+            'headquarters': data.get('headquarters', 'N/A'),
+            'exchange': data.get('exchange', 'N/A')
         }])
         
         # Read existing data if file exists
@@ -426,12 +553,17 @@ class LiveFetcher:
             'price': str(data['price']),
             'timestamp': data['timestamp'],
             'source': data['source'],
-            'company_name': data['company_name']
+            'company_name': data['company_name'],
+            'currency': data.get('currency', get_currency_for_category(category)),
+            'sector': data.get('sector', 'N/A'),
+            'market_cap': data.get('market_cap', 'N/A'),
+            'headquarters': data.get('headquarters', 'N/A'),
+            'exchange': data.get('exchange', 'N/A')
         })
         
         # Write updated data
         with open(csv_path, 'w', newline='', encoding='utf-8') as f:
-            fieldnames = ['symbol', 'price', 'timestamp', 'source', 'company_name']
+            fieldnames = ['symbol', 'price', 'timestamp', 'source', 'company_name', 'currency', 'sector', 'market_cap', 'headquarters', 'exchange']
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(existing_data)
@@ -440,7 +572,7 @@ class LiveFetcher:
         self.update_dynamic_index(category)
     
     def update_dynamic_index(self, category: str):
-        """Update the dynamic index CSV file for the category"""
+        """Update the dynamic index CSV file for the category with company info"""
         try:
             csv_path = os.path.join(self.latest_dir, category, 'latest_prices.csv')
             index_path = os.path.join(self.data_dir, f'index_{category}_dynamic.csv')
@@ -450,11 +582,49 @@ class LiveFetcher:
                     df = pd.read_csv(csv_path)
                     symbols = df['symbol'].unique().tolist()
                     
-                    # Save symbols to index file
-                    index_df = pd.DataFrame({'symbol': symbols})
+                    # Try to get company info from permanent index
+                    permanent_index_path = os.path.join(self.config.permanent_dir, category, f'index_{category}.csv')
+                    company_info = {}
+                    
+                    if os.path.exists(permanent_index_path):
+                        try:
+                            permanent_df = pd.read_csv(permanent_index_path)
+                            company_info = permanent_df.set_index('symbol').to_dict('index')
+                        except Exception as e:
+                            logger.warning(f"Could not read permanent index for {category}: {e}")
+                    
+                    # Create index with company info
+                    index_data = []
+                    for symbol in symbols:
+                        if symbol in company_info:
+                            # Use info from permanent index
+                            info = company_info[symbol]
+                            index_data.append({
+                                'symbol': symbol,
+                                'company_name': info.get('company_name', symbol),
+                                'sector': info.get('sector', 'Unknown'),
+                                'market_cap': info.get('market_cap', ''),
+                                'headquarters': info.get('headquarters', 'Unknown'),
+                                'exchange': info.get('exchange', 'Unknown'),
+                                'currency': info.get('currency', get_currency_for_category(category))
+                            })
+                        else:
+                            # Use basic info
+                            index_data.append({
+                                'symbol': symbol,
+                                'company_name': symbol,
+                                'sector': 'Unknown',
+                                'market_cap': '',
+                                'headquarters': 'Unknown',
+                                'exchange': 'Unknown',
+                                'currency': get_currency_for_category(category)
+                            })
+                    
+                    # Save enhanced index
+                    index_df = pd.DataFrame(index_data)
                     index_df.to_csv(index_path, index=False)
                 else:
-                    # Use csv module
+                    # Use csv module fallback
                     symbols = set()
                     with open(csv_path, 'r', newline='', encoding='utf-8') as f:
                         reader = csv.DictReader(f)
@@ -496,7 +666,7 @@ class LiveFetcher:
         else:
             # Get all categories
             all_data = []
-            for cat in ['us_stocks', 'ind_stocks', 'others_stocks']:
+            for cat in ['us_stocks', 'ind_stocks']:
                 csv_path = os.path.join(self.latest_dir, cat, 'latest_prices.csv')
                 if os.path.exists(csv_path):
                     cat_df = pd.read_csv(csv_path)
@@ -508,6 +678,84 @@ class LiveFetcher:
             else:
                 return pd.DataFrame()
     
+    def _get_latest_day_data(self, symbol: str) -> Dict:
+        """
+        Get the latest day's open, high, low, volume data from CSV files.
+        
+        Args:
+            symbol: Stock symbol
+            
+        Returns:
+            Dict with additional data fields
+        """
+        try:
+            category = self._categorize_stock(symbol)
+            
+            # Try latest directory first (2025 data)
+            latest_path = os.path.join(
+                self.config.get_data_path('latest', category, 'individual_files', f'{symbol}.csv')
+            )
+            
+            # Fallback to permanent directory if latest not available
+            permanent_path = os.path.join(
+                self.config.get_permanent_path(category, 'individual_files', f'{symbol}.csv')
+            )
+            
+            csv_path = None
+            if os.path.exists(latest_path):
+                csv_path = latest_path
+            elif os.path.exists(permanent_path):
+                csv_path = permanent_path
+            
+            if not csv_path:
+                logger.debug(f"No CSV file found for {symbol}")
+                return {}
+            
+            # Read the latest row from CSV
+            if PANDAS_AVAILABLE:
+                try:
+                    df = pd.read_csv(csv_path)
+                    if df.empty:
+                        return {}
+                    
+                    # Get the most recent row
+                    latest_row = df.iloc[-1]
+                    
+                    return {
+                        'open': float(latest_row['open']) if 'open' in latest_row and pd.notna(latest_row['open']) else None,
+                        'high': float(latest_row['high']) if 'high' in latest_row and pd.notna(latest_row['high']) else None,
+                        'low': float(latest_row['low']) if 'low' in latest_row and pd.notna(latest_row['low']) else None,
+                        'volume': int(latest_row['volume']) if 'volume' in latest_row and pd.notna(latest_row['volume']) else None,
+                        'close': float(latest_row['close']) if 'close' in latest_row and pd.notna(latest_row['close']) else None
+                    }
+                except Exception as e:
+                    logger.debug(f"Error reading CSV with pandas for {symbol}: {e}")
+            
+            # Fallback to csv module
+            import csv
+            rows = []
+            with open(csv_path, 'r', newline='', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                rows = list(reader)
+            
+            if not rows:
+                return {}
+            
+            # Get the last row
+            latest_row = rows[-1]
+            
+            return {
+                'open': float(latest_row.get('open', 0)) if latest_row.get('open') else None,
+                'high': float(latest_row.get('high', 0)) if latest_row.get('high') else None,
+                'low': float(latest_row.get('low', 0)) if latest_row.get('low') else None,
+                'volume': int(latest_row.get('volume', 0)) if latest_row.get('volume') else None,
+                'close': float(latest_row.get('close', 0)) if latest_row.get('close') else None
+            }
+            
+        except Exception as e:
+            logger.debug(f"Error getting latest day data for {symbol}: {e}")
+            return {}
+
     def fetch_historical_data(self, symbol: str, start_date: str, end_date: str) -> Dict:
         """
         [FUTURE FEATURE] Fetch historical stock data for a date range.
@@ -526,3 +774,6 @@ class LiveFetcher:
         and inspirations/code/ind_stocks/download_ind_data.py
         """
         raise NotImplementedError("Historical data fetching - to be implemented")
+
+# For backward compatibility, create an alias
+LiveFetcher = CurrentFetcher

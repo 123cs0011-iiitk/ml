@@ -96,7 +96,7 @@ Open `http://localhost:5173` and search for stocks like `AAPL` or `GOOGL`!
    # Make sure virtual environment is activated
    venv\Scripts\activate  # Windows
    # source venv/bin/activate  # macOS/Linux
-   py test_api.py
+   py tests/test_api.py
    ```
 
 2. **Or use the web-based test interface:**
@@ -134,7 +134,7 @@ ml/
 │   │   └── live_fetcher.py      # Core live price fetching logic
 │   ├── app.py                   # Flask API server
 │   ├── run_server.py           # Server startup script
-│   ├── test_api.py             # Backend test suite
+│   ├── tests/                  # Backend test suite
 │   ├── requirements.txt        # Python dependencies
 │   ├── .env.example           # Environment variables template
 │   └── README.md              # Backend documentation

@@ -12,8 +12,8 @@ import time
 from unittest.mock import patch, MagicMock
 from datetime import datetime, timedelta
 
-# Import the live fetcher
-from live_fetcher import LiveFetcher
+# Import the current fetcher
+from current_fetcher import CurrentFetcher, LiveFetcher
 
 
 class TestLiveFetcher:
@@ -149,7 +149,7 @@ class TestLiveFetcher:
         min_expected_duration = self.fetcher.min_request_delay * (len(symbols) - 1)
         assert total_duration >= min_expected_duration
     
-    @patch('live_fetcher.yf.Ticker')
+    @patch('current_fetcher.yf.Ticker')
     def test_yfinance_error_handling(self, mock_ticker):
         """Test handling of yfinance errors."""
         # Mock yfinance to raise an exception
