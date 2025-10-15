@@ -521,11 +521,12 @@ def get_historical_data():
         elif period == 'month':
             start_date = today - timedelta(days=30)
         elif period == 'year':
-            # For year period, we'll use the last year of available historical data
-            # Don't filter by date range - we'll handle this after loading data
-            start_date = None
+            # For year period, use data from 01-01-2024 to current date
+            start_date = datetime(2024, 1, 1).date()
         elif period == '5year':
-            start_date = today - timedelta(days=1825)
+            # For 5year period, use all available historical data (2020-2025)
+            # Don't filter by date range - we'll use all available data
+            start_date = None
         
         
         # Define file paths
@@ -539,7 +540,13 @@ def get_historical_data():
             try:
                 import pandas as pd
                 df_past = pd.read_csv(past_file)
-                df_past['date'] = pd.to_datetime(df_past['date'], utc=True).dt.tz_localize(None).dt.date
+                # Handle both timezone-aware and timezone-naive dates in past data
+                try:
+                    # Try parsing as timezone-aware first
+                    df_past['date'] = pd.to_datetime(df_past['date'], utc=True).dt.tz_localize(None).dt.date
+                except:
+                    # Fallback to timezone-naive parsing
+                    df_past['date'] = pd.to_datetime(df_past['date']).dt.date
                 historical_data.append(df_past)
                 logger.info(f"Loaded {len(df_past)} records from past data")
             except Exception as e:
@@ -550,6 +557,7 @@ def get_historical_data():
             try:
                 import pandas as pd
                 df_latest = pd.read_csv(latest_file)
+                # Ensure consistent date parsing for latest data
                 df_latest['date'] = pd.to_datetime(df_latest['date']).dt.date
                 historical_data.append(df_latest)
                 logger.info(f"Loaded {len(df_latest)} records from latest data")
@@ -571,12 +579,24 @@ def get_historical_data():
             # Remove duplicates and sort by date
             combined_df = combined_df.drop_duplicates(subset=['date']).sort_values('date')
             
+            # Debug: Log date range of combined data
+            if len(combined_df) > 0:
+                logger.info(f"Combined data date range: {combined_df['date'].min()} to {combined_df['date'].max()}")
+                logger.info(f"Total combined data points: {len(combined_df)}")
+            
             # Filter by date range or get last year of data
             if period == 'year':
-                # For year period, get the last 250 trading days (≈ 1 year) of available data
-                logger.info(f"Getting last 1 year of historical data for {symbol}")
-                filtered_df = combined_df.tail(250)
+                # For year period, filter data from 01-01-2024 to current date
+                logger.info(f"Getting 1 year historical data for {symbol} from 2024-01-01")
+                filtered_df = combined_df[combined_df['date'] >= start_date]
                 logger.info(f"Selected {len(filtered_df)} data points for 1-year chart")
+                if len(filtered_df) > 0:
+                    logger.info(f"Filtered data date range: {filtered_df['date'].min()} to {filtered_df['date'].max()}")
+            elif period == '5year':
+                # For 5year period, use all available historical data (2020-2025)
+                logger.info(f"Getting all available historical data for {symbol} (5-year chart)")
+                filtered_df = combined_df
+                logger.info(f"Selected {len(filtered_df)} data points for 5-year chart")
             else:
                 # For other periods, filter by date range
                 filtered_df = combined_df[combined_df['date'] >= start_date]
@@ -593,8 +613,8 @@ def get_historical_data():
                     'volume': int(row['volume']) if pd.notna(row['volume']) else 0
                 })
             
-            # For year period, we already have the data we need
-            if period != 'year':
+            # For year and 5year periods, we already have the data we need
+            if period not in ['year', '5year']:
                 # Check if we need to fetch additional recent data for other periods
                 logger.info(f"Checking if additional data needed for {symbol} {period}: {len(price_points)} existing points")
                 
