@@ -105,6 +105,13 @@ export function StockSearch({ onStockSelect, selectedSymbol }: StockSearchProps)
                         <Badge variant="outline" className="text-xs">
                           {stock.symbol}
                         </Badge>
+                        {/* Show Indian stock indicator */}
+                        {stock.symbol.includes('.NS') || stock.symbol.includes('.BO') || 
+                         ['RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'ICICIBANK', 'WIPRO', 'MARUTI', 'BAJAJFINSV', 'TATACONSUM', 'LTF'].includes(stock.symbol) ? (
+                          <Badge variant="secondary" className="text-xs">
+                            NSE
+                          </Badge>
+                        ) : null}
                         {selectedSymbol === stock.symbol && (
                           <Badge variant="default" className="text-xs">
                             Selected

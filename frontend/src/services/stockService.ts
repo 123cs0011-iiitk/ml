@@ -11,6 +11,7 @@ export interface StockData {
   open?: number;
   high?: number;
   low?: number;
+  close?: number;
 }
 
 export interface PricePoint {
@@ -36,6 +37,31 @@ export interface LivePriceResponse {
   timestamp: string;
   source: string;
   company_name: string;
+  currency: string;
+  exchange_rate?: number;
+  exchange_source?: string;
+  price_inr?: number;
+  price_usd?: number;
+  sector?: string;
+  market_cap?: string;
+  headquarters?: string;
+  exchange?: string;
+  open?: number;
+  high?: number;
+  low?: number;
+  volume?: number;
+  close?: number;
+}
+
+// Stock info response from backend (fast metadata)
+export interface StockInfoResponse {
+  symbol: string;
+  company_name: string;
+  sector: string;
+  market_cap: string;
+  headquarters: string;
+  exchange: string;
+  category: string;
 }
 
 // API response wrapper
@@ -88,17 +114,66 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeout 
 }
 
 export const stockService = {
+  // Get stock metadata quickly (without live price)
+  getStockInfo: async (symbol: string): Promise<StockInfoResponse> => {
+    if (!symbol) {
+      throw new Error('Stock symbol is required');
+    }
+
+    const cacheKey = `stock_info_${symbol}`;
+    
+    // Check cache first (5 minutes cache)
+    const cachedData = getCachedData<StockInfoResponse>(cacheKey, 5 * 60 * 1000);
+    if (cachedData) {
+      return cachedData;
+    }
+
+    try {
+      const response = await fetchWithTimeout(`${BACKEND_BASE_URL}/stock_info?symbol=${encodeURIComponent(symbol)}`);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result: ApiResponse<StockInfoResponse> = await response.json();
+
+      if (!result.success || !result.data) {
+        throw new Error(result.message || 'Failed to fetch stock info');
+      }
+
+      setCachedData(cacheKey, result.data);
+      return result.data;
+
+    } catch (error) {
+      console.error(`Failed to fetch stock info for ${symbol}:`, error);
+      if (error instanceof Error) {
+        if (error.message.includes('timed out')) {
+          throw new Error('Request timed out. Please try again.');
+        } else if (error.message.includes('Failed to fetch')) {
+          throw new Error('Unable to connect to server. Please ensure the backend is running.');
+        } else {
+          throw error;
+        }
+      }
+      throw new Error(`Unable to fetch stock info for ${symbol}. Please try again later.`);
+    }
+  },
+
   // Get live stock price from backend
-  getLivePrice: async (symbol: string): Promise<LivePriceResponse> => {
+  getLivePrice: async (symbol: string, forceRefresh: boolean = false): Promise<LivePriceResponse> => {
     if (!symbol) {
       throw new Error('Stock symbol is required');
     }
 
     const cacheKey = `live_price_${symbol}`;
-    const cachedData = getCachedData<LivePriceResponse>(cacheKey, 2 * 60 * 1000); // 2 minutes cache
-
-    if (cachedData) {
-      return cachedData;
+    
+    // Only use cache if not forcing refresh
+    if (!forceRefresh) {
+      const cachedData = getCachedData<LivePriceResponse>(cacheKey, 2 * 60 * 1000); // 2 minutes cache
+      if (cachedData) {
+        return cachedData;
+      }
     }
 
     try {
@@ -142,16 +217,28 @@ export const stockService = {
     try {
       const livePrice = await stockService.getLivePrice(symbol);
 
-      // Convert live price to StockData format
+      // Calculate change and change percent from open and current price
+      let change = 0;
+      let changePercent = 0;
+      
+      if (livePrice.open && livePrice.open > 0) {
+        change = livePrice.price - livePrice.open;
+        changePercent = (change / livePrice.open) * 100;
+      }
+
+      // Convert live price to StockData format using actual data
       const stockData: StockData = {
         symbol: livePrice.symbol,
         name: livePrice.company_name,
         price: livePrice.price,
-        change: 0, // Live price doesn't provide change data
-        changePercent: 0, // Live price doesn't provide change percent
-        volume: 0, // Live price doesn't provide volume
-        marketCap: 'N/A', // Live price doesn't provide market cap
-        lastUpdated: livePrice.timestamp
+        change: change,
+        changePercent: changePercent,
+        volume: livePrice.volume || 0,
+        marketCap: livePrice.market_cap || 'N/A',
+        lastUpdated: livePrice.timestamp,
+        open: livePrice.open,
+        high: livePrice.high,
+        low: livePrice.low
       };
 
       return stockData;
@@ -182,10 +269,13 @@ export const stockService = {
 
   // Search stocks with backend integration
   searchStocks: async (query: string): Promise<{ symbol: string; name: string }[]> => {
+    console.log(`🔍 Searching for: "${query}"`);
+    
     const cacheKey = `search_${query}`;
     const cachedData = getCachedData<{ symbol: string; name: string }[]>(cacheKey, 5 * 60 * 1000); // 5 minutes cache
 
     if (cachedData) {
+      console.log(`📦 Using cached data for: "${query}"`);
       return cachedData;
     }
 
@@ -202,22 +292,30 @@ export const stockService = {
     ];
 
     if (!query.trim()) {
+      console.log(`📋 Returning popular stocks for empty query`);
       return popularStocks;
     }
 
     try {
-      const response = await fetchWithTimeout(`${BACKEND_BASE_URL}/search?q=${encodeURIComponent(query)}`);
+      const url = `${BACKEND_BASE_URL}/search?q=${encodeURIComponent(query)}`;
+      console.log(`🌐 Making request to: ${url}`);
+      
+      const response = await fetchWithTimeout(url);
+      console.log(`📡 Response status: ${response.status}`);
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const result: ApiResponse<{ symbol: string; name: string }[]> = await response.json();
+      console.log(`📊 Backend response:`, result);
 
       if (result.success && result.data && result.data.length > 0) {
+        console.log(`✅ Found ${result.data.length} results from backend`);
         setCachedData(cacheKey, result.data);
         return result.data;
       } else {
+        console.log(`⚠️ Backend returned no results, using fallback`);
         // Fallback to hardcoded popular stocks if backend returns no results
         const filteredPopular = popularStocks.filter(stock =>
           stock.symbol.toLowerCase().includes(query.toLowerCase()) ||
@@ -227,13 +325,14 @@ export const stockService = {
       }
 
     } catch (error) {
-      console.error(`Failed to search stocks for "${query}":`, error);
+      console.error(`❌ Failed to search stocks for "${query}":`, error);
 
       // Fallback to hardcoded popular stocks on error
       const filteredPopular = popularStocks.filter(stock =>
         stock.symbol.toLowerCase().includes(query.toLowerCase()) ||
         stock.name.toLowerCase().includes(query.toLowerCase())
       );
+      console.log(`🔄 Using fallback with ${filteredPopular.length} results`);
       return filteredPopular;
     }
   },
