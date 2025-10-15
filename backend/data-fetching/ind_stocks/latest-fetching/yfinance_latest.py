@@ -564,6 +564,113 @@ class IndianLatestFetcher:
         
         return stats
 
+    def fetch_recent_data_on_demand(self, symbol: str, period: str, existing_data: List[Dict]) -> List[Dict]:
+        """
+        Fetch recent data on-demand if existing data is insufficient for the period.
+        
+        Args:
+            symbol: Stock symbol
+            period: Requested period ('week', 'month', 'year', '5year')
+            existing_data: List of existing price points
+        
+        Returns:
+            List of additional price points or empty list if no fetch needed
+        """
+        try:
+            # Determine minimum data points needed for meaningful charts
+            min_points = {
+                'week': 5,    # At least 5 trading days
+                'month': 20,  # At least 20 trading days
+                'year': 50,   # At least 50 trading days
+                '5year': 100  # At least 100 trading days
+            }
+            
+            # Check if we have enough data
+            min_required = min_points.get(period, 1)
+            print(f"Data check for {symbol} {period}: {len(existing_data)} points, need {min_required}")
+            
+            if len(existing_data) >= min_required:
+                print(f"Sufficient data for {symbol} {period}: {len(existing_data)} points")
+                return []
+            
+            print(f"Insufficient data for {symbol} {period}: {len(existing_data)} points, fetching recent data")
+            
+            # Prepare symbol for yfinance
+            yfinance_symbol = self.prepare_yfinance_symbol(symbol)
+            
+            # Calculate date range for recent data
+            today = datetime.now().date()
+            if period == 'week':
+                start_date = today - timedelta(days=14)  # 2 weeks to ensure enough data
+            elif period == 'month':
+                start_date = today - timedelta(days=60)  # 2 months to ensure enough data
+            elif period == 'year':
+                start_date = today - timedelta(days=400)  # ~13 months
+            else:  # 5year
+                start_date = today - timedelta(days=2000)  # ~5.5 years
+            
+            # Fetch data from yfinance
+            ticker = yf.Ticker(yfinance_symbol)
+            data = ticker.history(
+                start=start_date.strftime('%Y-%m-%d'),
+                end=today.strftime('%Y-%m-%d'),
+                auto_adjust=False
+            )
+            
+            if data.empty:
+                print(f"No recent data found for {yfinance_symbol}")
+                return []
+            
+            # Convert to our format
+            additional_points = []
+            for date, row in data.iterrows():
+                additional_points.append({
+                    'date': date.strftime('%Y-%m-%d'),
+                    'open': float(row['Open']) if pd.notna(row['Open']) else None,
+                    'high': float(row['High']) if pd.notna(row['High']) else None,
+                    'low': float(row['Low']) if pd.notna(row['Low']) else None,
+                    'close': float(row['Close']) if pd.notna(row['Close']) else None,
+                    'volume': int(row['Volume']) if pd.notna(row['Volume']) else 0
+                })
+            
+            print(f"Fetched {len(additional_points)} additional data points for {symbol}")
+            
+            # Save to CSV file for future use
+            try:
+                latest_file = os.path.join(self.individual_dir, f'{symbol}.csv')
+                
+                # Read existing data
+                if os.path.exists(latest_file):
+                    existing_df = pd.read_csv(latest_file)
+                else:
+                    existing_df = pd.DataFrame()
+                
+                # Convert new data to DataFrame
+                new_df = pd.DataFrame(additional_points)
+                new_df['date'] = pd.to_datetime(new_df['date'])
+                
+                # Combine and remove duplicates
+                if not existing_df.empty:
+                    existing_df['date'] = pd.to_datetime(existing_df['date'])
+                    combined_df = pd.concat([existing_df, new_df], ignore_index=True)
+                    combined_df = combined_df.drop_duplicates(subset=['date']).sort_values('date')
+                else:
+                    combined_df = new_df
+                
+                # Save back to file
+                combined_df['date'] = combined_df['date'].dt.strftime('%Y-%m-%d')
+                combined_df.to_csv(latest_file, index=False)
+                print(f"Saved updated data to {latest_file}")
+                
+            except Exception as e:
+                print(f"Could not save fetched data to CSV: {e}")
+            
+            return additional_points
+            
+        except Exception as e:
+            print(f"Error fetching recent data for {symbol}: {e}")
+            return []
+
 def main():
     """Main function for command line usage"""
     import argparse

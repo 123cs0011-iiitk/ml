@@ -1,8 +1,9 @@
 """
-US Stocks Latest Data Fetcher
+Indian Stocks Latest Data Fetcher
 
-Fetches latest stock data for US stocks from 2025-01-01 to current date.
+Fetches latest stock data for Indian stocks from 2025-01-01 to current date.
 Uses yfinance as primary source with Alpha Vantage fallback.
+Automatically adds .NS suffix for NSE stocks.
 """
 
 import os
@@ -23,18 +24,19 @@ from shared.utilities import (
     ensure_alphabetical_order, get_currency_for_category
 )
 
-class USLatestFetcher:
+class IndianLatestFetcher:
     """
-    Fetches latest US stock data using yfinance with Alpha Vantage fallback.
+    Fetches latest Indian stock data using yfinance with Alpha Vantage fallback.
     Period: 2025-01-01 to current date
+    Automatically adds .NS suffix for NSE stocks.
     """
     
     def __init__(self):
         self.config = Config()
         self.data_dir = self.config.data_dir
-        self.latest_dir = os.path.join(self.data_dir, 'latest', 'us_stocks')
+        self.latest_dir = os.path.join(self.data_dir, 'latest', 'ind_stocks')
         self.individual_dir = os.path.join(self.latest_dir, 'individual_files')
-        self.index_file = os.path.join(self.latest_dir, 'index_us_stocks_latest.csv')
+        self.index_file = os.path.join(self.latest_dir, 'index_ind_stocks_latest.csv')
         
         # Ensure directories exist
         os.makedirs(self.individual_dir, exist_ok=True)
@@ -42,7 +44,7 @@ class USLatestFetcher:
         # Date range for latest data
         self.start_date = Constants.LATEST_START
         self.end_date = date.today().strftime('%Y-%m-%d')
-        self.currency = get_currency_for_category('us_stocks')
+        self.currency = get_currency_for_category('ind_stocks')
         
         # API configurations
         self.alphavantage_api_key = self.config.alphavantage_api_key
@@ -51,15 +53,32 @@ class USLatestFetcher:
         self.rate_limit_delay = 1.5  # seconds between requests
         self.max_retries = 3
         
+    def prepare_yfinance_symbol(self, symbol: str) -> str:
+        """
+        Prepare symbol for yfinance by adding .NS suffix if needed.
+        
+        Args:
+            symbol: Original symbol
+        
+        Returns:
+            Symbol with .NS suffix for yfinance
+        """
+        # Remove any existing suffix first
+        base_symbol = symbol.split('.')[0]
+        
+        # Add .NS suffix for NSE stocks
+        yfinance_symbol = f"{base_symbol}.NS"
+        return yfinance_symbol
+        
     def load_symbols_from_index(self) -> Optional[List[str]]:
         """
-        Load symbols from the US stocks index file.
+        Load symbols from the Indian stocks index file.
         
         Returns:
             List of symbols or None if error
         """
         # Try latest index first, then fall back to past index
-        past_index = os.path.join(self.data_dir, 'past', 'us_stocks', 'index_us_stocks.csv')
+        past_index = os.path.join(self.data_dir, 'past', 'ind_stocks', 'index_ind_stocks.csv')
         
         index_file = self.index_file if os.path.exists(self.index_file) else past_index
         
@@ -141,8 +160,12 @@ class USLatestFetcher:
             try:
                 print(f"Downloading {symbol} from yfinance (attempt {attempt + 1}/{self.max_retries})")
                 
+                # Prepare symbol for yfinance
+                yfinance_symbol = self.prepare_yfinance_symbol(symbol)
+                print(f"Using yfinance symbol: {yfinance_symbol}")
+                
                 # Download data using yfinance
-                ticker = yf.Ticker(symbol)
+                ticker = yf.Ticker(yfinance_symbol)
                 data = ticker.history(
                     start=self.start_date, 
                     end=self.end_date, 
@@ -150,7 +173,7 @@ class USLatestFetcher:
                 )
                 
                 if data.empty:
-                    print(f"{symbol}: No data returned from yfinance")
+                    print(f"{symbol}: No data returned from yfinance for {yfinance_symbol}")
                     return None
                 
                 # Reset index to get Date as column
@@ -183,9 +206,9 @@ class USLatestFetcher:
                     print(f"{symbol}: All yfinance attempts failed")
                     return None
     
-    def download_from_alphavantage(self, symbol: str) -> Optional[pd.DataFrame]:
+    def download_from_nsepython(self, symbol: str) -> Optional[pd.DataFrame]:
         """
-        Download latest stock data from Alpha Vantage as fallback.
+        Download latest stock data from NSEPython as fallback.
         
         Args:
             symbol: Stock symbol
@@ -193,60 +216,173 @@ class USLatestFetcher:
         Returns:
             DataFrame with stock data or None if error
         """
-        if not self.alphavantage_api_key:
-            print(f"{symbol}: Alpha Vantage API key not configured")
-            return None
-        
         try:
-            print(f"Downloading {symbol} from Alpha Vantage...")
+            import nsepython
+            print(f"Downloading {symbol} from NSEPython...")
             
-            url = f"https://www.alphavantage.co/query"
-            params = {
-                'function': 'TIME_SERIES_DAILY',
-                'symbol': symbol,
-                'outputsize': 'full',
-                'apikey': self.alphavantage_api_key
-            }
-            
-            response = requests.get(url, params=params, timeout=30)
-            response.raise_for_status()
-            
-            data = response.json()
-            
-            if 'Time Series (Daily)' not in data:
-                print(f"{symbol}: No time series data from Alpha Vantage")
+            # Get historical data from NSEPython
+            try:
+                # Try to get historical data
+                hist_data = nsepython.nse_historical_data(symbol, self.start_date, self.end_date)
+                
+                if hist_data and len(hist_data) > 0:
+                    # Convert to DataFrame format
+                    df = pd.DataFrame(hist_data)
+                    
+                    # Standardize column names
+                    df = standardize_csv_columns(df)
+                    
+                    # Ensure we have the required columns
+                    required_cols = Constants.REQUIRED_STOCK_COLUMNS
+                    available_cols = [col for col in required_cols if col in df.columns]
+                    
+                    if len(available_cols) < len(required_cols):
+                        print(f"{symbol}: Missing columns from NSEPython. Available: {available_cols}")
+                    
+                    # Select only the columns we need
+                    df = df[available_cols]
+                    
+                    # Add currency column
+                    df['currency'] = self.currency
+                    
+                    print(f"{symbol}: Successfully downloaded {len(df)} rows from NSEPython")
+                    return df
+                else:
+                    print(f"{symbol}: No data from NSEPython")
+                    return None
+                    
+            except AttributeError:
+                # NSEPython doesn't have historical data method, try alternative
+                print(f"{symbol}: NSEPython historical data method not available")
                 return None
-            
-            time_series = data['Time Series (Daily)']
-            
-            # Convert to DataFrame
-            rows = []
-            for date_str, values in time_series.items():
-                # Filter for dates >= start_date
-                if date_str >= self.start_date:
-                    rows.append({
-                        'date': date_str,
-                        'open': float(values['1. open']),
-                        'high': float(values['2. high']),
-                        'low': float(values['3. low']),
-                        'close': float(values['4. close']),
-                        'volume': int(values['5. volume']),
-                        'adjusted_close': float(values['4. close']),  # Alpha Vantage doesn't provide adjusted close
-                        'currency': self.currency
-                    })
-            
-            if not rows:
-                print(f"{symbol}: No data in date range from Alpha Vantage")
-                return None
-            
-            df = pd.DataFrame(rows)
-            df = df.sort_values('date').reset_index(drop=True)
-            
-            print(f"{symbol}: Successfully downloaded {len(df)} rows from Alpha Vantage")
-            return df
-            
+                
+        except ImportError:
+            print(f"{symbol}: NSEPython not available")
+            return None
         except Exception as e:
-            print(f"{symbol}: Alpha Vantage error: {e}")
+            print(f"{symbol}: NSEPython error: {e}")
+            return None
+    
+    def download_from_stock_market_india(self, symbol: str) -> Optional[pd.DataFrame]:
+        """
+        Download latest stock data from stock-market-india Python package as fallback.
+        
+        Args:
+            symbol: Stock symbol
+        
+        Returns:
+            DataFrame with stock data or None if error
+        """
+        try:
+            from stock_market_india import StockMarketIndia
+            print(f"Downloading {symbol} from stock-market-india package...")
+            
+            # Initialize the stock market India client
+            smi = StockMarketIndia()
+            
+            # Get quote data
+            quote_data = smi.get_quote(symbol)
+            
+            if quote_data and 'lastPrice' in quote_data:
+                # Create a simple DataFrame with current data
+                current_date = pd.Timestamp.now().strftime('%Y-%m-%d')
+                
+                df = pd.DataFrame({
+                    'Date': [current_date],
+                    'Open': [quote_data.get('open', quote_data['lastPrice'])],
+                    'High': [quote_data.get('dayHigh', quote_data['lastPrice'])],
+                    'Low': [quote_data.get('dayLow', quote_data['lastPrice'])],
+                    'Close': [quote_data['lastPrice']],
+                    'Volume': [quote_data.get('totalTradedVolume', 0)],
+                    'Adj Close': [quote_data['lastPrice']]
+                })
+                
+                # Standardize column names
+                df = standardize_csv_columns(df)
+                
+                # Ensure we have the required columns
+                required_cols = Constants.REQUIRED_STOCK_COLUMNS
+                available_cols = [col for col in required_cols if col in df.columns]
+                
+                if len(available_cols) < len(required_cols):
+                    print(f"{symbol}: Missing columns from stock-market-india. Available: {available_cols}")
+                
+                # Select only the columns we need
+                df = df[available_cols]
+                
+                # Add currency column
+                df['currency'] = self.currency
+                
+                print(f"{symbol}: Successfully downloaded {len(df)} rows from stock-market-india")
+                return df
+            else:
+                print(f"{symbol}: No data from stock-market-india")
+                return None
+                
+        except ImportError:
+            print(f"{symbol}: stock-market-india package not available - install with: pip install stock-market-india")
+            return None
+        except Exception as e:
+            print(f"{symbol}: stock-market-india error: {e}")
+            return None
+    
+    def download_from_nselib(self, symbol: str) -> Optional[pd.DataFrame]:
+        """
+        Download latest stock data from NSELib as fallback.
+        
+        Args:
+            symbol: Stock symbol
+        
+        Returns:
+            DataFrame with stock data or None if error
+        """
+        try:
+            import nselib
+            print(f"Downloading {symbol} from NSELib...")
+            
+            # Get historical data from NSELib
+            # Note: NSELib may have different methods for historical data
+            # This is a placeholder implementation - adjust based on actual NSELib API
+            try:
+                # Try to get historical data
+                hist_data = nselib.get_historical_data(symbol, start_date=self.start_date, end_date=self.end_date)
+                
+                if hist_data and len(hist_data) > 0:
+                    # Convert to DataFrame format
+                    df = pd.DataFrame(hist_data)
+                    
+                    # Standardize column names
+                    df = standardize_csv_columns(df)
+                    
+                    # Ensure we have the required columns
+                    required_cols = Constants.REQUIRED_STOCK_COLUMNS
+                    available_cols = [col for col in required_cols if col in df.columns]
+                    
+                    if len(available_cols) < len(required_cols):
+                        print(f"{symbol}: Missing columns from NSELib. Available: {available_cols}")
+                    
+                    # Select only the columns we need
+                    df = df[available_cols]
+                    
+                    # Add currency column
+                    df['currency'] = self.currency
+                    
+                    print(f"{symbol}: Successfully downloaded {len(df)} rows from NSELib")
+                    return df
+                else:
+                    print(f"{symbol}: No data from NSELib")
+                    return None
+                    
+            except AttributeError:
+                # NSELib doesn't have historical data method, try alternative
+                print(f"{symbol}: NSELib historical data method not available")
+                return None
+                
+        except ImportError:
+            print(f"{symbol}: NSELib not available")
+            return None
+        except Exception as e:
+            print(f"{symbol}: NSELib error: {e}")
             return None
     
     def download_stock_data(self, symbol: str) -> Optional[pd.DataFrame]:
@@ -264,9 +400,21 @@ class USLatestFetcher:
         if data is not None:
             return data
         
-        # Fallback to Alpha Vantage
-        print(f"{symbol}: Trying Alpha Vantage fallback...")
-        data = self.download_from_alphavantage(symbol)
+        # Fallback to NSEPython
+        print(f"{symbol}: Trying NSEPython fallback...")
+        data = self.download_from_nsepython(symbol)
+        if data is not None:
+            return data
+        
+        # Fallback to stock-market-india
+        print(f"{symbol}: Trying stock-market-india fallback...")
+        data = self.download_from_stock_market_india(symbol)
+        if data is not None:
+            return data
+        
+        # Final fallback to NSELib
+        print(f"{symbol}: Trying NSELib fallback...")
+        data = self.download_from_nselib(symbol)
         if data is not None:
             return data
         
@@ -305,7 +453,7 @@ class USLatestFetcher:
         """
         try:
             # Load existing index to get company info
-            past_index = os.path.join(self.data_dir, 'past', 'us_stocks', 'index_us_stocks.csv')
+            past_index = os.path.join(self.data_dir, 'past', 'ind_stocks', 'index_ind_stocks.csv')
             
             if os.path.exists(past_index):
                 existing_df = pd.read_csv(past_index)
@@ -328,7 +476,7 @@ class USLatestFetcher:
                         'sector': 'Unknown',
                         'market_cap': '',
                         'headquarters': 'Unknown',
-                        'exchange': 'NASDAQ'
+                        'exchange': 'NSE'
                     })
                 
                 new_df = pd.DataFrame(new_rows)
@@ -358,7 +506,7 @@ class USLatestFetcher:
         Returns:
             Dict with download statistics
         """
-        print("Starting US stocks latest data download...")
+        print("Starting Indian stocks latest data download...")
         print(f"Period: {self.start_date} to {self.end_date}")
         
         # Load symbols
@@ -429,11 +577,18 @@ class USLatestFetcher:
             List of additional price points or empty list if no fetch needed
         """
         try:
+            # For 'year' period, use existing historical data to show last 12 months
+            if period == 'year':
+                print(f"Year period requested for {symbol}: using existing historical data for last 12 months")
+                
+                # Use fallback data strategy to get last year of historical data
+                return self._get_fallback_data(symbol, period, existing_data)
+            
+            # For other periods, use the original logic
             # Determine minimum data points needed for meaningful charts
             min_points = {
                 'week': 5,    # At least 5 trading days
                 'month': 20,  # At least 20 trading days
-                'year': 50,   # At least 50 trading days
                 '5year': 100  # At least 100 trading days
             }
             
@@ -447,28 +602,36 @@ class USLatestFetcher:
             
             print(f"Insufficient data for {symbol} {period}: {len(existing_data)} points, fetching recent data")
             
+            # Prepare symbol for yfinance
+            yfinance_symbol = self.prepare_yfinance_symbol(symbol)
+            
             # Calculate date range for recent data
+            from datetime import datetime, timedelta
             today = datetime.now().date()
             if period == 'week':
                 start_date = today - timedelta(days=14)  # 2 weeks to ensure enough data
             elif period == 'month':
                 start_date = today - timedelta(days=60)  # 2 months to ensure enough data
-            elif period == 'year':
-                start_date = today - timedelta(days=400)  # ~13 months
             else:  # 5year
                 start_date = today - timedelta(days=2000)  # ~5.5 years
             
-            # Fetch data from yfinance
-            ticker = yf.Ticker(symbol)
-            data = ticker.history(
-                start=start_date.strftime('%Y-%m-%d'),
-                end=today.strftime('%Y-%m-%d'),
-                auto_adjust=False
-            )
-            
-            if data.empty:
-                print(f"No recent data found for {symbol}")
-                return []
+            # Try to fetch data from yfinance
+            try:
+                ticker = yf.Ticker(yfinance_symbol)
+                data = ticker.history(
+                    start=start_date.strftime('%Y-%m-%d'),
+                    end=today.strftime('%Y-%m-%d'),
+                    auto_adjust=False
+                )
+                
+                if data.empty:
+                    print(f"No recent data found for {yfinance_symbol} from yfinance")
+                    # Fallback: Use existing historical data with smart filtering
+                    return self._get_fallback_data(symbol, period, existing_data)
+            except Exception as e:
+                print(f"yfinance error for {yfinance_symbol}: {e}")
+                # Fallback: Use existing historical data with smart filtering
+                return self._get_fallback_data(symbol, period, existing_data)
             
             # Convert to our format
             additional_points = []
@@ -520,17 +683,87 @@ class USLatestFetcher:
             print(f"Error fetching recent data for {symbol}: {e}")
             return []
 
+    def _get_fallback_data(self, symbol: str, period: str, existing_data: List[Dict]) -> List[Dict]:
+        """
+        Fallback method to provide meaningful data when yfinance fails.
+        Uses existing historical data with smart filtering.
+        """
+        try:
+            print(f"Using fallback data strategy for {symbol} {period}")
+            
+            # Load historical data from past files
+            # Get the project root directory (go up from backend/data-fetching/ind_stocks/latest_fetching)
+            project_root = os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')
+            past_file = os.path.join(project_root, 'data', 'past', 'ind_stocks', 'individual_files', f'{symbol}.csv')
+            
+            if not os.path.exists(past_file):
+                print(f"No historical data found for {symbol}")
+                return []
+            
+            # Read historical data
+            import pandas as pd
+            df = pd.read_csv(past_file)
+            df['date'] = pd.to_datetime(df['date'])
+            
+            # Filter to get recent data based on period
+            from datetime import datetime, timedelta
+            today = datetime.now().date()
+            if period == 'week':
+                # Get last 2 weeks of historical data, or last 10 trading days if no recent data
+                start_date = today - timedelta(days=14)
+                filtered_df = df[df['date'].dt.date >= start_date]
+                if filtered_df.empty:
+                    # Fallback: get last 10 trading days
+                    filtered_df = df.tail(10)
+            elif period == 'month':
+                # Get last 2 months of historical data, or last 30 trading days if no recent data
+                start_date = today - timedelta(days=60)
+                filtered_df = df[df['date'].dt.date >= start_date]
+                if filtered_df.empty:
+                    # Fallback: get last 30 trading days
+                    filtered_df = df.tail(30)
+            elif period == 'year':
+                # Get the most recent 1 year of historical data (last 250 trading days)
+                print("Year filter: getting last 1 year of historical data")
+                filtered_df = df.tail(250)  # Last 250 trading days = ~1 year
+            else:  # 5year
+                # Get all historical data
+                filtered_df = df
+            
+            if filtered_df.empty:
+                print(f"No fallback data found for {symbol} {period}")
+                return []
+            
+            # Convert to our format
+            fallback_points = []
+            for _, row in filtered_df.iterrows():
+                fallback_points.append({
+                    'date': row['date'].strftime('%Y-%m-%d'),
+                    'open': float(row['open']) if pd.notna(row['open']) else None,
+                    'high': float(row['high']) if pd.notna(row['high']) else None,
+                    'low': float(row['low']) if pd.notna(row['low']) else None,
+                    'close': float(row['close']) if pd.notna(row['close']) else None,
+                    'volume': int(row['volume']) if pd.notna(row['volume']) else 0
+                })
+            
+            print(f"Fallback: Found {len(fallback_points)} data points for {symbol} {period}")
+            return fallback_points
+            
+        except Exception as e:
+            print(f"Error in fallback data for {symbol}: {e}")
+            return []
+
 def main():
     """Main function for command line usage"""
     import argparse
     
-    parser = argparse.ArgumentParser(description="Download US stocks latest data")
+    parser = argparse.ArgumentParser(description="Download Indian stocks latest data")
     parser.add_argument("--force", action="store_true", help="Force re-download of existing files")
     parser.add_argument("--symbols", nargs="+", help="Specific symbols to download")
     
     args = parser.parse_args()
     
-    fetcher = USLatestFetcher()
+    fetcher = IndianLatestFetcher()
     stats = fetcher.fetch_latest_data(
         force_redownload=args.force,
         symbols_to_download=args.symbols

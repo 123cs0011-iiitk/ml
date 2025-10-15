@@ -17,6 +17,7 @@ import logging
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
+import yfinance as yf
 
 # Import modules
 import sys
@@ -25,6 +26,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'data-fetching'))
 sys.path.append(os.path.join(os.path.dirname(__file__), 'data-fetching', 'ind_stocks', 'current-fetching'))
 from data_manager import LiveFetcher
 from ind_current_fetcher import IndianCurrentFetcher
+from us_stocks.latest_fetching.yfinance_latest import USLatestFetcher
+from ind_stocks.latest_fetching.yfinance_latest import IndianLatestFetcher
 from shared.utilities import Config, setup_logger, Constants, StockDataError, get_current_timestamp, categorize_stock, validate_and_categorize_stock
 from shared.currency_converter import convert_usd_to_inr, convert_inr_to_usd, get_exchange_rate_info
 
@@ -44,10 +47,13 @@ config = Config()
 # Initialize components
 live_fetcher = LiveFetcher()
 indian_fetcher = IndianCurrentFetcher()
+us_latest_fetcher = USLatestFetcher()
+ind_latest_fetcher = IndianLatestFetcher()
 
 # [FUTURE] Initialize other components when implemented
 # company_info_fetcher = CompanyInfoFetcher()
 # prediction_engine = PredictionEngine()
+
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -475,6 +481,211 @@ def get_company_info():
         'error': 'Company info feature not yet implemented',
         'message': 'This endpoint will be available in a future update'
     }), 501
+
+@app.route('/historical', methods=['GET'])
+def get_historical_data():
+    """
+    Get historical stock data for chart visualization.
+    
+    Query parameters:
+    - symbol: Stock symbol
+    - period: Time period (week, month, year, 5year)
+    """
+    symbol = request.args.get('symbol')
+    period = request.args.get('period')
+    
+    if not symbol:
+        return jsonify({
+            'success': False,
+            'error': 'Symbol parameter is required'
+        }), 400
+    
+    if not period or period not in ['week', 'month', 'year', '5year']:
+        return jsonify({
+            'success': False,
+            'error': 'Period parameter is required and must be one of: week, month, year, 5year'
+        }), 400
+    
+    try:
+        logger.info(f"Fetching historical data for {symbol} ({period})")
+        
+        # Determine stock category
+        category = validate_and_categorize_stock(symbol)
+        
+        # Calculate date range based on period
+        from datetime import datetime, timedelta
+        today = datetime.now().date()
+        
+        if period == 'week':
+            start_date = today - timedelta(days=7)
+        elif period == 'month':
+            start_date = today - timedelta(days=30)
+        elif period == 'year':
+            # For year period, we'll use the last year of available historical data
+            # Don't filter by date range - we'll handle this after loading data
+            start_date = None
+        elif period == '5year':
+            start_date = today - timedelta(days=1825)
+        
+        
+        # Define file paths
+        past_file = os.path.join(config.data_dir, 'past', category, 'individual_files', f'{symbol}.csv')
+        latest_file = os.path.join(config.data_dir, 'latest', category, 'individual_files', f'{symbol}.csv')
+        
+        historical_data = []
+        
+        # Read past data (2020-2024)
+        if os.path.exists(past_file):
+            try:
+                import pandas as pd
+                df_past = pd.read_csv(past_file)
+                df_past['date'] = pd.to_datetime(df_past['date'], utc=True).dt.tz_localize(None).dt.date
+                historical_data.append(df_past)
+                logger.info(f"Loaded {len(df_past)} records from past data")
+            except Exception as e:
+                logger.warning(f"Could not read past data for {symbol}: {e}")
+        
+        # Read latest data (2025+)
+        if os.path.exists(latest_file):
+            try:
+                import pandas as pd
+                df_latest = pd.read_csv(latest_file)
+                df_latest['date'] = pd.to_datetime(df_latest['date']).dt.date
+                historical_data.append(df_latest)
+                logger.info(f"Loaded {len(df_latest)} records from latest data")
+            except Exception as e:
+                logger.warning(f"Could not read latest data for {symbol}: {e}")
+        
+        if not historical_data:
+            return jsonify({
+                'success': False,
+                'error': 'No data files found',
+                'message': f'No historical data found for symbol {symbol}'
+            }), 404
+        
+        # Combine all data
+        try:
+            import pandas as pd
+            combined_df = pd.concat(historical_data, ignore_index=True)
+            
+            # Remove duplicates and sort by date
+            combined_df = combined_df.drop_duplicates(subset=['date']).sort_values('date')
+            
+            # Filter by date range or get last year of data
+            if period == 'year':
+                # For year period, get the last 250 trading days (≈ 1 year) of available data
+                logger.info(f"Getting last 1 year of historical data for {symbol}")
+                filtered_df = combined_df.tail(250)
+                logger.info(f"Selected {len(filtered_df)} data points for 1-year chart")
+            else:
+                # For other periods, filter by date range
+                filtered_df = combined_df[combined_df['date'] >= start_date]
+            
+            # Convert to list of dictionaries for on-demand fetching check
+            price_points = []
+            for _, row in filtered_df.iterrows():
+                price_points.append({
+                    'date': row['date'].strftime('%Y-%m-%d'),
+                    'open': float(row['open']) if pd.notna(row['open']) else None,
+                    'high': float(row['high']) if pd.notna(row['high']) else None,
+                    'low': float(row['low']) if pd.notna(row['low']) else None,
+                    'close': float(row['close']) if pd.notna(row['close']) else None,
+                    'volume': int(row['volume']) if pd.notna(row['volume']) else 0
+                })
+            
+            # For year period, we already have the data we need
+            if period != 'year':
+                # Check if we need to fetch additional recent data for other periods
+                logger.info(f"Checking if additional data needed for {symbol} {period}: {len(price_points)} existing points")
+                
+                # Use appropriate fetcher based on category
+                if category == 'us_stocks':
+                    additional_data = us_latest_fetcher.fetch_recent_data_on_demand(symbol, period, price_points)
+                elif category == 'ind_stocks':
+                    additional_data = ind_latest_fetcher.fetch_recent_data_on_demand(symbol, period, price_points)
+                else:
+                    additional_data = []
+                
+                logger.info(f"Additional data fetched: {len(additional_data)} points")
+                
+                # Combine existing and additional data
+                if additional_data:
+                    # Remove duplicates and sort by date
+                    all_data = price_points + additional_data
+                    seen_dates = set()
+                    unique_data = []
+                    for point in sorted(all_data, key=lambda x: x['date']):
+                        if point['date'] not in seen_dates:
+                            seen_dates.add(point['date'])
+                            unique_data.append(point)
+                    price_points = unique_data
+                    logger.info(f"Combined data: {len(price_points)} total points for {symbol} ({period})")
+            
+            if not price_points:
+                return jsonify({
+                    'success': False,
+                    'error': 'No data in date range',
+                    'message': f'No data available for {symbol} in the specified {period} period'
+                }), 404
+            
+            logger.info(f"Returning {len(price_points)} price points for {symbol} ({period})")
+            
+            return jsonify({
+                'success': True,
+                'data': price_points
+            })
+            
+        except ImportError:
+            # Fallback without pandas
+            import csv
+            from datetime import datetime
+            
+            all_records = []
+            for file_path in [past_file, latest_file]:
+                if os.path.exists(file_path):
+                    try:
+                        with open(file_path, 'r', newline='', encoding='utf-8') as f:
+                            reader = csv.DictReader(f)
+                            for row in reader:
+                                try:
+                                    date_obj = datetime.strptime(row['date'][:10], '%Y-%m-%d').date()
+                                    if date_obj >= start_date:
+                                        all_records.append({
+                                            'date': row['date'][:10],
+                                            'open': float(row['open']) if row['open'] else None,
+                                            'high': float(row['high']) if row['high'] else None,
+                                            'low': float(row['low']) if row['low'] else None,
+                                            'close': float(row['close']) if row['close'] else None,
+                                            'volume': int(float(row['volume'])) if row['volume'] else 0
+                                        })
+                                except (ValueError, KeyError) as e:
+                                    continue
+                    except Exception as e:
+                        logger.warning(f"Error reading {file_path}: {e}")
+            
+            if not all_records:
+                return jsonify({
+                    'success': False,
+                    'error': 'No data in date range',
+                    'message': f'No data available for {symbol} in the specified {period} period'
+                }), 404
+            
+            # Sort by date
+            all_records.sort(key=lambda x: x['date'])
+            
+            return jsonify({
+                'success': True,
+                'data': all_records
+            })
+        
+    except Exception as e:
+        logger.error(f"Error fetching historical data for {symbol}: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to fetch historical data',
+            'message': f'Unable to fetch historical data for {symbol}. Please try again later.',
+            'details': str(e)
+        }), 500
 
 @app.route('/algorithms', methods=['GET'])
 def get_available_algorithms():
