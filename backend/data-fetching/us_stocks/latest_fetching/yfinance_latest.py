@@ -429,11 +429,18 @@ class USLatestFetcher:
             List of additional price points or empty list if no fetch needed
         """
         try:
+            # For 'year' period, use existing historical data to show last 12 months
+            if period == 'year':
+                print(f"Year period requested for {symbol}: using existing historical data for last 12 months")
+                
+                # Use fallback data strategy to get last year of historical data
+                return self._get_fallback_data(symbol, period, existing_data)
+            
+            # For other periods, use the original logic
             # Determine minimum data points needed for meaningful charts
             min_points = {
                 'week': 5,    # At least 5 trading days
                 'month': 20,  # At least 20 trading days
-                'year': 50,   # At least 50 trading days
                 '5year': 100  # At least 100 trading days
             }
             
@@ -448,27 +455,32 @@ class USLatestFetcher:
             print(f"Insufficient data for {symbol} {period}: {len(existing_data)} points, fetching recent data")
             
             # Calculate date range for recent data
+            from datetime import datetime, timedelta
             today = datetime.now().date()
             if period == 'week':
                 start_date = today - timedelta(days=14)  # 2 weeks to ensure enough data
             elif period == 'month':
                 start_date = today - timedelta(days=60)  # 2 months to ensure enough data
-            elif period == 'year':
-                start_date = today - timedelta(days=400)  # ~13 months
             else:  # 5year
                 start_date = today - timedelta(days=2000)  # ~5.5 years
             
-            # Fetch data from yfinance
-            ticker = yf.Ticker(symbol)
-            data = ticker.history(
-                start=start_date.strftime('%Y-%m-%d'),
-                end=today.strftime('%Y-%m-%d'),
-                auto_adjust=False
-            )
-            
-            if data.empty:
-                print(f"No recent data found for {symbol}")
-                return []
+            # Try to fetch data from yfinance
+            try:
+                ticker = yf.Ticker(symbol)
+                data = ticker.history(
+                    start=start_date.strftime('%Y-%m-%d'),
+                    end=today.strftime('%Y-%m-%d'),
+                    auto_adjust=False
+                )
+                
+                if data.empty:
+                    print(f"No recent data found for {symbol} from yfinance")
+                    # Fallback: Use existing historical data with smart filtering
+                    return self._get_fallback_data(symbol, period, existing_data)
+            except Exception as e:
+                print(f"yfinance error for {symbol}: {e}")
+                # Fallback: Use existing historical data with smart filtering
+                return self._get_fallback_data(symbol, period, existing_data)
             
             # Convert to our format
             additional_points = []
@@ -518,6 +530,88 @@ class USLatestFetcher:
             
         except Exception as e:
             print(f"Error fetching recent data for {symbol}: {e}")
+            return []
+
+    def _get_fallback_data(self, symbol: str, period: str, existing_data: List[Dict]) -> List[Dict]:
+        """
+        Fallback method to provide meaningful data when yfinance fails.
+        Uses existing historical data with smart filtering.
+        """
+        try:
+            print(f"Using fallback data strategy for {symbol} {period}")
+            
+            # Load historical data from past files
+            # Get the project root directory (go up from backend/data-fetching/us_stocks/latest_fetching)
+            project_root = os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')
+            past_file = os.path.join(project_root, 'data', 'past', 'us_stocks', 'individual_files', f'{symbol}.csv')
+            
+            print(f"Looking for historical data at: {past_file}")
+            if not os.path.exists(past_file):
+                print(f"No historical data found for {symbol} at {past_file}")
+                return []
+            print(f"Found historical data file for {symbol}")
+            
+            # Read historical data
+            import pandas as pd
+            df = pd.read_csv(past_file)
+            df['date'] = pd.to_datetime(df['date'], utc=True).dt.tz_localize(None)
+            print(f"Loaded {len(df)} rows from historical data")
+            print(f"Date range: {df['date'].min()} to {df['date'].max()}")
+            
+            # Filter to get recent data based on period
+            from datetime import datetime, timedelta
+            today = datetime.now().date()
+            print(f"Today: {today}")
+            
+            if period == 'week':
+                # Get last 2 weeks of historical data, or last 10 trading days if no recent data
+                start_date = today - timedelta(days=14)
+                print(f"Week filter: looking for data >= {start_date}")
+                filtered_df = df[df['date'].dt.date >= start_date]
+                if filtered_df.empty:
+                    # Fallback: get last 10 trading days
+                    print("No recent data found, using last 10 trading days")
+                    filtered_df = df.tail(10)
+            elif period == 'month':
+                # Get last 2 months of historical data, or last 30 trading days if no recent data
+                start_date = today - timedelta(days=60)
+                print(f"Month filter: looking for data >= {start_date}")
+                filtered_df = df[df['date'].dt.date >= start_date]
+                if filtered_df.empty:
+                    # Fallback: get last 30 trading days
+                    print("No recent data found, using last 30 trading days")
+                    filtered_df = df.tail(30)
+            elif period == 'year':
+                # Get the most recent 1 year of historical data (last 250 trading days)
+                print("Year filter: getting last 1 year of historical data")
+                filtered_df = df.tail(250)  # Last 250 trading days = ~1 year
+            else:  # 5year
+                # Get all historical data
+                print("5year filter: using all data")
+                filtered_df = df
+            
+            print(f"Filtered data: {len(filtered_df)} rows")
+            if filtered_df.empty:
+                print(f"No fallback data found for {symbol} {period}")
+                return []
+            
+            # Convert to our format
+            fallback_points = []
+            for _, row in filtered_df.iterrows():
+                fallback_points.append({
+                    'date': row['date'].strftime('%Y-%m-%d'),
+                    'open': float(row['open']) if pd.notna(row['open']) else None,
+                    'high': float(row['high']) if pd.notna(row['high']) else None,
+                    'low': float(row['low']) if pd.notna(row['low']) else None,
+                    'close': float(row['close']) if pd.notna(row['close']) else None,
+                    'volume': int(row['volume']) if pd.notna(row['volume']) else 0
+                })
+            
+            print(f"Fallback: Found {len(fallback_points)} data points for {symbol} {period}")
+            return fallback_points
+            
+        except Exception as e:
+            print(f"Error in fallback data for {symbol}: {e}")
             return []
 
 def main():
