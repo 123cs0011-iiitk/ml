@@ -21,6 +21,7 @@ export interface PricePoint {
   low: number;
   close: number;
   volume: number;
+  price: number; // Added for chart display compatibility
 }
 
 export interface PredictionResult {
@@ -248,11 +249,97 @@ export const stockService = {
     }
   },
 
-  // Get historical data (placeholder - would need separate backend endpoint)
-  getHistoricalData: async (symbol: string, period: 'week' | 'month' | 'year'): Promise<PricePoint[]> => {
-    // For now, return empty array as this would require a separate historical data endpoint
-    console.warn(`Historical data for ${symbol} (${period}) not implemented yet`);
-    return [];
+  // Get historical data from backend
+  getHistoricalData: async (symbol: string, period: 'year' | '5year'): Promise<PricePoint[]> => {
+    if (!symbol) {
+      throw new Error('Stock symbol is required');
+    }
+
+    const cacheKey = `historical_${symbol}_${period}`;
+    
+    // Check cache first (1 hour cache)
+    const cachedData = getCachedData<PricePoint[]>(cacheKey, 60 * 60 * 1000);
+    if (cachedData) {
+      return cachedData;
+    }
+
+    try {
+      // Fetch historical data from backend
+      const response = await fetchWithTimeout(
+        `${BACKEND_BASE_URL}/historical?symbol=${encodeURIComponent(symbol)}&period=${period}`
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result: ApiResponse<PricePoint[]> = await response.json();
+
+      if (!result.success || !result.data) {
+        throw new Error(result.message || 'Failed to fetch historical data');
+      }
+
+      // Map backend response to PricePoint format
+      // Backend returns {date, open, high, low, close, volume}
+      // We need {date, open, high, low, close, volume} with close mapped to price
+      const historicalData: PricePoint[] = result.data.map(point => ({
+        date: point.date,
+        open: point.open,
+        high: point.high,
+        low: point.low,
+        close: point.close,
+        volume: point.volume,
+        price: point.close // Map close to price for chart display
+      }));
+
+      // If no historical data found and period is 5year, try fallback to 1 year
+      if (historicalData.length === 0 && period === '5year') {
+        console.warn(`No 5-year data found for ${symbol}, trying 1-year fallback`);
+        return await stockService.getHistoricalData(symbol, 'year');
+      }
+
+      // Append latest live price as the most recent data point
+      try {
+        const livePrice = await stockService.getLivePrice(symbol);
+        const today = new Date().toISOString().split('T')[0];
+        
+        // Check if we already have today's data
+        const hasTodayData = historicalData.some(point => point.date === today);
+        
+        if (!hasTodayData) {
+          const livePricePoint: PricePoint = {
+            date: today,
+            open: livePrice.price,
+            high: livePrice.price,
+            low: livePrice.price,
+            close: livePrice.price,
+            volume: livePrice.volume || 0,
+            price: livePrice.price
+          };
+          historicalData.push(livePricePoint);
+        }
+      } catch (livePriceError) {
+        console.warn(`Could not fetch live price for ${symbol}:`, livePriceError);
+        // Continue without live price data
+      }
+
+      setCachedData(cacheKey, historicalData);
+      return historicalData;
+
+    } catch (error) {
+      console.error(`Failed to fetch historical data for ${symbol}:`, error);
+      if (error instanceof Error) {
+        if (error.message.includes('timed out')) {
+          throw new Error('Request timed out. Please try again.');
+        } else if (error.message.includes('Failed to fetch')) {
+          throw new Error('Unable to connect to server. Please ensure the backend is running.');
+        } else {
+          throw error;
+        }
+      }
+      throw new Error(`Unable to fetch historical data for ${symbol}. Please try again later.`);
+    }
   },
 
   // Get stock prediction (placeholder - would need ML backend)
