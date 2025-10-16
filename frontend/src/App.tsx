@@ -17,7 +17,7 @@ export default function App() {
   const [stockInfoData, setStockInfoData] = useState<StockInfoResponse | null>(null);
   const [chartData, setChartData] = useState<PricePoint[]>([]);
   const [prediction, setPrediction] = useState<PredictionResult | null>(null);
-  const [chartPeriod, setChartPeriod] = useState<'week' | 'month' | 'year'>('month');
+  const [chartPeriod, setChartPeriod] = useState<'year' | '5year'>('year');
   const [currency, setCurrency] = useState<Currency>('USD');
   const [loading, setLoading] = useState({
     stock: false,
@@ -78,7 +78,7 @@ export default function App() {
     }
   };
 
-  const loadChartData = async (symbol: string, period: 'week' | 'month' | 'year') => {
+  const loadChartData = async (symbol: string, period: 'year' | '5year') => {
     setLoading(prev => ({ ...prev, chart: true }));
     setErrors(prev => ({ ...prev, chart: '' }));
     try {
@@ -114,7 +114,7 @@ export default function App() {
     setSelectedSymbol(symbol);
   };
 
-  const handlePeriodChange = (period: 'week' | 'month' | 'year') => {
+  const handlePeriodChange = (period: 'year' | '5year') => {
     setChartPeriod(period);
   };
 

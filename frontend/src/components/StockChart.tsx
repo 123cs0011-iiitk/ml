@@ -1,3 +1,4 @@
+import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Button } from './ui/button';
@@ -10,8 +11,8 @@ import { convertPrice, formatPrice, Currency } from '../utils/currency';
 interface StockChartProps {
   data: PricePoint[];
   symbol: string;
-  onPeriodChange: (period: 'week' | 'month' | 'year') => void;
-  currentPeriod: 'week' | 'month' | 'year';
+  onPeriodChange: (period: 'year' | '5year') => void;
+  currentPeriod: 'year' | '5year';
   loading: boolean;
   error: string;
   currency: Currency;
@@ -27,9 +28,10 @@ export function StockChart({
   currency 
 }: StockChartProps) {
   const periods = [
-    { value: 'week' as const, label: '1W' },
-    { value: 'month' as const, label: '1M' },
-    { value: 'year' as const, label: '1Y' }
+    // { value: 'week' as const, label: '1W' },
+    // { value: 'month' as const, label: '1M' },
+    { value: 'year' as const, label: '1Y' },
+    { value: '5year' as const, label: '5Y' }
   ];
 
   // Convert price data to selected currency
@@ -185,10 +187,10 @@ export function StockChart({
               <Line 
                 type="monotone" 
                 dataKey="price" 
-                stroke="hsl(var(--primary))" 
+                stroke="#3b82f6" 
                 strokeWidth={2}
                 dot={false}
-                activeDot={{ r: 4, stroke: 'hsl(var(--primary))', strokeWidth: 2 }}
+                activeDot={{ r: 4, stroke: '#3b82f6', strokeWidth: 2 }}
               />
             </LineChart>
           </ResponsiveContainer>
