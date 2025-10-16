@@ -211,6 +211,22 @@ def search_stocks():
                 if len(unique_results) >= Constants.MAX_SEARCH_RESULTS:
                     break
         
+        # If no results found, try to fetch the query as a new stock symbol
+        if not unique_results and query:
+            try:
+                # Determine if it's likely an Indian stock (no dots, uppercase)
+                if query.isupper() and '.' not in query:
+                    logger.info(f"Attempting to fetch new Indian stock: {query}")
+                    result = indian_fetcher.fetch_current_price(query)
+                    if result:
+                        unique_results.append({
+                            'symbol': result['symbol'],
+                            'name': result.get('company_name', result['symbol'])
+                        })
+                        logger.info(f"Successfully added new stock to search results: {query}")
+            except Exception as e:
+                logger.info(f"Could not fetch new stock {query}: {e}")
+        
         return jsonify({'success': True, 'data': unique_results})
         
     except Exception as e:

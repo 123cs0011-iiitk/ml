@@ -214,22 +214,31 @@ class USCurrentFetcher:
             # Don't raise exception to avoid breaking the main flow
     
     def update_dynamic_index(self):
-        """Update the dynamic index CSV file"""
+        """Update the dynamic index CSV file using DynamicIndexManager"""
         try:
-            index_path = os.path.join(self.data_dir, 'index_us_stocks_dynamic.csv')
+            from shared.index_manager import DynamicIndexManager
+            index_manager = DynamicIndexManager(self.data_dir)
             
             if os.path.exists(self.latest_prices_file):
                 df = pd.read_csv(self.latest_prices_file)
                 symbols = df['symbol'].unique().tolist()
                 
-                # Save symbols to index file in alphabetical order
-                index_df = pd.DataFrame({'symbol': sorted(symbols)})
-                index_df.to_csv(index_path, index=False)
+                # Add each symbol to dynamic index (preserves existing stocks)
+                for symbol in symbols:
+                    if not index_manager.stock_exists(symbol, 'us_stocks'):
+                        # Prepare basic stock info
+                        stock_info = {
+                            'company_name': symbol,
+                            'sector': 'Unknown',
+                            'market_cap': '',
+                            'headquarters': 'Unknown',
+                            'exchange': 'Unknown'
+                        }
+                        index_manager.add_stock(symbol, stock_info, 'us_stocks')
                 
                 print(f"Updated dynamic index with {len(symbols)} symbols")
             else:
-                # Create empty index file
-                pd.DataFrame({'symbol': []}).to_csv(index_path, index=False)
+                print("No latest prices file found, skipping dynamic index update")
                 
         except Exception as e:
             print(f"Error updating dynamic index: {str(e)}")
