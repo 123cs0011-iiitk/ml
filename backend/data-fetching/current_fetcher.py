@@ -572,10 +572,12 @@ class CurrentFetcher:
         self.update_dynamic_index(category)
     
     def update_dynamic_index(self, category: str):
-        """Update the dynamic index CSV file for the category with company info"""
+        """Update the dynamic index CSV file for the category with company info using DynamicIndexManager"""
         try:
+            from shared.index_manager import DynamicIndexManager
+            index_manager = DynamicIndexManager(self.data_dir)
+            
             csv_path = os.path.join(self.latest_dir, category, 'latest_prices.csv')
-            index_path = os.path.join(self.data_dir, f'index_{category}_dynamic.csv')
             
             if os.path.exists(csv_path):
                 if PANDAS_AVAILABLE:
@@ -593,36 +595,30 @@ class CurrentFetcher:
                         except Exception as e:
                             logger.warning(f"Could not read permanent index for {category}: {e}")
                     
-                    # Create index with company info
-                    index_data = []
+                    # Add each symbol to dynamic index (preserves existing stocks)
                     for symbol in symbols:
-                        if symbol in company_info:
-                            # Use info from permanent index
-                            info = company_info[symbol]
-                            index_data.append({
-                                'symbol': symbol,
-                                'company_name': info.get('company_name', symbol),
-                                'sector': info.get('sector', 'Unknown'),
-                                'market_cap': info.get('market_cap', ''),
-                                'headquarters': info.get('headquarters', 'Unknown'),
-                                'exchange': info.get('exchange', 'Unknown'),
-                                'currency': info.get('currency', get_currency_for_category(category))
-                            })
-                        else:
-                            # Use basic info
-                            index_data.append({
-                                'symbol': symbol,
-                                'company_name': symbol,
-                                'sector': 'Unknown',
-                                'market_cap': '',
-                                'headquarters': 'Unknown',
-                                'exchange': 'Unknown',
-                                'currency': get_currency_for_category(category)
-                            })
-                    
-                    # Save enhanced index
-                    index_df = pd.DataFrame(index_data)
-                    index_df.to_csv(index_path, index=False)
+                        if not index_manager.stock_exists(symbol, category):
+                            if symbol in company_info:
+                                # Use info from permanent index
+                                info = company_info[symbol]
+                                stock_info = {
+                                    'company_name': info.get('company_name', symbol),
+                                    'sector': info.get('sector', 'Unknown'),
+                                    'market_cap': info.get('market_cap', ''),
+                                    'headquarters': info.get('headquarters', 'Unknown'),
+                                    'exchange': info.get('exchange', 'Unknown')
+                                }
+                            else:
+                                # Use basic info
+                                stock_info = {
+                                    'company_name': symbol,
+                                    'sector': 'Unknown',
+                                    'market_cap': '',
+                                    'headquarters': 'Unknown',
+                                    'exchange': 'Unknown'
+                                }
+                            
+                            index_manager.add_stock(symbol, stock_info, category)
                 else:
                     # Use csv module fallback
                     symbols = set()
@@ -631,22 +627,21 @@ class CurrentFetcher:
                         for row in reader:
                             symbols.add(row['symbol'])
                     
-                    # Save symbols to index file
-                    with open(index_path, 'w', newline='', encoding='utf-8') as f:
-                        writer = csv.writer(f)
-                        writer.writerow(['symbol'])
-                        for symbol in sorted(symbols):
-                            writer.writerow([symbol])
+                    # Add each symbol to dynamic index (preserves existing stocks)
+                    for symbol in symbols:
+                        if not index_manager.stock_exists(symbol, category):
+                            stock_info = {
+                                'company_name': symbol,
+                                'sector': 'Unknown',
+                                'market_cap': '',
+                                'headquarters': 'Unknown',
+                                'exchange': 'Unknown'
+                            }
+                            index_manager.add_stock(symbol, stock_info, category)
                 
                 logger.info(f"Updated index for {category} with {len(symbols)} symbols")
             else:
-                # Create empty index file
-                if PANDAS_AVAILABLE:
-                    pd.DataFrame({'symbol': []}).to_csv(index_path, index=False)
-                else:
-                    with open(index_path, 'w', newline='', encoding='utf-8') as f:
-                        writer = csv.writer(f)
-                        writer.writerow(['symbol'])
+                logger.info(f"No latest prices file found for {category}, skipping dynamic index update")
                 
         except Exception as e:
             logger.error(f"Error updating index for {category}: {str(e)}")

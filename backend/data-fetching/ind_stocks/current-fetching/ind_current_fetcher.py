@@ -29,6 +29,11 @@ from shared.utilities import (
     ensure_alphabetical_order, get_currency_for_category,
     get_live_exchange_rate, convert_usd_to_inr, get_current_timestamp
 )
+try:
+    from .upstox_instruments import get_instruments_fetcher
+except ImportError:
+    # Fallback for when running as script
+    from upstox_instruments import get_instruments_fetcher
 
 class IndianCurrentFetcher:
     """
@@ -51,7 +56,7 @@ class IndianCurrentFetcher:
         self.currency = get_currency_for_category('ind_stocks')  # INR
         
         # Rate limiting
-        self.rate_limit_delay = 1.0  # 1 second between calls
+        self.rate_limit_delay = 2.0  # 2 seconds between calls to avoid rate limits
         self.max_retries = 3
         
         # Cache configuration
@@ -61,6 +66,9 @@ class IndianCurrentFetcher:
         
         # Initialize jugaad-data availability check
         self.jugaad_available = self._check_jugaad_availability()
+        
+        # Initialize Upstox instruments fetcher for ISIN lookups
+        self.instruments_fetcher = get_instruments_fetcher()
         
         # Common Indian stock symbol to instrument key mapping
         self.COMMON_STOCK_MAPPINGS = {
@@ -83,7 +91,25 @@ class IndianCurrentFetcher:
             'HCLTECH': 'NSE_EQ|INE860A01027',
             'ASIANPAINT': 'NSE_EQ|INE021A01026',
             'BAJFINANCE': 'NSE_EQ|INE296A01024',
-            'ADANIPORTS': 'NSE_EQ|INE742F01042'
+            'BAJAJ-AUTO': 'NSE_EQ|INE917I01010',
+            'TITAN': 'NSE_EQ|INE280A01028',
+            'TITANCO': 'NSE_EQ|INE280A01028',
+            'ADANIPORTS': 'NSE_EQ|INE742F01042',
+            'NESTLEIND': 'NSE_EQ|INE239A01016',
+            'POWERGRID': 'NSE_EQ|INE752E01010',
+            'NTPC': 'NSE_EQ|INE733E01010',
+            'COALINDIA': 'NSE_EQ|INE522F01014',
+            'ONGC': 'NSE_EQ|INE213A01029',
+            'IOC': 'NSE_EQ|INE242A01010',
+            'BPCL': 'NSE_EQ|INE029A01011',
+            'HINDALCO': 'NSE_EQ|INE038A01020',
+            'JSWSTEEL': 'NSE_EQ|INE019A01038',
+            'ULTRACEMCO': 'NSE_EQ|INE481G01011',
+            'GRASIM': 'NSE_EQ|INE047A01013',
+            'DRREDDY': 'NSE_EQ|INE089A01023',
+            'CIPLA': 'NSE_EQ|INE059A01026',
+            'SUNPHARMA': 'NSE_EQ|INE044A01036',
+            'DIVISLAB': 'NSE_EQ|INE361B01018'
         }
     
     def _check_jugaad_availability(self) -> bool:
@@ -96,13 +122,57 @@ class IndianCurrentFetcher:
             print("jugaad-data not available - install with: pip install jugaad-data")
             return False
     
-    def get_instrument_key(self, symbol: str) -> str:
-        """Convert stock symbol to Upstox instrument key format"""
+    def get_instrument_key(self, symbol: str) -> Optional[str]:
+        """
+        Convert stock symbol to Upstox instrument key format.
+        
+        Args:
+            symbol: Stock symbol (e.g., 'RELIANCE', 'BAJAJ-AUTO')
+            
+        Returns:
+            Instrument key in format 'NSE_EQ|ISIN' or None if not found
+        """
         symbol_upper = symbol.strip().upper()
+        
+        # 1. Try hardcoded mappings first (fastest)
         if symbol_upper in self.COMMON_STOCK_MAPPINGS:
             return self.COMMON_STOCK_MAPPINGS[symbol_upper]
-        # Fallback: use NSE_EQ|symbol format for unknown stocks
-        return f"NSE_EQ|{symbol_upper}"
+        
+        # 2. Try dynamic index (fast, offline)
+        try:
+            from shared.index_manager import DynamicIndexManager
+            index_manager = DynamicIndexManager(self.data_dir)
+            isin = index_manager.get_isin(symbol_upper, 'ind_stocks')
+            if isin:
+                print(f"✓ Found ISIN in dynamic index for {symbol_upper}: {isin}")
+                return f"NSE_EQ|{isin}"
+        except Exception as e:
+            print(f"Warning: Could not lookup ISIN from dynamic index for {symbol_upper}: {e}")
+        
+        # 3. Try instruments file lookup for dynamic ISIN mapping (slower, online)
+        try:
+            instrument_key = self.instruments_fetcher.get_instrument_key(symbol_upper)
+            if instrument_key:
+                print(f"✓ Found ISIN mapping from instruments file for {symbol_upper}: {instrument_key}")
+                
+                # Save ISIN to dynamic index for future use
+                isin = instrument_key.split('|')[1]
+                try:
+                    from shared.index_manager import DynamicIndexManager
+                    index_manager = DynamicIndexManager(self.data_dir)
+                    if index_manager.stock_exists(symbol_upper, 'ind_stocks'):
+                        index_manager.update_stock_isin(symbol_upper, isin, 'ind_stocks')
+                        print(f"✓ Saved ISIN to dynamic index for {symbol_upper}")
+                except Exception as e:
+                    print(f"Warning: Could not save ISIN to dynamic index: {e}")
+                
+                return instrument_key
+        except Exception as e:
+            print(f"Warning: Could not lookup ISIN from instruments file for {symbol_upper}: {e}")
+        
+        # 4. No ISIN found - return None to skip Upstox
+        print(f"⚠ No ISIN mapping found for {symbol_upper}, will skip Upstox")
+        return None
     
     def _enforce_rate_limit(self):
         """Enforce rate limiting between API requests"""
@@ -136,6 +206,11 @@ class IndianCurrentFetcher:
             raise ValueError("Upstox access token not configured. Check .env file.")
         
         try:
+            # Get instrument key for symbol
+            instrument_key = self.get_instrument_key(symbol)
+            if not instrument_key:
+                raise ValueError(f"No ISIN mapping found for {symbol}. Skipping Upstox.")
+            
             # Upstox Market Quote API v2 endpoint
             url = "https://api.upstox.com/v2/market-quote/ltp"
             headers = {
@@ -143,8 +218,6 @@ class IndianCurrentFetcher:
                 'Authorization': f'Bearer {self.upstox_access_token}'
             }
             
-            # Get instrument key for symbol
-            instrument_key = self.get_instrument_key(symbol)
             params = {'symbol': instrument_key}
             
             print(f"Upstox API call for {symbol}: {instrument_key}")
@@ -159,8 +232,8 @@ class IndianCurrentFetcher:
             data = response.json()
             
             if data.get('status') == 'success' and 'data' in data:
-                # The API returns data with key format: NSE_EQ:SYMBOL
-                data_key = f"NSE_EQ:{symbol}"
+                # The API returns data with the same instrument_key we sent
+                data_key = instrument_key
                 if data_key in data['data']:
                     price_data = data['data'][data_key]
                     price = float(price_data['last_price'])
@@ -169,10 +242,20 @@ class IndianCurrentFetcher:
                     print(f"✓ Upstox: {symbol} = ₹{price}")
                     return price, company_name
                 else:
-                    # Debug: print available keys
-                    available_keys = list(data['data'].keys())
-                    print(f"Available keys in response: {available_keys}")
-                    raise ValueError(f"No price data for {symbol} in Upstox response. Available keys: {available_keys}")
+                    # Try alternative key format (NSE_EQ:SYMBOL)
+                    alt_key = f"NSE_EQ:{symbol}"
+                    if alt_key in data['data']:
+                        price_data = data['data'][alt_key]
+                        price = float(price_data['last_price'])
+                        company_name = symbol  # Use symbol as fallback
+                        
+                        print(f"✓ Upstox: {symbol} = ₹{price} (using alt key)")
+                        return price, company_name
+                    else:
+                        # Debug: print available keys
+                        available_keys = list(data['data'].keys())
+                        print(f"Available keys in response: {available_keys}")
+                        raise ValueError(f"No price data for {symbol} in Upstox response. Available keys: {available_keys}")
             else:
                 error_msg = data.get('message', 'Unknown error')
                 raise ValueError(f"Upstox API error: {error_msg}")
@@ -197,6 +280,11 @@ class IndianCurrentFetcher:
             raise ValueError("Upstox access token not configured")
         
         try:
+            # Get instrument key for symbol
+            instrument_key = self.get_instrument_key(symbol)
+            if not instrument_key:
+                raise ValueError(f"No ISIN mapping found for {symbol}. Skipping Upstox.")
+            
             # Upstox Full Market Quote API endpoint
             url = "https://api.upstox.com/v2/market-quote/quotes"
             headers = {
@@ -204,7 +292,6 @@ class IndianCurrentFetcher:
                 'Authorization': f'Bearer {self.upstox_access_token}'
             }
             
-            instrument_key = self.get_instrument_key(symbol)
             params = {'symbol': instrument_key}
             
             response = requests.get(url, headers=headers, params=params, timeout=10)
@@ -213,8 +300,8 @@ class IndianCurrentFetcher:
             data = response.json()
             
             if data.get('status') == 'success' and 'data' in data:
-                # The API returns data with key format: NSE_EQ:SYMBOL
-                data_key = f"NSE_EQ:{symbol}"
+                # The API returns data with the same instrument_key we sent
+                data_key = instrument_key
                 if data_key in data['data']:
                     quote_data = data['data'][data_key]
                     ohlc = quote_data.get('ohlc', {})
@@ -227,6 +314,21 @@ class IndianCurrentFetcher:
                         'last_price': float(quote_data.get('last_price', 0)),
                         'volume': int(quote_data.get('volume', 0))
                     }
+                else:
+                    # Try alternative key format (NSE_EQ:SYMBOL)
+                    alt_key = f"NSE_EQ:{symbol}"
+                    if alt_key in data['data']:
+                        quote_data = data['data'][alt_key]
+                        ohlc = quote_data.get('ohlc', {})
+                        
+                        return {
+                            'open': float(ohlc.get('open', 0)),
+                            'high': float(ohlc.get('high', 0)),
+                            'low': float(ohlc.get('low', 0)),
+                            'close': float(ohlc.get('close', 0)),
+                            'last_price': float(quote_data.get('last_price', 0)),
+                            'volume': int(quote_data.get('volume', 0))
+                        }
             
             raise ValueError(f"No OHLCV data for {symbol}")
                 
@@ -251,12 +353,12 @@ class IndianCurrentFetcher:
             yfinance_symbol = f"{symbol}.NS"
             ticker = yf.Ticker(yfinance_symbol)
             
-            # Get current info
-            info = ticker.info
+            # Get recent data (last 1 day) instead of info to avoid rate limits
+            hist = ticker.history(period="1d")
             
-            if 'currentPrice' in info and info['currentPrice']:
-                price = float(info['currentPrice'])
-                company_name = info.get('longName', symbol)
+            if not hist.empty and 'Close' in hist.columns:
+                price = float(hist['Close'].iloc[-1])
+                company_name = symbol
                 
                 print(f"Successfully fetched {symbol} from yfinance: ₹{price} ({company_name})")
                 return price, company_name
