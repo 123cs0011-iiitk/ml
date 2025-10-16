@@ -14,6 +14,9 @@ The main.py serves as the entry point and API coordinator.
 
 import os
 import logging
+import pandas as pd
+import json
+import numpy as np
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -34,11 +37,19 @@ from shared.currency_converter import convert_usd_to_inr, convert_inr_to_usd, ge
 # Load environment variables
 load_dotenv()
 
+# Custom JSON encoder to handle NaN values
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, float) and (np.isnan(obj) or np.isinf(obj)):
+            return None
+        return super().default(obj)
+
 # Setup logging
 logger = setup_logger(__name__)
 
 # Initialize Flask app
 app = Flask(__name__)
+app.json_encoder = CustomJSONEncoder
 CORS(app)
 
 # Initialize configuration
@@ -166,63 +177,31 @@ def search_stocks():
     query = request.args.get('q', '').strip()
     
     if not query:
-        return jsonify({
-            'success': True,
-            'data': []
-        })
+        return jsonify({'success': True, 'data': []})
     
     try:
+        from shared.index_manager import DynamicIndexManager
+        index_manager = DynamicIndexManager(config.data_dir)
+        
         results = []
         query_lower = query.lower()
         
-        # Define paths to search (dynamic first, then permanent fallback)
-        search_paths = [
-            os.path.join(config.data_dir, 'index_us_stocks_dynamic.csv'),
-            os.path.join(config.data_dir, 'index_ind_stocks_dynamic.csv'),
-            os.path.join(config.permanent_dir, 'us_stocks', 'index_us_stocks.csv'),
-            os.path.join(config.permanent_dir, 'ind_stocks', 'index_ind_stocks.csv')
-        ]
+        # Search both US and Indian stocks from dynamic indexes
+        for category in ['us_stocks', 'ind_stocks']:
+            index_path = index_manager.get_index_path(category)
+            if os.path.exists(index_path):
+                df = pd.read_csv(index_path)
+                matches = df[
+                    (df['symbol'].str.lower().str.contains(query_lower, na=False)) |
+                    (df['company_name'].str.lower().str.contains(query_lower, na=False))
+                ]
+                for _, row in matches.head(10).iterrows():
+                    results.append({
+                        'symbol': row['symbol'],
+                        'name': row.get('company_name', row['symbol'])
+                    })
         
-        # Search each CSV file
-        for csv_path in search_paths:
-            if os.path.exists(csv_path):
-                try:
-                    import pandas as pd
-                    df = pd.read_csv(csv_path)
-                    
-                    # Filter results based on query
-                    if 'company_name' in df.columns:
-                        matches = df[
-                            (df['symbol'].str.lower().str.contains(query_lower, na=False)) |
-                            (df['company_name'].str.lower().str.contains(query_lower, na=False))
-                        ]
-                    else:
-                        # For dynamic index files that only have symbol column
-                        matches = df[df['symbol'].str.lower().str.contains(query_lower, na=False)]
-                    
-                    # Convert to list of dictionaries
-                    for _, row in matches.head(10).iterrows():
-                        results.append({
-                            'symbol': row['symbol'],
-                            'name': row.get('company_name', row['symbol'])  # Use symbol as name if company_name not available
-                        })
-                        
-                except ImportError:
-                    # Fallback to csv module
-                    import csv
-                    with open(csv_path, 'r', newline='', encoding='utf-8') as f:
-                        reader = csv.DictReader(f)
-                        for row in reader:
-                            if (query_lower in row['symbol'].lower() or 
-                                (row.get('company_name') and query_lower in row['company_name'].lower())):
-                                results.append({
-                                    'symbol': row['symbol'],
-                                    'name': row.get('company_name', row['symbol'])
-                                })
-                                if len(results) >= Constants.MAX_SEARCH_RESULTS:
-                                    break
-        
-        # Remove duplicates and limit results
+        # Remove duplicates
         seen = set()
         unique_results = []
         for result in results:
@@ -232,18 +211,11 @@ def search_stocks():
                 if len(unique_results) >= Constants.MAX_SEARCH_RESULTS:
                     break
         
-        return jsonify({
-            'success': True,
-            'data': unique_results
-        })
+        return jsonify({'success': True, 'data': unique_results})
         
     except Exception as e:
         logger.error(f"Error searching stocks: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Failed to search stocks',
-            'message': str(e)
-        }), 500
+        return jsonify({'success': False, 'error': 'Failed to search stocks', 'message': str(e)}), 500
 
 @app.route('/symbols', methods=['GET'])
 def get_symbols():
@@ -251,58 +223,22 @@ def get_symbols():
     category = request.args.get('category')
     
     try:
-        if category:
-            # Get symbols for specific category
-            csv_path = os.path.join(config.data_dir, f'index_{category}_dynamic.csv')
-            if os.path.exists(csv_path):
-                try:
-                    import pandas as pd
-                    df = pd.read_csv(csv_path)
-                    symbols = df['symbol'].tolist()
-                except ImportError:
-                    # Fallback to csv module
-                    import csv
-                    symbols = []
-                    with open(csv_path, 'r', newline='', encoding='utf-8') as f:
-                        reader = csv.DictReader(f)
-                        for row in reader:
-                            symbols.append(row['symbol'])
-            else:
-                symbols = []
-        else:
-            # Get symbols for all categories
-            symbols = {}
-            for cat in [Constants.US_STOCKS, Constants.INDIAN_STOCKS, Constants.OTHER_STOCKS]:
-                csv_path = os.path.join(config.data_dir, f'index_{cat}_dynamic.csv')
-                if os.path.exists(csv_path):
-                    try:
-                        import pandas as pd
-                        df = pd.read_csv(csv_path)
-                        symbols[cat] = df['symbol'].tolist()
-                    except ImportError:
-                        # Fallback to csv module
-                        import csv
-                        cat_symbols = []
-                        with open(csv_path, 'r', newline='', encoding='utf-8') as f:
-                            reader = csv.DictReader(f)
-                            for row in reader:
-                                cat_symbols.append(row['symbol'])
-                        symbols[cat] = cat_symbols
-                else:
-                    symbols[cat] = []
+        from shared.index_manager import DynamicIndexManager
+        index_manager = DynamicIndexManager(config.data_dir)
         
-        return jsonify({
-            'success': True,
-            'data': symbols
-        })
+        if category:
+            symbols = index_manager.get_all_symbols(category)
+        else:
+            symbols = {
+                'us_stocks': index_manager.get_all_symbols('us_stocks'),
+                'ind_stocks': index_manager.get_all_symbols('ind_stocks')
+            }
+        
+        return jsonify({'success': True, 'data': symbols})
         
     except Exception as e:
         logger.error(f"Error getting symbols: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Failed to get symbols',
-            'message': str(e)
-        }), 500
+        return jsonify({'success': False, 'error': 'Failed to get symbols', 'message': str(e)}), 500
 
 # [FUTURE] Prediction endpoints
 @app.route('/predict', methods=['POST'])
@@ -346,115 +282,36 @@ def predict_stock_price():
 
 @app.route('/stock_info', methods=['GET'])
 def get_stock_info():
-    """
-    Get stock metadata quickly without live price data.
-    
-    Query parameters:
-    - symbol: Stock symbol
-    """
+    """Get stock metadata from dynamic index"""
     symbol = request.args.get('symbol')
     
     if not symbol:
-        return jsonify({
-            'success': False,
-            'error': 'Symbol parameter is required'
-        }), 400
+        return jsonify({'success': False, 'error': 'Symbol parameter is required'}), 400
     
     try:
-        logger.info(f"Fetching stock info for symbol: {symbol}")
+        from shared.index_manager import DynamicIndexManager
         
-        # Determine category and get metadata
+        logger.info(f"Fetching stock info for symbol: {symbol}")
         category = validate_and_categorize_stock(symbol)
         
-        # Read from appropriate permanent index file
-        if category == 'ind_stocks':
-            index_path = os.path.join(config.permanent_dir, 'ind_stocks', 'index_ind_stocks.csv')
-        else:  # Default to US stocks
-            index_path = os.path.join(config.permanent_dir, 'us_stocks', 'index_us_stocks.csv')
+        index_manager = DynamicIndexManager(config.data_dir)
+        stock_info = index_manager.get_stock_info(symbol, category)
         
-        if not os.path.exists(index_path):
-            return jsonify({
-                'success': False,
-                'error': 'Index file not found',
-                'message': f'Index file not found for {category}'
-            }), 404
-        
-        # Read metadata from index file
-        try:
-            import pandas as pd
-            df = pd.read_csv(index_path)
-            symbol_row = df[df['symbol'] == symbol]
-            
-            if symbol_row.empty:
-                return jsonify({
-                    'success': False,
-                    'error': 'Symbol not found',
-                    'message': f'Symbol {symbol} not found in {category} index'
-                }), 404
-            
-            row = symbol_row.iloc[0]
-            
-            # Clean metadata values
-            def clean_value(value):
-                if not value or str(value).strip() == '' or str(value).lower() in ['nan', 'none', 'null']:
-                    return 'N/A'
-                return str(value).strip()
-            
-            result = {
-                'symbol': symbol,
-                'company_name': clean_value(row.get('company_name', symbol)),
-                'sector': clean_value(row.get('sector', 'N/A')),
-                'market_cap': clean_value(row.get('market_cap', 'N/A')),
-                'headquarters': clean_value(row.get('headquarters', 'N/A')),
-                'exchange': clean_value(row.get('exchange', 'N/A')),
-                'category': category
-            }
-            
-            return jsonify({
-                'success': True,
-                'data': result
-            })
-            
-        except ImportError:
-            # Fallback to csv module
-            import csv
-            with open(index_path, 'r', newline='', encoding='utf-8') as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    if row['symbol'] == symbol:
-                        def clean_value(value):
-                            if not value or str(value).strip() == '' or str(value).lower() in ['nan', 'none', 'null']:
-                                return 'N/A'
-                            return str(value).strip()
-                        
-                        result = {
-                            'symbol': symbol,
-                            'company_name': clean_value(row.get('company_name', symbol)),
-                            'sector': clean_value(row.get('sector', 'N/A')),
-                            'market_cap': clean_value(row.get('market_cap', 'N/A')),
-                            'headquarters': clean_value(row.get('headquarters', 'N/A')),
-                            'exchange': clean_value(row.get('exchange', 'N/A')),
-                            'category': category
-                        }
-                        
-                        return jsonify({
-                            'success': True,
-                            'data': result
-                        })
-            
+        if not stock_info:
             return jsonify({
                 'success': False,
                 'error': 'Symbol not found',
                 'message': f'Symbol {symbol} not found in {category} index'
             }), 404
         
+        return jsonify({'success': True, 'data': stock_info})
+        
     except Exception as e:
         logger.error(f"Error fetching stock info for {symbol}: {str(e)}")
         return jsonify({
             'success': False,
             'error': 'Failed to fetch stock info',
-            'message': f'Unable to fetch stock info for {symbol}. Please try again later.',
-            'details': str(e)
+            'message': str(e)
         }), 500
 
 @app.route('/company_info', methods=['GET'])

@@ -43,6 +43,33 @@ A comprehensive full-stack web application that leverages machine learning algor
 - **Chart.js/D3.js** - Interactive charts and visualizations
 - **Material-UI** - Component library for consistent design
 
+### Data Storage Architecture
+
+#### Master Index Files
+- **`data/index_us_stocks_dynamic.csv`** - Master index for all US stocks (500+ stocks)
+- **`data/index_ind_stocks_dynamic.csv`** - Master index for all Indian stocks (500+ stocks)
+- These are the ONLY index files and single source of truth for stock metadata
+- Automatically updated when new stocks are discovered
+- Maintained in alphabetical order by symbol
+
+#### Data Directory (Read/Write)
+- **`data/latest/`** - Recent stock price data (2025+)
+- **`data/past/`** - Historical stock price data (2020-2024)
+- Backend actively reads and writes to this directory
+
+#### Permanent Directory (Read-Only)
+- **`permanent/`** - Manually curated historical data (2020-2024)
+- Used ONLY as fallback when APIs fail
+- Backend NEVER modifies this directory
+- Contains 500 US stocks and 500 Indian stocks with complete historical data
+
+#### Index File Structure
+```csv
+symbol,company_name,sector,market_cap,headquarters,exchange,currency
+AAPL,Apple,Technology,,"Cupertino, California",NASDAQ,USD
+RELIANCE,Reliance Industries,Energy,,"Mumbai, India",NSE,INR
+```
+
 ### Data Storage
 - **CSV Files** - Human-readable data storage format
 - **JSON** - Configuration and metadata storage
