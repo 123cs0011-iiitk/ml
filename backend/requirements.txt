@@ -14,9 +14,7 @@ requests==2.31.0
 alpha_vantage==3.0.0
 
 # Indian stock market APIs
-nsepython==2.97
-nselib==1.9
-india_stocks_api==1.0.0
+jugaad-data==0.27
 
 # Currency conversion
 forex-python==1.9.2
@@ -60,7 +58,7 @@ multidict==6.7.0
 multitasking==0.0.12
 mypy_extensions==1.1.0
 packaging==25.0
-pathspec==1.1.0
+pathspec==0.12.1
 platformdirs==4.5.0
 pluggy==1.6.0
 propcache==0.4.1

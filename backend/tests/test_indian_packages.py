@@ -17,11 +17,9 @@ def test_package_availability():
     
     packages = {
         'yfinance': False,
-        'stock-market-india': False,
-        'nsepython': False,
-        'nselib': False,
+        'jugaad-data': False,
         'alpha_vantage': False,
-        'india_stocks_api': False
+        'upstox': False
     }
     
     # Test yfinance
@@ -32,29 +30,13 @@ def test_package_availability():
     except ImportError:
         print("❌ yfinance: Not available")
     
-    # Test stock-market-india
+    # Test jugaad-data
     try:
-        from stock_market_india import StockMarketIndia
-        packages['stock-market-india'] = True
-        print("✅ stock-market-india: Available")
+        import jugaad_data
+        packages['jugaad-data'] = True
+        print("✅ jugaad-data: Available")
     except ImportError:
-        print("❌ stock-market-india: Not available")
-    
-    # Test nsepython
-    try:
-        import nsepython
-        packages['nsepython'] = True
-        print("✅ nsepython: Available")
-    except ImportError:
-        print("❌ nsepython: Not available")
-    
-    # Test nselib
-    try:
-        import nselib
-        packages['nselib'] = True
-        print("✅ nselib: Available")
-    except ImportError:
-        print("❌ nselib: Not available")
+        print("❌ jugaad-data: Not available")
     
     # Test alpha_vantage
     try:
@@ -64,13 +46,18 @@ def test_package_availability():
     except ImportError:
         print("❌ alpha_vantage: Not available")
     
-    # Test india_stocks_api
+    # Test upstox (check if credentials are available)
     try:
-        from india_stocks_api.angelone import AngelOne
-        packages['india_stocks_api'] = True
-        print("✅ india_stocks_api: Available")
+        import os
+        from dotenv import load_dotenv
+        load_dotenv()
+        if os.getenv('UPSTOX_ACCESS_TOKEN'):
+            packages['upstox'] = True
+            print("✅ upstox: API credentials available")
+        else:
+            print("⚠️ upstox: API credentials not configured")
     except ImportError:
-        print("❌ india_stocks_api: Not available")
+        print("❌ upstox: dotenv not available")
     
     return packages
 
@@ -91,18 +78,18 @@ def test_direct_package_usage():
     except Exception as e:
         print(f"❌ yfinance: Error - {e}")
     
-    # Test stock-market-india
+    # Test jugaad-data
     try:
-        from stock_market_india import StockMarketIndia
-        print("\n📊 Testing stock-market-india...")
-        smi = StockMarketIndia()
-        quote = smi.get_quote('TCS')
+        from jugaad_data.nse import NSELive
+        print("\n📊 Testing jugaad-data...")
+        nse = NSELive()
+        quote = nse.stock_quote('TCS')
         if quote and 'lastPrice' in quote:
-            print(f"✅ stock-market-india: Got quote for TCS - ₹{quote['lastPrice']}")
+            print(f"✅ jugaad-data: Got quote for TCS - ₹{quote['lastPrice']}")
         else:
-            print("❌ stock-market-india: No data returned")
+            print("❌ jugaad-data: No data returned")
     except Exception as e:
-        print(f"❌ stock-market-india: Error - {e}")
+        print(f"❌ jugaad-data: Error - {e}")
 
 def test_fallback_chain():
     """Test the complete fallback chain"""
@@ -165,10 +152,10 @@ def main():
                 print(f"   pip install {package}")
     
     print("\n🚀 Recommendations:")
-    print("1. Install stock-market-india for reliable real-time data")
-    print("2. Keep yfinance for historical data")
-    print("3. Consider nsepython for additional NSE data")
-    print("4. Use india-stocks-api if you have broker accounts")
+    print("1. Install jugaad-data for reliable NSE data (free and actively maintained)")
+    print("2. Set up Upstox API for premium real-time data")
+    print("3. Use yfinance as fallback for basic data")
+    print("4. yfinance with .NS suffix works well for most Indian stocks")
     
     print("\n✅ Test completed!")
 

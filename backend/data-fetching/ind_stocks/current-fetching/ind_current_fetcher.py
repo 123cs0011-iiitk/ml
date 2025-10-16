@@ -2,7 +2,7 @@
 Indian Stocks Current Price Fetcher
 
 Fetches current live stock prices for Indian stocks using multiple data sources.
-Implements fallback chain: Upstox API → NSEPython → yfinance → NSELib
+Implements fallback chain: Upstox API (primary) → yfinance → jugaad-data → permanent directory
 
 Rate-limited to respect API limits and ensure reliable data fetching.
 All prices are returned in INR currency.
@@ -13,10 +13,13 @@ import sys
 import requests
 import pandas as pd
 import time
-import yfinance as yf
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Add project root to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..'))
@@ -38,7 +41,6 @@ class IndianCurrentFetcher:
         self.config = Config()
         self.data_dir = self.config.data_dir
         self.latest_dir = os.path.join(self.data_dir, 'latest', 'ind_stocks')
-        self.latest_prices_file = os.path.join(self.latest_dir, 'latest_prices.csv')
         
         # Ensure directories exist
         os.makedirs(self.latest_dir, exist_ok=True)
@@ -57,44 +59,50 @@ class IndianCurrentFetcher:
         self.cache = {}  # {symbol: {data: dict, timestamp: datetime}}
         self.last_request_time = 0
         
-        # Initialize NSE libraries
-        self._init_nse_libraries()
+        # Initialize jugaad-data availability check
+        self.jugaad_available = self._check_jugaad_availability()
+        
+        # Common Indian stock symbol to instrument key mapping
+        self.COMMON_STOCK_MAPPINGS = {
+            'RELIANCE': 'NSE_EQ|INE002A01018',
+            'TCS': 'NSE_EQ|INE467B01029',
+            'HDFCBANK': 'NSE_EQ|INE040A01034',
+            'INFY': 'NSE_EQ|INE009A01021',
+            'HINDUNILVR': 'NSE_EQ|INE030A01027',
+            'ICICIBANK': 'NSE_EQ|INE090A01021',
+            'SBIN': 'NSE_EQ|INE062A01020',
+            'BHARTIARTL': 'NSE_EQ|INE397D01024',
+            'ITC': 'NSE_EQ|INE154A01025',
+            'KOTAKBANK': 'NSE_EQ|INE237A01028',
+            'LT': 'NSE_EQ|INE018A01030',
+            'AXISBANK': 'NSE_EQ|INE238A01034',
+            'WIPRO': 'NSE_EQ|INE075A01022',
+            'MARUTI': 'NSE_EQ|INE585B01010',
+            'TATAMOTORS': 'NSE_EQ|INE155A01022',
+            'TATASTEEL': 'NSE_EQ|INE081A01020',
+            'HCLTECH': 'NSE_EQ|INE860A01027',
+            'ASIANPAINT': 'NSE_EQ|INE021A01026',
+            'BAJFINANCE': 'NSE_EQ|INE296A01024',
+            'ADANIPORTS': 'NSE_EQ|INE742F01042'
+        }
     
-    def _init_nse_libraries(self):
-        """Initialize NSE libraries with error handling"""
-        self.nsepython_available = False
-        self.nselib_available = False
-        
+    def _check_jugaad_availability(self) -> bool:
+        """Check if jugaad-data library is available"""
         try:
-            import nsepython
-            self.nsepython_available = True
-            print("NSEPython library loaded successfully")
+            import jugaad_data
+            print("jugaad-data library loaded successfully")
+            return True
         except ImportError:
-            print("NSEPython not available - install with: pip install nsepython")
-        
-        try:
-            import nselib
-            self.nselib_available = True
-            print("NSELib library loaded successfully")
-        except ImportError:
-            print("NSELib not available - install with: pip install nselib")
+            print("jugaad-data not available - install with: pip install jugaad-data")
+            return False
     
-    def prepare_yfinance_symbol(self, symbol: str) -> str:
-        """
-        Prepare symbol for yfinance by adding .NS suffix if needed.
-        
-        Args:
-            symbol: Original symbol
-        
-        Returns:
-            Symbol with .NS suffix for yfinance
-        """
-        # Remove any existing suffix first
-        base_symbol = symbol.split('.')[0]
-        
-        # Add .NS suffix for NSE stocks
-        yfinance_symbol = f"{base_symbol}.NS"
-        return yfinance_symbol
+    def get_instrument_key(self, symbol: str) -> str:
+        """Convert stock symbol to Upstox instrument key format"""
+        symbol_upper = symbol.strip().upper()
+        if symbol_upper in self.COMMON_STOCK_MAPPINGS:
+            return self.COMMON_STOCK_MAPPINGS[symbol_upper]
+        # Fallback: use NSE_EQ|symbol format for unknown stocks
+        return f"NSE_EQ|{symbol_upper}"
     
     def _enforce_rate_limit(self):
         """Enforce rate limiting between API requests"""
@@ -121,84 +129,114 @@ class IndianCurrentFetcher:
     
     def fetch_price_from_upstox(self, symbol: str) -> Tuple[float, str]:
         """
-        Fetch current stock price from Upstox API.
-        
-        Args:
-            symbol: Stock symbol
-        
-        Returns:
-            Tuple of (price, company_name)
+        Fetch current stock price + today's OHLCV from Upstox API.
+        Uses ONLY the market quote LTP endpoint - no historical data.
         """
-        if not self.upstox_api_key:
-            raise ValueError("Upstox API key not configured")
+        if not self.upstox_access_token:
+            raise ValueError("Upstox access token not configured. Check .env file.")
         
         try:
-            # Upstox API endpoint for market data
+            # Upstox Market Quote API v2 endpoint
             url = "https://api.upstox.com/v2/market-quote/ltp"
             headers = {
                 'Accept': 'application/json',
-                'Authorization': f'Bearer {self.upstox_access_token}',
-                'Api-Version': '2.0'
+                'Authorization': f'Bearer {self.upstox_access_token}'
             }
             
-            # Prepare symbol for Upstox (NSE format)
-            upstox_symbol = f"NSE_EQ|{symbol}"
-            params = {'symbol': upstox_symbol}
+            # Get instrument key for symbol
+            instrument_key = self.get_instrument_key(symbol)
+            params = {'symbol': instrument_key}
+            
+            print(f"Upstox API call for {symbol}: {instrument_key}")
+            response = requests.get(url, headers=headers, params=params, timeout=10)
+            
+            # Debug: Print status code and response
+            print(f"Upstox response status: {response.status_code}")
+            if response.status_code != 200:
+                print(f"Upstox error response: {response.text}")
+            
+            response.raise_for_status()
+            data = response.json()
+            
+            if data.get('status') == 'success' and 'data' in data:
+                # The API returns data with key format: NSE_EQ:SYMBOL
+                data_key = f"NSE_EQ:{symbol}"
+                if data_key in data['data']:
+                    price_data = data['data'][data_key]
+                    price = float(price_data['last_price'])
+                    company_name = symbol  # Use symbol as fallback
+                    
+                    print(f"✓ Upstox: {symbol} = ₹{price}")
+                    return price, company_name
+                else:
+                    # Debug: print available keys
+                    available_keys = list(data['data'].keys())
+                    print(f"Available keys in response: {available_keys}")
+                    raise ValueError(f"No price data for {symbol} in Upstox response. Available keys: {available_keys}")
+            else:
+                error_msg = data.get('message', 'Unknown error')
+                raise ValueError(f"Upstox API error: {error_msg}")
+                
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 401:
+                raise ValueError("Upstox authentication failed. Check access token in .env")
+            elif e.response.status_code == 403:
+                raise ValueError("Upstox access forbidden. Ensure API is enabled in Upstox dashboard")
+            else:
+                raise ValueError(f"Upstox HTTP error {e.response.status_code}: {e.response.text}")
+        except Exception as e:
+            print(f"Upstox error for {symbol}: {str(e)}")
+            raise
+    
+    def fetch_ohlcv_from_upstox(self, symbol: str) -> Dict[str, Any]:
+        """
+        Fetch today's OHLCV (Open, High, Low, Close, Volume) from Upstox.
+        Uses the full market quote endpoint.
+        """
+        if not self.upstox_access_token:
+            raise ValueError("Upstox access token not configured")
+        
+        try:
+            # Upstox Full Market Quote API endpoint
+            url = "https://api.upstox.com/v2/market-quote/quotes"
+            headers = {
+                'Accept': 'application/json',
+                'Authorization': f'Bearer {self.upstox_access_token}'
+            }
+            
+            instrument_key = self.get_instrument_key(symbol)
+            params = {'symbol': instrument_key}
             
             response = requests.get(url, headers=headers, params=params, timeout=10)
             response.raise_for_status()
             
             data = response.json()
             
-            if 'data' in data and upstox_symbol in data['data']:
-                price_data = data['data'][upstox_symbol]
-                price = float(price_data['last_price'])
-                company_name = price_data.get('company_name', symbol)
-                
-                print(f"Successfully fetched {symbol} from Upstox: ₹{price} ({company_name})")
-                return price, company_name
-            else:
-                raise ValueError(f"No price data available for {symbol}")
+            if data.get('status') == 'success' and 'data' in data:
+                # The API returns data with key format: NSE_EQ:SYMBOL
+                data_key = f"NSE_EQ:{symbol}"
+                if data_key in data['data']:
+                    quote_data = data['data'][data_key]
+                    ohlc = quote_data.get('ohlc', {})
+                    
+                    return {
+                        'open': float(ohlc.get('open', 0)),
+                        'high': float(ohlc.get('high', 0)),
+                        'low': float(ohlc.get('low', 0)),
+                        'close': float(ohlc.get('close', 0)),
+                        'last_price': float(quote_data.get('last_price', 0)),
+                        'volume': int(quote_data.get('volume', 0))
+                    }
+            
+            raise ValueError(f"No OHLCV data for {symbol}")
                 
         except Exception as e:
-            print(f"Upstox error for {symbol}: {str(e)}")
-            raise
-    
-    def fetch_price_from_nsepython(self, symbol: str) -> Tuple[float, str]:
-        """
-        Fetch current stock price from NSEPython library.
-        
-        Args:
-            symbol: Stock symbol
-        
-        Returns:
-            Tuple of (price, company_name)
-        """
-        if not self.nsepython_available:
-            raise ValueError("NSEPython library not available")
-        
-        try:
-            import nsepython
-            
-            # Get quote data
-            quote_data = nsepython.nse_quote(symbol)
-            
-            if 'lastPrice' in quote_data and quote_data['lastPrice']:
-                price = float(quote_data['lastPrice'])
-                company_name = quote_data.get('companyName', symbol)
-                
-                print(f"Successfully fetched {symbol} from NSEPython: ₹{price} ({company_name})")
-                return price, company_name
-            else:
-                raise ValueError(f"No price data available for {symbol}")
-                
-        except Exception as e:
-            print(f"NSEPython error for {symbol}: {str(e)}")
+            print(f"Upstox OHLCV error for {symbol}: {str(e)}")
             raise
     
     def fetch_price_from_yfinance(self, symbol: str) -> Tuple[float, str]:
         """
-        Fetch current stock price from yfinance with multiple fallback methods.
+        Fetch current stock price from yfinance with .NS suffix.
         
         Args:
             symbol: Stock symbol
@@ -207,149 +245,111 @@ class IndianCurrentFetcher:
             Tuple of (price, company_name)
         """
         try:
-            # Prepare symbol for yfinance
-            yfinance_symbol = self.prepare_yfinance_symbol(symbol)
-            print(f"Using yfinance symbol: {yfinance_symbol}")
+            import yfinance as yf
             
+            # Add .NS suffix for NSE stocks
+            yfinance_symbol = f"{symbol}.NS"
             ticker = yf.Ticker(yfinance_symbol)
             
-            # Method 1: Try with 30-day period for more data
-            try:
-                from datetime import datetime, timedelta
-                end_date = datetime.now()
-                start_date = end_date - timedelta(days=30)
+            # Get current info
+            info = ticker.info
+            
+            if 'currentPrice' in info and info['currentPrice']:
+                price = float(info['currentPrice'])
+                company_name = info.get('longName', symbol)
                 
-                print(f"Trying 30-day period for {symbol}...")
-                hist = ticker.history(start=start_date, end=end_date, auto_adjust=False)
-                
-                if not hist.empty:
-                    price = float(hist['Close'].iloc[-1])
-                    company_name = self._get_company_name(ticker, symbol)
-                    print(f"Successfully fetched {symbol} from yfinance (30d): ₹{price} ({company_name})")
-                    return price, company_name
-                else:
-                    print(f"No data in 30-day period for {symbol}")
-                    raise ValueError("No data available")
-                    
-            except Exception as e:
-                print(f"30-day method failed for {symbol}: {e}")
-                
-                # Method 2: Try with 7-day period
-                try:
-                    print(f"Trying 7-day period for {symbol}...")
-                    hist = ticker.history(period="7d", auto_adjust=False)
-                    
-                    if not hist.empty:
-                        price = float(hist['Close'].iloc[-1])
-                        company_name = self._get_company_name(ticker, symbol)
-                        print(f"Successfully fetched {symbol} from yfinance (7d): ₹{price} ({company_name})")
-                        return price, company_name
-                    else:
-                        raise ValueError("No data available")
-                        
-                except Exception as e2:
-                    print(f"7-day method failed for {symbol}: {e2}")
-                    
-                    # Method 3: Try with 5-day period
-                    try:
-                        print(f"Trying 5-day period for {symbol}...")
-                        hist = ticker.history(period="5d", auto_adjust=False)
-                        
-                        if not hist.empty:
-                            price = float(hist['Close'].iloc[-1])
-                            company_name = self._get_company_name(ticker, symbol)
-                            print(f"Successfully fetched {symbol} from yfinance (5d): ₹{price} ({company_name})")
-                            return price, company_name
-                        else:
-                            raise ValueError("No data available")
-                            
-                    except Exception as e3:
-                        print(f"5-day method failed for {symbol}: {e3}")
-                        
-                        # Method 4: Try with 1-day period
-                        try:
-                            print(f"Trying 1-day period for {symbol}...")
-                            hist = ticker.history(period="1d", auto_adjust=False)
-                            
-                            if not hist.empty:
-                                price = float(hist['Close'].iloc[-1])
-                                company_name = self._get_company_name(ticker, symbol)
-                                print(f"Successfully fetched {symbol} from yfinance (1d): ₹{price} ({company_name})")
-                                return price, company_name
-                            else:
-                                raise ValueError("No data available")
-                                
-                        except Exception as e4:
-                            print(f"All yfinance methods failed for {symbol}: {e4}")
-                            raise
+                print(f"Successfully fetched {symbol} from yfinance: ₹{price} ({company_name})")
+                return price, company_name
+            else:
+                raise ValueError(f"No current price data available for {symbol}")
                 
         except Exception as e:
             print(f"yfinance error for {symbol}: {str(e)}")
-            raise  # Ensure exception is raised for proper fallback chain
+            raise
     
-    def _get_company_name(self, ticker, symbol: str) -> str:
-        """Helper method to get company name from ticker info."""
-        try:
-            info = ticker.info
-            return info.get('longName', info.get('shortName', symbol))
-        except:
-            return symbol
-    
-    def _get_stock_metadata(self, symbol: str) -> Dict[str, str]:
+    def fetch_batch_prices_upstox(self, symbols: List[str]) -> Dict[str, Tuple[float, str]]:
         """
-        Get stock metadata (sector, market_cap, headquarters, exchange) from index CSV files.
+        Fetch multiple stock prices in a single Upstox API call.
+        Upstox supports up to 500 symbols per request.
         
         Args:
-            symbol: Stock symbol
-            
+            symbols: List of stock symbols (max 500)
+        
         Returns:
-            Dict with metadata fields, or 'N/A' for missing fields
+            Dict mapping symbol to (price, company_name) tuple
         """
+        if not self.upstox_access_token:
+            raise ValueError("Upstox access token not configured")
+        
+        if len(symbols) > 500:
+            raise ValueError("Upstox batch API supports max 500 symbols")
+        
         try:
-            # Check permanent index file for Indian stocks
-            index_path = os.path.join(
-                '..', 'permanent', 'ind_stocks', 'index_ind_stocks.csv'
-            )
-            index_path = os.path.normpath(index_path)
-            
-            if not os.path.exists(index_path):
-                print(f"Index file not found: {index_path}")
-                return {
-                    'sector': 'N/A',
-                    'market_cap': 'N/A',
-                    'headquarters': 'N/A',
-                    'exchange': 'N/A'
-                }
-            
-            # Read metadata from index file
-            df = pd.read_csv(index_path)
-            symbol_row = df[df['symbol'] == symbol]
-            if not symbol_row.empty:
-                row = symbol_row.iloc[0]
-                return {
-                    'sector': self._clean_metadata_value(str(row.get('sector', 'N/A'))),
-                    'market_cap': self._clean_metadata_value(str(row.get('market_cap', 'N/A'))),
-                    'headquarters': self._clean_metadata_value(str(row.get('headquarters', 'N/A'))),
-                    'exchange': self._clean_metadata_value(str(row.get('exchange', 'N/A')))
-                }
-            
-            # Symbol not found in index
-            print(f"Symbol {symbol} not found in index file: {index_path}")
-            return {
-                'sector': 'N/A',
-                'market_cap': 'N/A',
-                'headquarters': 'N/A',
-                'exchange': 'N/A'
+            url = "https://api.upstox.com/v2/market-quote/ltp"
+            headers = {
+                'Accept': 'application/json',
+                'Authorization': f'Bearer {self.upstox_access_token}'
             }
+            
+            # Convert symbols to instrument keys and create comma-separated string
+            instrument_keys = [self.get_instrument_key(s) for s in symbols]
+            params = {'symbol': ','.join(instrument_keys)}
+            
+            response = requests.get(url, headers=headers, params=params, timeout=30)
+            response.raise_for_status()
+            
+            data = response.json()
+            results = {}
+            
+            if data.get('status') == 'success' and 'data' in data:
+                for symbol, instrument_key in zip(symbols, instrument_keys):
+                    if instrument_key in data['data']:
+                        price_data = data['data'][instrument_key]
+                        price = float(price_data['last_price'])
+                        results[symbol] = (price, symbol)
+            
+            return results
             
         except Exception as e:
+            print(f"Upstox batch fetch error: {str(e)}")
+            raise
+    
+    def _get_stock_metadata(self, symbol: str) -> Dict[str, str]:
+        """Get stock metadata from master dynamic index"""
+        try:
+            from shared.index_manager import DynamicIndexManager
+            
+            index_manager = DynamicIndexManager(self.data_dir)
+            stock_info = index_manager.get_stock_info(symbol, 'ind_stocks')
+            
+            if stock_info:
+                return {
+                    'sector': self._clean_metadata_value(str(stock_info.get('sector', 'N/A'))),
+                    'market_cap': self._clean_metadata_value(str(stock_info.get('market_cap', 'N/A'))),
+                    'headquarters': self._clean_metadata_value(str(stock_info.get('headquarters', 'N/A'))),
+                    'exchange': self._clean_metadata_value(str(stock_info.get('exchange', 'N/A')))
+                }
+            else:
+                # If not in index, try permanent directory as fallback
+                permanent_index = os.path.join(
+                    self.config.permanent_dir, 'ind_stocks', 'index_ind_stocks.csv'
+                )
+                if os.path.exists(permanent_index):
+                    df = pd.read_csv(permanent_index)
+                    row = df[df['symbol'] == symbol]
+                    if not row.empty:
+                        return {
+                            'sector': self._clean_metadata_value(str(row.iloc[0].get('sector', 'N/A'))),
+                            'market_cap': self._clean_metadata_value(str(row.iloc[0].get('market_cap', 'N/A'))),
+                            'headquarters': self._clean_metadata_value(str(row.iloc[0].get('headquarters', 'N/A'))),
+                            'exchange': self._clean_metadata_value(str(row.iloc[0].get('exchange', 'N/A')))
+                        }
+                
+                return {'sector': 'N/A', 'market_cap': 'N/A', 'headquarters': 'N/A', 'exchange': 'N/A'}
+                
+        except Exception as e:
             print(f"Error fetching metadata for {symbol}: {str(e)}")
-            return {
-                'sector': 'N/A',
-                'market_cap': 'N/A',
-                'headquarters': 'N/A',
-                'exchange': 'N/A'
-            }
+            return {'sector': 'N/A', 'market_cap': 'N/A', 'headquarters': 'N/A', 'exchange': 'N/A'}
     
     def _clean_metadata_value(self, value: str) -> str:
         """
@@ -363,6 +363,15 @@ class IndianCurrentFetcher:
         """
         if not value or value.strip() == '' or value.lower() in ['nan', 'none', 'null']:
             return 'N/A'
+        
+        # Handle pandas NaN values
+        try:
+            import pandas as pd
+            if pd.isna(value):
+                return 'N/A'
+        except:
+            pass
+            
         return value.strip()
     
     def fetch_from_permanent_directory(self, symbol: str) -> Optional[Dict[str, Any]]:
@@ -419,9 +428,9 @@ class IndianCurrentFetcher:
         
         return None
     
-    def fetch_price_from_stock_market_india(self, symbol: str) -> Tuple[float, str]:
+    def fetch_price_from_jugaad(self, symbol: str) -> Tuple[float, str]:
         """
-        Fetch current stock price from stock-market-india Python package.
+        Fetch current stock price from jugaad-data library.
         
         Args:
             symbol: Stock symbol
@@ -429,63 +438,33 @@ class IndianCurrentFetcher:
         Returns:
             Tuple of (price, company_name)
         """
+        if not self.jugaad_available:
+            raise ValueError("jugaad-data library not available")
+        
         try:
-            from stock_market_india import StockMarketIndia
-            print(f"Fetching {symbol} from stock-market-india package...")
+            from jugaad_data.nse import NSELive
             
-            # Initialize the stock market India client
-            smi = StockMarketIndia()
+            print(f"Fetching {symbol} from jugaad-data...")
+            
+            # Initialize NSE Live client
+            nse = NSELive()
             
             # Get quote data
-            quote_data = smi.get_quote(symbol)
+            quote_data = nse.stock_quote(symbol)
             
-            if quote_data and 'lastPrice' in quote_data:
+            if quote_data and 'lastPrice' in quote_data and quote_data['lastPrice']:
                 price = float(quote_data['lastPrice'])
                 company_name = quote_data.get('companyName', symbol)
                 
-                print(f"Successfully fetched {symbol} from stock-market-india: ₹{price} ({company_name})")
+                print(f"Successfully fetched {symbol} from jugaad-data: ₹{price} ({company_name})")
                 return price, company_name
             else:
                 raise ValueError(f"No price data available for {symbol}")
                 
-        except ImportError:
-            print(f"stock-market-india package not available - install with: pip install stock-market-india")
-            raise
         except Exception as e:
-            print(f"stock-market-india error for {symbol}: {str(e)}")
+            print(f"jugaad-data error for {symbol}: {str(e)}")
             raise
     
-    def fetch_price_from_nselib(self, symbol: str) -> Tuple[float, str]:
-        """
-        Fetch current stock price from NSELib library.
-        
-        Args:
-            symbol: Stock symbol
-        
-        Returns:
-            Tuple of (price, company_name)
-        """
-        if not self.nselib_available:
-            raise ValueError("NSELib library not available")
-        
-        try:
-            import nselib
-            
-            # Get quote data
-            quote_data = nselib.get_quote(symbol)
-            
-            if 'lastPrice' in quote_data and quote_data['lastPrice']:
-                price = float(quote_data['lastPrice'])
-                company_name = quote_data.get('companyName', symbol)
-                
-                print(f"Successfully fetched {symbol} from NSELib: ₹{price} ({company_name})")
-                return price, company_name
-            else:
-                raise ValueError(f"No price data available for {symbol}")
-                
-        except Exception as e:
-            print(f"NSELib error for {symbol}: {str(e)}")
-            raise
     
     def fetch_current_price(self, symbol: str) -> Dict[str, Any]:
         """
@@ -510,14 +489,11 @@ class IndianCurrentFetcher:
         
         timestamp = datetime.now().isoformat()
         
-        # Try APIs in order of preference
-        # Try each API in order - prioritize yfinance for reliability
+        # Try each API in order - Upstox as primary
         apis = [
-            ('yfinance', self.fetch_price_from_yfinance),
             ('upstox', self.fetch_price_from_upstox),
-            ('nsepython', self.fetch_price_from_nsepython),
-            ('stock-market-india', self.fetch_price_from_stock_market_india),
-            ('nselib', self.fetch_price_from_nselib)
+            ('yfinance', self.fetch_price_from_yfinance),
+            ('jugaad-data', self.fetch_price_from_jugaad)
         ]
         
         last_error = None
@@ -535,6 +511,17 @@ class IndianCurrentFetcher:
                 # Get additional data from latest CSV files
                 additional_data = self._get_latest_day_data(symbol)
                 
+                # If using Upstox, also fetch and save today's OHLCV data
+                ohlcv_data = {}
+                if api_name == 'upstox':
+                    try:
+                        ohlcv_data = self.fetch_ohlcv_from_upstox(symbol)
+                        self.save_daily_data(symbol, ohlcv_data)
+                        print(f"✓ Fetched and saved OHLCV data for {symbol}")
+                    except Exception as e:
+                        print(f"Could not fetch OHLCV data for {symbol}: {e}")
+                        # Continue with just the price
+                
                 result = {
                     'symbol': symbol,
                     'price': price,
@@ -546,11 +533,11 @@ class IndianCurrentFetcher:
                     'market_cap': metadata['market_cap'],
                     'headquarters': metadata['headquarters'],
                     'exchange': metadata['exchange'],
-                    'open': additional_data.get('open'),
-                    'high': additional_data.get('high'),
-                    'low': additional_data.get('low'),
-                    'volume': additional_data.get('volume'),
-                    'close': additional_data.get('close')
+                    'open': ohlcv_data.get('open') or additional_data.get('open'),
+                    'high': ohlcv_data.get('high') or additional_data.get('high'),
+                    'low': ohlcv_data.get('low') or additional_data.get('low'),
+                    'volume': ohlcv_data.get('volume') or additional_data.get('volume'),
+                    'close': ohlcv_data.get('close') or additional_data.get('close')
                 }
                 
                 # Cache the result
@@ -559,8 +546,28 @@ class IndianCurrentFetcher:
                     'timestamp': datetime.now()
                 }
                 
-                # Save to CSV
-                self.save_to_csv(result)
+                # Add to dynamic index if not already present
+                try:
+                    from shared.index_manager import DynamicIndexManager
+                    index_manager = DynamicIndexManager(self.data_dir)
+                    
+                    if not index_manager.stock_exists(symbol, 'ind_stocks'):
+                        # Prepare stock info for dynamic index
+                        stock_info = {
+                            'company_name': result.get('company_name', symbol),
+                            'sector': result.get('sector', 'N/A'),
+                            'market_cap': result.get('market_cap', ''),
+                            'headquarters': result.get('headquarters', 'N/A'),
+                            'exchange': result.get('exchange', 'NSE')
+                        }
+                        
+                        index_manager.add_stock(symbol, stock_info, 'ind_stocks')
+                        print(f"✓ Added {symbol} to dynamic index")
+                    else:
+                        print(f"✓ {symbol} already exists in dynamic index")
+                        
+                except Exception as e:
+                    print(f"Warning: Could not update dynamic index for {symbol}: {e}")
                 
                 print(f"Successfully fetched {symbol} price ₹{price} from {api_name}")
                 return result
@@ -585,110 +592,57 @@ class IndianCurrentFetcher:
         print(error_msg)
         raise Exception(error_msg)
     
-    def save_to_csv(self, data: Dict[str, Any]):
-        """Save stock data to latest_prices.csv file"""
+    def save_daily_data(self, symbol: str, ohlcv_data: Dict[str, Any]):
+        """
+        Append today's OHLCV data to individual stock file in latest directory.
+        Only saves if data for today doesn't already exist.
+        """
         try:
-            # Create DataFrame with the new data
-            new_row = pd.DataFrame([{
-                'symbol': data['symbol'],
-                'price': data['price'],
-                'timestamp': data['timestamp'],
-                'source': data['source'],
-                'company_name': data['company_name'],
-                'currency': data.get('currency', self.currency)
-            }])
+            from datetime import datetime
             
-            # Read existing data if file exists
-            if os.path.exists(self.latest_prices_file):
-                existing_df = pd.read_csv(self.latest_prices_file)
-                # Remove any existing entry for this symbol
-                existing_df = existing_df[existing_df['symbol'] != data['symbol']]
-                # Append new data
-                updated_df = pd.concat([existing_df, new_row], ignore_index=True)
+            # Path to individual file in latest directory
+            individual_file = os.path.join(
+                self.latest_dir, 'individual_files', f'{symbol}.csv'
+            )
+            
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(individual_file), exist_ok=True)
+            
+            # Today's date
+            today = datetime.now().strftime('%Y-%m-%d')
+            
+            # Check if file exists and read it
+            if os.path.exists(individual_file):
+                df = pd.read_csv(individual_file)
+                # Check if today's data already exists
+                if 'date' in df.columns and today in df['date'].values:
+                    print(f"Today's data already exists for {symbol}, skipping")
+                    return
             else:
-                updated_df = new_row
+                # Create new DataFrame with proper columns
+                df = pd.DataFrame(columns=['date', 'open', 'high', 'low', 'close', 'volume'])
             
-            # Save updated data
-            updated_df.to_csv(self.latest_prices_file, index=False)
+            # Add new row for today
+            new_row = {
+                'date': today,
+                'open': ohlcv_data.get('open', 0),
+                'high': ohlcv_data.get('high', 0),
+                'low': ohlcv_data.get('low', 0),
+                'close': ohlcv_data.get('close', ohlcv_data.get('last_price', 0)),
+                'volume': ohlcv_data.get('volume', 0)
+            }
             
-            # Update dynamic index
-            self.update_dynamic_index()
+            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
             
-            print(f"Saved {data['symbol']} data to {self.latest_prices_file}")
+            # Sort by date and save
+            df = df.sort_values('date').reset_index(drop=True)
+            df.to_csv(individual_file, index=False)
+            
+            print(f"Saved today's data for {symbol} to {individual_file}")
             
         except Exception as e:
-            print(f"Error saving to CSV for {data['symbol']}: {str(e)}")
-            # Don't raise exception to avoid breaking the main flow
+            print(f"Error saving daily data for {symbol}: {str(e)}")
     
-    def update_dynamic_index(self):
-        """Update the dynamic index CSV file with company info"""
-        try:
-            index_path = os.path.join(self.data_dir, 'index_ind_stocks_dynamic.csv')
-            
-            if os.path.exists(self.latest_prices_file):
-                df = pd.read_csv(self.latest_prices_file)
-                symbols = df['symbol'].unique().tolist()
-                
-                # Try to get company info from permanent index
-                permanent_index_path = os.path.join(self.data_dir, '..', '..', '..', 'permanent', 'ind_stocks', 'index_ind_stocks.csv')
-                company_info = {}
-                
-                if os.path.exists(permanent_index_path):
-                    try:
-                        permanent_df = pd.read_csv(permanent_index_path)
-                        company_info = permanent_df.set_index('symbol').to_dict('index')
-                    except Exception as e:
-                        print(f"Could not read permanent index: {e}")
-                
-                # Create index with company info
-                index_data = []
-                for symbol in symbols:
-                    if symbol in company_info:
-                        # Use info from permanent index
-                        info = company_info[symbol]
-                        index_data.append({
-                            'symbol': symbol,
-                            'company_name': info.get('company_name', symbol),
-                            'sector': info.get('sector', 'Unknown'),
-                            'market_cap': info.get('market_cap', ''),
-                            'headquarters': info.get('headquarters', 'Unknown'),
-                            'exchange': info.get('exchange', 'NSE'),
-                            'currency': info.get('currency', self.currency)
-                        })
-                    else:
-                        # Use basic info
-                        index_data.append({
-                            'symbol': symbol,
-                            'company_name': symbol,
-                            'sector': 'Unknown',
-                            'market_cap': '',
-                            'headquarters': 'Unknown',
-                            'exchange': 'NSE',
-                            'currency': self.currency
-                        })
-                
-                # Save enhanced index
-                index_df = pd.DataFrame(index_data)
-                index_df.to_csv(index_path, index=False)
-                
-                print(f"Updated dynamic index with {len(symbols)} symbols")
-            else:
-                # Create empty index file
-                pd.DataFrame({'symbol': []}).to_csv(index_path, index=False)
-                
-        except Exception as e:
-            print(f"Error updating dynamic index: {str(e)}")
-    
-    def get_latest_prices(self) -> pd.DataFrame:
-        """Get all latest prices from CSV file"""
-        try:
-            if os.path.exists(self.latest_prices_file):
-                return pd.read_csv(self.latest_prices_file)
-            else:
-                return pd.DataFrame()
-        except Exception as e:
-            print(f"Error reading latest prices: {str(e)}")
-            return pd.DataFrame()
     
     def _get_latest_day_data(self, symbol: str) -> Dict:
         """
@@ -775,7 +729,7 @@ class IndianCurrentFetcher:
             Dict with results and statistics
         """
         print(f"Fetching current prices for {len(symbols)} Indian stock symbols...")
-        print("Using fallback chain: Upstox → NSEPython → yfinance → NSELib")
+        print("Using fallback chain: Upstox → yfinance → jugaad-data")
         
         results = {
             'successful': [],
@@ -852,14 +806,16 @@ def main():
         print("Please specify --symbols or --all")
         return
     
-    # Show latest prices
-    latest_prices = fetcher.get_latest_prices()
-    if not latest_prices.empty:
-        print(f"\nLatest prices ({len(latest_prices)} symbols):")
-        for _, row in latest_prices.head(10).iterrows():
-            print(f"  {row['symbol']}: ₹{row['price']:.2f} ({row['source']})")
-        if len(latest_prices) > 10:
-            print(f"  ... and {len(latest_prices) - 10} more")
+    # Show latest prices from individual files
+    print(f"\nLatest prices from individual files:")
+    for symbol in args.symbols:
+        try:
+            # Get latest data from individual file
+            latest_data = fetcher._get_latest_day_data(symbol)
+            if latest_data and 'close' in latest_data:
+                print(f"  {symbol}: ₹{latest_data['close']:.2f} (from individual file)")
+        except Exception as e:
+            print(f"  {symbol}: Error reading individual file - {e}")
 
 if __name__ == "__main__":
     main()
