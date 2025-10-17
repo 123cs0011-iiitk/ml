@@ -6,7 +6,7 @@ import { Skeleton } from './ui/skeleton';
 import { Alert, AlertDescription } from './ui/alert';
 import { BarChart3 } from 'lucide-react';
 import { PricePoint } from '../services/stockService';
-import { convertPrice, formatPrice, Currency } from '../utils/currency';
+import { convertPrice, formatPrice, formatPriceDirect, Currency } from '../utils/currency';
 
 interface StockChartProps {
   data: PricePoint[];
@@ -37,7 +37,7 @@ export function StockChart({
   // Convert price data to selected currency
   const convertedData = data.map(point => ({
     ...point,
-    price: convertPrice(point.price, 'USD', currency)
+    price: convertPrice(point.price, (point.currency || 'USD') as Currency, currency)
   })).filter(point => point.price != null && !isNaN(point.price));
 
   // Custom tooltip component
@@ -47,7 +47,7 @@ export function StockChart({
         <div className="bg-background border rounded-lg p-3 shadow-lg">
           <p className="text-sm font-medium mb-1">{new Date(label).toLocaleDateString()}</p>
           <p className="text-sm text-primary">
-            Price: {formatPrice(payload[0].value, currency)}
+            Price: {formatPriceDirect(payload[0].value, currency)}
           </p>
         </div>
       );
@@ -59,17 +59,17 @@ export function StockChart({
     return (
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="w-5 h-5" />
-              Price Chart - {symbol}
-            </CardTitle>
+          <CardTitle className="card-title-scaled card-title-with-icon flex items-center justify-between">
+            <div className="flex items-center gap-5">
+              <BarChart3 className="card-icon-scaled" />
+              <span>Price Chart - {symbol}</span>
+            </div>
             <div className="flex gap-1">
               {periods.map(period => (
                 <Skeleton key={period.value} className="h-8 w-12" />
               ))}
             </div>
-          </div>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <Skeleton className="h-64 w-full" />
@@ -82,11 +82,11 @@ export function StockChart({
     return (
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="w-5 h-5" />
-              Price Chart - {symbol}
-            </CardTitle>
+          <CardTitle className="card-title-scaled card-title-with-icon flex items-center justify-between">
+            <div className="flex items-center gap-5">
+              <BarChart3 className="card-icon-scaled" />
+              <span>Price Chart - {symbol}</span>
+            </div>
             <div className="flex gap-1">
               {periods.map(period => (
                 <Button
@@ -99,7 +99,7 @@ export function StockChart({
                 </Button>
               ))}
             </div>
-          </div>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <Alert>
@@ -114,11 +114,11 @@ export function StockChart({
     return (
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="w-5 h-5" />
-              Price Chart - {symbol}
-            </CardTitle>
+          <CardTitle className="card-title-scaled card-title-with-icon flex items-center justify-between">
+            <div className="flex items-center gap-5">
+              <BarChart3 className="card-icon-scaled" />
+              <span>Price Chart - {symbol}</span>
+            </div>
             <div className="flex gap-1">
               {periods.map(period => (
                 <Button
@@ -131,7 +131,7 @@ export function StockChart({
                 </Button>
               ))}
             </div>
-          </div>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="h-64 flex items-center justify-center text-muted-foreground">
@@ -149,11 +149,11 @@ export function StockChart({
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="w-5 h-5" />
-            Price Chart - {symbol}
-          </CardTitle>
+        <CardTitle className="card-title-scaled card-title-with-icon flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <BarChart3 className="card-icon-scaled" />
+            <span>Price Chart - {symbol}</span>
+          </div>
           <div className="flex gap-1">
             {periods.map(period => (
               <Button
@@ -166,7 +166,7 @@ export function StockChart({
               </Button>
             ))}
           </div>
-        </div>
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="h-64">
@@ -180,7 +180,7 @@ export function StockChart({
               />
               <YAxis 
                 domain={[minPrice - padding, maxPrice + padding]}
-                tickFormatter={(value) => formatPrice(value, currency)}
+                tickFormatter={(value) => formatPriceDirect(value, currency)}
                 className="text-xs"
               />
               <Tooltip content={<CustomTooltip />} />

@@ -7,7 +7,7 @@ This script tests if Upstox is providing real-time prices for various Indian sto
 
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'data-fetching', 'ind_stocks', 'current-fetching'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'data_fetching', 'ind_stocks', 'current_fetching'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'shared'))
 
 from ind_current_fetcher import IndianCurrentFetcher

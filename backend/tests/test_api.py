@@ -1,154 +1,174 @@
-#!/usr/bin/env python3
 """
-Simple test script for the Live Stock Price API
+API Tests for ML Prediction Endpoints
+
+This module tests the Flask API endpoints for ML predictions.
 """
 
-import requests
+import pytest
 import json
-import time
-import sys
 import os
+import sys
+from unittest.mock import patch, MagicMock
 
-def check_virtual_environment():
-    """Check if running in a virtual environment"""
-    in_venv = (
-        hasattr(sys, 'real_prefix') or 
-        (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix) or
-        os.environ.get('VIRTUAL_ENV') is not None
-    )
+# Add backend to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+from main import app
+
+
+@pytest.fixture
+def client():
+    """Create test client for Flask app."""
+    app.config['TESTING'] = True
+    with app.test_client() as client:
+        yield client
+
+
+class TestPredictionAPI:
+    """Test cases for prediction API endpoints."""
     
-    if not in_venv:
-        print("⚠️  WARNING: Not running in a virtual environment!")
-        print("   Best practice: Activate virtual environment first:")
-        print("   venv\\Scripts\\activate  # Windows")
-        print("   source venv/bin/activate  # macOS/Linux")
-        print("")
+    def test_predict_endpoint_missing_symbol(self, client):
+        """Test /api/predict without symbol parameter."""
+        response = client.get('/api/predict')
+        assert response.status_code == 400
+        data = json.loads(response.data)
+        assert 'error' in data
+        assert 'Symbol parameter is required' in data['error']
     
-    return in_venv
-
-# Configuration
-BASE_URL = "http://localhost:5000"
-TEST_SYMBOLS = ["AAPL", "GOOGL", "MSFT", "INVALID_SYMBOL"]
-
-def test_health_check():
-    """Test the health check endpoint"""
-    print("Testing health check...")
-    try:
-        response = requests.get(f"{BASE_URL}/health", timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            print(f"✓ Health check passed: {data}")
-            return True
-        else:
-            print(f"✗ Health check failed: {response.status_code}")
-            return False
-    except Exception as e:
-        print(f"✗ Health check error: {e}")
-        return False
-
-def test_live_price(symbol):
-    """Test live price endpoint for a symbol"""
-    print(f"Testing live price for {symbol}...")
-    try:
-        response = requests.get(f"{BASE_URL}/live_price?symbol={symbol}", timeout=15)
-        data = response.json()
+    def test_predict_endpoint_invalid_horizon(self, client):
+        """Test /api/predict with invalid horizon."""
+        response = client.get('/api/predict?symbol=AAPL&horizon=invalid')
+        assert response.status_code == 400
+        data = json.loads(response.data)
+        assert 'error' in data
+        assert 'Invalid horizon' in data['error']
+    
+    def test_predict_endpoint_invalid_model(self, client):
+        """Test /api/predict with invalid model."""
+        response = client.get('/api/predict?symbol=AAPL&model=invalid')
+        assert response.status_code == 400
+        data = json.loads(response.data)
+        assert 'error' in data
+        assert 'Invalid model' in data['error']
+    
+    @patch('algorithms.utils.predict_for_symbol')
+    def test_predict_endpoint_success(self, mock_predict, client):
+        """Test successful prediction request."""
+        # Mock the prediction function
+        mock_result = {
+            'symbol': 'AAPL',
+            'horizon': '1d',
+            'predicted_price': 150.25,
+            'confidence': 75.5,
+            'price_range': [145.0, 155.5],
+            'time_frame_days': 1,
+            'model_info': {
+                'algorithm': 'Ensemble (weighted)',
+                'members': ['lstm', 'random_forest'],
+                'ensemble_size': 2
+            },
+            'data_points_used': 1000,
+            'last_updated': '2025-01-17T10:00:00Z',
+            'currency': 'USD'
+        }
+        mock_predict.return_value = mock_result
         
-        if response.status_code == 200:
-            if data.get('success') and data.get('data'):
-                price_data = data['data']
-                print(f"✓ {symbol}: ${price_data['price']} from {price_data['source']} at {price_data['timestamp']}")
-                return True
-            else:
-                print(f"✗ {symbol}: API returned success=False")
-                return False
-        else:
-            print(f"✗ {symbol}: HTTP {response.status_code} - {data.get('message', 'Unknown error')}")
-            return False
-    except Exception as e:
-        print(f"✗ {symbol}: Error - {e}")
-        return False
+        response = client.get('/api/predict?symbol=AAPL&horizon=1d')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data['symbol'] == 'AAPL'
+        assert data['predicted_price'] == 150.25
+        assert data['confidence'] == 75.5
+        assert 'model_info' in data
+    
+    def test_train_endpoint_missing_symbol(self, client):
+        """Test /api/train without symbol parameter."""
+        response = client.post('/api/train', json={})
+        assert response.status_code == 400
+        data = json.loads(response.data)
+        assert 'error' in data
+        assert 'Symbol is required' in data['error']
+    
+    @patch('algorithms.utils.predict_for_symbol')
+    def test_train_endpoint_success(self, mock_predict, client):
+        """Test successful training request."""
+        # Mock the prediction function (which also trains models)
+        mock_result = {
+            'symbol': 'AAPL',
+            'model_info': {
+                'members': ['lstm', 'random_forest'],
+                'weights': {'lstm': 0.6, 'random_forest': 0.4}
+            },
+            'data_points_used': 1000,
+            'last_updated': '2025-01-17T10:00:00Z'
+        }
+        mock_predict.return_value = mock_result
+        
+        response = client.post('/api/train', json={
+            'symbol': 'AAPL',
+            'models': ['lstm', 'random_forest']
+        })
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data['symbol'] == 'AAPL'
+        assert 'models_trained' in data
+        assert 'training_metrics' in data
+    
+    def test_models_endpoint_no_models(self, client):
+        """Test /api/models/<symbol> when no models exist."""
+        response = client.get('/api/models/NONEXISTENT')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data['symbol'] == 'NONEXISTENT'
+        assert data['models'] == []
+        assert 'No trained models found' in data['message']
+    
+    def test_models_endpoint_with_models(self, client):
+        """Test /api/models/<symbol> when models exist."""
+        # Create a mock models directory structure
+        import tempfile
+        import shutil
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Mock the models directory
+            with patch('os.path.join') as mock_join:
+                mock_join.side_effect = lambda *args: os.path.join(temp_dir, *args[1:])
+                
+                # Create mock model directory
+                model_dir = os.path.join(temp_dir, 'AAPL', 'lstm_model')
+                os.makedirs(model_dir, exist_ok=True)
+                
+                # Create mock metadata
+                metadata = {
+                    'saved_at': '2025-01-17T10:00:00Z',
+                    'training_metrics': {'rmse': 0.05, 'mae': 0.03},
+                    'model_params': {'lookback': 60}
+                }
+                
+                with open(os.path.join(model_dir, 'metadata.json'), 'w') as f:
+                    json.dump(metadata, f)
+                
+                response = client.get('/api/models/AAPL')
+                assert response.status_code == 200
+                data = json.loads(response.data)
+                assert data['symbol'] == 'AAPL'
+                assert len(data['models']) == 1
+                assert data['models'][0]['model_name'] == 'lstm_model'
 
-def test_latest_prices():
-    """Test latest prices endpoint"""
-    print("Testing latest prices...")
-    try:
-        response = requests.get(f"{BASE_URL}/latest_prices", timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            if data.get('success'):
-                prices = data.get('data', [])
-                print(f"✓ Latest prices: {len(prices)} entries")
-                for price in prices[:3]:  # Show first 3
-                    print(f"  - {price['symbol']}: ${price['price']} ({price['source']})")
-                return True
-            else:
-                print(f"✗ Latest prices failed: {data.get('message')}")
-                return False
-        else:
-            print(f"✗ Latest prices HTTP error: {response.status_code}")
-            return False
-    except Exception as e:
-        print(f"✗ Latest prices error: {e}")
-        return False
 
-def test_symbols():
-    """Test symbols endpoint"""
-    print("Testing symbols...")
-    try:
-        response = requests.get(f"{BASE_URL}/symbols", timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            if data.get('success'):
-                symbols = data.get('data', {})
-                print(f"✓ Symbols: {sum(len(s) for s in symbols.values())} total")
-                for category, symbol_list in symbols.items():
-                    print(f"  - {category}: {len(symbol_list)} symbols")
-                return True
-            else:
-                print(f"✗ Symbols failed: {data.get('message')}")
-                return False
-        else:
-            print(f"✗ Symbols HTTP error: {response.status_code}")
-            return False
-    except Exception as e:
-        print(f"✗ Symbols error: {e}")
-        return False
+class TestHealthEndpoints:
+    """Test cases for health and utility endpoints."""
+    
+    def test_health_endpoint(self, client):
+        """Test /health endpoint."""
+        response = client.get('/health')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data['status'] == 'healthy'
+        assert 'service' in data
+        assert 'version' in data
+        assert 'timestamp' in data
 
-def main():
-    """Run all tests"""
-    print("=" * 50)
-    print("Live Stock Price API Test Suite")
-    print("=" * 50)
-    
-    # Check virtual environment
-    check_virtual_environment()
-    
-    # Test health check first
-    if not test_health_check():
-        print("\n❌ Health check failed. Is the server running?")
-        print("Start the server with: py run_server.py")
-        sys.exit(1)
-    
-    print("\n" + "-" * 30)
-    
-    # Test live prices
-    success_count = 0
-    for symbol in TEST_SYMBOLS:
-        if test_live_price(symbol):
-            success_count += 1
-        time.sleep(1)  # Rate limiting
-    
-    print(f"\n✓ {success_count}/{len(TEST_SYMBOLS)} symbols tested successfully")
-    
-    print("\n" + "-" * 30)
-    
-    # Test other endpoints
-    test_latest_prices()
-    test_symbols()
-    
-    print("\n" + "=" * 50)
-    print("Test completed!")
-    print("=" * 50)
 
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    pytest.main([__file__])

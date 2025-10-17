@@ -33,9 +33,18 @@ class Config:
         
         # API Keys
         self.finnhub_api_key = os.getenv('FINNHUB_API_KEY')
-        self.alphavantage_api_key = os.getenv('ALPHAVANTAGE_API_KEY')
         self.upstox_api_key = os.getenv('UPSTOX_API_KEY')
-        self.upstox_access_token = os.getenv('UPSTOX_ACCESS_TOKEN')
+        
+        # Upstox OAuth Credentials (Static - from .env)
+        self.upstox_client_id = os.getenv('UPSTOX_CLIENT_ID')
+        self.upstox_client_secret = os.getenv('UPSTOX_CLIENT_SECRET')
+        self.upstox_redirect_uri = os.getenv('UPSTOX_REDIRECT_URI', 'http://localhost:3000')
+        
+        # Note: Dynamic tokens (access_token, refresh_token, expiry) are now stored in JSON cache
+        # and managed by UpstoxTokenManager. These are no longer loaded from .env:
+        # - upstox_access_token
+        # - upstox_refresh_token  
+        # - upstox_token_expiry
     
     def get_data_path(self, *paths):
         """Get path relative to data directory"""
@@ -521,7 +530,6 @@ class Constants:
     # API Sources
     YFINANCE = 'yfinance'
     FINNHUB = 'finnhub'
-    ALPHAVANTAGE = 'alphavantage'
     PERMANENT_DIR = 'permanent_directory'
     
     # File Extensions

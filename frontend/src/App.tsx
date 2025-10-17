@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart3, AlertCircle } from 'lucide-react';
+import { BarChart3, AlertCircle, Info } from 'lucide-react';
 import { StockSearch } from './components/StockSearch';
 import { StockInfo } from './components/StockInfo';
 import { StockChart } from './components/StockChart';
@@ -17,6 +17,7 @@ export default function App() {
   const [stockInfoData, setStockInfoData] = useState<StockInfoResponse | null>(null);
   const [chartData, setChartData] = useState<PricePoint[]>([]);
   const [prediction, setPrediction] = useState<PredictionResult | null>(null);
+  const [predictionHorizon, setPredictionHorizon] = useState<string>('1d');
   const [chartPeriod, setChartPeriod] = useState<'year' | '5year'>('year');
   const [currency, setCurrency] = useState<Currency>('USD');
   const [loading, setLoading] = useState({
@@ -35,9 +36,16 @@ export default function App() {
     if (selectedSymbol) {
       loadStockData(selectedSymbol);
       loadChartData(selectedSymbol, chartPeriod);
-      loadPrediction(selectedSymbol);
+      loadPrediction(selectedSymbol, predictionHorizon);
     }
   }, [selectedSymbol]);
+
+  // Reload prediction when horizon changes
+  useEffect(() => {
+    if (selectedSymbol) {
+      loadPrediction(selectedSymbol, predictionHorizon);
+    }
+  }, [predictionHorizon, selectedSymbol]);
 
   // Reload chart data when period changes
   useEffect(() => {
@@ -94,11 +102,11 @@ export default function App() {
     }
   };
 
-  const loadPrediction = async (symbol: string) => {
+  const loadPrediction = async (symbol: string, horizon: string = predictionHorizon) => {
     setLoading(prev => ({ ...prev, prediction: true }));
     setErrors(prev => ({ ...prev, prediction: '' }));
     try {
-      const data = await stockService.getPrediction(symbol);
+      const data = await stockService.getPrediction(symbol, horizon);
       setPrediction(data);
     } catch (error) {
       console.error('Failed to load prediction:', error);
@@ -122,23 +130,27 @@ export default function App() {
     setCurrency(newCurrency);
   };
 
+  const handleHorizonChange = (horizon: string) => {
+    setPredictionHorizon(horizon);
+  };
+
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto p-4 space-y-6">
+      <div className="main-app-container space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <BarChart3 className="w-8 h-8 text-primary" />
-            <h1>Stock Prediction Dashboard</h1>
+          <div className="header-container">
+            <BarChart3 className="stock-price-prediction-icon text-primary" />
+            <h1 className="stock-price-prediction-header">Stock Price Prediction</h1>
           </div>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-2xl text-muted-foreground max-w-2xl mx-auto">
             Analyze real-time stock data and get AI-powered price predictions using machine learning algorithms.
             Always conduct your own research before making investment decisions.
           </p>
         </div>
 
         {/* Warning Banner */}
-        <Alert>
+        <Alert className="alert-scaled">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
             <strong>Investment Warning:</strong> Stock market predictions are inherently uncertain.
@@ -148,9 +160,9 @@ export default function App() {
           </AlertDescription>
         </Alert>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="card-grid-layout">
           {/* Left Sidebar */}
-          <div className="space-y-6">
+          <div className="sidebar-container">
             <StockSearch
               onStockSelect={handleStockSelect}
               selectedSymbol={selectedSymbol}
@@ -168,7 +180,7 @@ export default function App() {
           </div>
 
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="main-content-container">
             <StockChart
               data={chartData}
               symbol={selectedSymbol || 'Select a Stock'}
@@ -186,6 +198,7 @@ export default function App() {
               symbol={selectedSymbol}
               error={errors.prediction}
               currency={currency}
+              onHorizonChange={handleHorizonChange}
             />
           </div>
         </div>
@@ -193,15 +206,18 @@ export default function App() {
         {/* Footer */}
         <Card>
           <CardHeader>
-            <CardTitle>About This Tool</CardTitle>
+            <CardTitle className="card-title-scaled card-title-with-icon">
+              <Info className="card-icon-scaled" />
+              About This Tool
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">
+          <CardContent className="space-y-4">
+            <p className="text-2xl text-muted-foreground">
               This stock prediction dashboard uses k-nearest neighbor (KNN) machine learning algorithm
               to analyze recent price patterns and predict short-term price movements. The algorithm
               examines the most recent trading data to identify similar patterns and estimate future prices.
             </p>
-            <div className="text-xs text-muted-foreground space-y-1">
+            <div className="text-2xl text-muted-foreground space-y-2">
               <p><strong>Backend:</strong> Powered by Supabase edge functions with real-time data processing</p>
               <p><strong>Prediction Model:</strong> K-Nearest Neighbor algorithm with weighted recent data analysis</p>
               <p><strong>Timeframes:</strong> Weekly, monthly, and yearly historical data analysis</p>

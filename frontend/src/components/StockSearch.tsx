@@ -68,17 +68,17 @@ export function StockSearch({ onStockSelect, selectedSymbol }: StockSearchProps)
     <Card>
       <CardContent className="p-4">
         <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground stock-search-icon" />
           <Input
             placeholder="Search stocks (e.g., AAPL, Apple)"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="pl-10"
+            className="pl-10 stock-search-input"
           />
         </div>
 
         {(isSearching || isLoadingPopular) && (
-          <div className="text-center text-muted-foreground py-4">
+          <div className="text-center text-muted-foreground py-4 stock-search-loading">
             {isSearching ? 'Searching...' : 'Loading stocks...'}
           </div>
         )}
@@ -86,7 +86,7 @@ export function StockSearch({ onStockSelect, selectedSymbol }: StockSearchProps)
         {!isSearching && !isLoadingPopular && (
           <div>
             <div className="mb-3">
-              <h3 className="font-medium text-sm text-muted-foreground mb-2">
+              <h3 className="stock-search-heading text-muted-foreground mb-2">
                 {query.trim().length > 0 ? 'Search Results' : 'Popular Stocks'}
               </h3>
             </div>
@@ -96,29 +96,29 @@ export function StockSearch({ onStockSelect, selectedSymbol }: StockSearchProps)
                 <Button
                   key={stock.symbol}
                   variant={selectedSymbol === stock.symbol ? 'default' : 'ghost'}
-                  className="w-full justify-start p-3 h-auto"
+                  className={`w-full justify-start p-3 h-auto ${selectedSymbol === stock.symbol ? 'stock-search-selected' : ''}`}
                   onClick={() => handleStockClick(stock.symbol)}
                 >
                   <div className="flex items-center justify-between w-full">
                     <div className="text-left">
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="outline" className="stock-search-symbol">
                           {stock.symbol}
                         </Badge>
                         {/* Show Indian stock indicator */}
                         {stock.symbol.includes('.NS') || stock.symbol.includes('.BO') || 
                          ['RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'ICICIBANK', 'WIPRO', 'MARUTI', 'BAJAJFINSV', 'TATACONSUM', 'LTF'].includes(stock.symbol) ? (
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge variant="secondary" className="stock-search-symbol">
                             NSE
                           </Badge>
                         ) : null}
                         {selectedSymbol === stock.symbol && (
-                          <Badge variant="default" className="text-xs">
+                          <Badge variant="default" className="stock-search-symbol">
                             Selected
                           </Badge>
                         )}
                       </div>
-                      <div className="text-sm text-muted-foreground mt-1 truncate">
+                      <div className="stock-search-company text-muted-foreground mt-1 truncate">
                         {stock.name}
                       </div>
                     </div>
@@ -127,7 +127,7 @@ export function StockSearch({ onStockSelect, selectedSymbol }: StockSearchProps)
               ))}
               
               {displayStocks.length === 0 && query.trim().length > 0 && !isSearching && (
-                <div className="text-center text-muted-foreground py-4">
+                <div className="text-center text-muted-foreground py-4 stock-search-no-results">
                   No stocks found for "{query}"
                 </div>
               )}
