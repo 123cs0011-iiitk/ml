@@ -1737,3 +1737,304 @@ html {
     opacity: .5;
   }
 }
+
+/* Custom styling for Stock Price Prediction header */
+.stock-price-prediction-header {
+  font-family: 'JetBrains Mono', 'Monaco', 'Courier New', monospace !important;
+  font-weight: 700 !important;
+  font-size: 4.5rem !important; /* Match icon height */
+  line-height: 1.2 !important;
+}
+
+.stock-price-prediction-icon {
+  width: 4.5rem !important; /* 3rem * 1.5 = 4.5rem */
+  height: 4.5rem !important; /* 3rem * 1.5 = 4.5rem */
+}
+
+/* Ensure proper spacing and alignment */
+.header-container {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem !important; /* gap-2 equivalent */
+  margin-bottom: 0.5rem !important; /* mb-2 equivalent */
+}
+
+/* Step 1: Card Positioning and Layout Structure */
+
+/* Main container with proper width for content scaling */
+.main-app-container {
+  max-width: 1400px !important; /* Increased width to allow cards to expand towards edges */
+  margin: 0 auto !important;
+  padding: 1rem !important;
+  width: 100% !important;
+}
+
+/* Grid layout with proper proportions and spacing */
+.card-grid-layout {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 1.5rem !important; /* gap-6 equivalent */
+  width: 100% !important;
+}
+
+/* Desktop layout: maintain 1:2 ratio for sidebar:main content */
+@media (min-width: 1024px) {
+  .card-grid-layout {
+    grid-template-columns: 1fr 2fr !important; /* Perfect 1:2 ratio */
+    gap: 2rem !important; /* Slightly larger gap for better spacing */
+  }
+}
+
+/* Sidebar positioning - left column */
+.sidebar-container {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1.5rem !important; /* space-y-6 equivalent */
+  width: 100% !important;
+}
+
+/* Main content positioning - right column (2/3 width) */
+.main-content-container {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1.5rem !important; /* space-y-6 equivalent */
+  width: 100% !important;
+}
+
+/* Card base positioning - prepare for content scaling */
+.card-positioning {
+  width: 100% !important;
+  min-height: fit-content !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* Ensure cards can expand towards edges when content scales */
+.card-content-area {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+}
+
+/* Step 2A: Scale Card Titles (Headings) */
+.card-title-scaled {
+  font-size: 1.5rem !important; /* text-2xl - 1.5x scaling from text-base */
+  font-weight: 600 !important; /* font-semibold - slightly bolder than default */
+  line-height: 1.4 !important; /* Better line height for larger text */
+  margin-bottom: 0.5rem !important; /* Add some bottom margin */
+}
+
+/* Ensure card titles maintain proper spacing with icons */
+.card-title-with-icon {
+  display: flex !important;
+  align-items: center !important;
+  gap: 1.25rem !important; /* gap-5 - significantly increased gap for better separation */
+}
+
+/* Step 2B: Scale Icons Inside Cards */
+.card-icon-scaled {
+  width: 2rem !important; /* w-8 - Significantly larger icons */
+  height: 2rem !important; /* h-8 - Significantly larger icons */
+  flex-shrink: 0 !important; /* Prevent icon from shrinking */
+}
+
+/* Alert Component Scaling */
+.alert-scaled {
+  padding: 1rem 1.25rem !important; /* Increased padding for better spacing */
+  font-size: 1.25rem !important; /* text-xl - larger base text */
+}
+
+.alert-scaled [data-slot="alert-description"] {
+  font-size: 1.25rem !important; /* text-xl - match alert base size */
+  line-height: 1.75 !important; /* Better line height for readability */
+  align-self: start !important; /* Align text to top to match icon */
+  margin-top: -0.375rem !important; /* Lift text up to better align with icon */
+}
+
+.alert-scaled > svg {
+  width: 1.5rem !important; /* w-6 - larger icon (from h-4 w-4) */
+  height: 1.5rem !important; /* h-6 */
+  grid-column: 1 !important; /* Keep icon in first column */
+  grid-row: 1 !important; /* Keep icon in first row */
+  align-self: start !important; /* Align icon to top of container */
+  justify-self: start !important; /* Align icon to start of grid cell */
+  margin-top: 0.125rem !important; /* Fine-tune to align with text baseline */
+}
+
+.alert-scaled strong {
+  font-size: 1.5rem !important; /* text-2xl - make heading more prominent */
+  font-weight: 700 !important; /* font-bold */
+}
+
+/* Stock Information Card Content Scaling */
+.stock-price-main {
+  font-size: 2.5rem !important; /* Scale up further for better prominence */
+  font-weight: 700 !important; /* font-bold - make it more prominent */
+  line-height: 1.2 !important; /* Tighter line height for large text */
+}
+
+.stock-change-info {
+  font-size: 1.25rem !important; /* text-xl - scale up proportionally with main price */
+  font-weight: 500 !important; /* font-medium */
+}
+
+.stock-change-icon {
+  width: 2.25rem !important; /* w-9 - even larger for maximum prominence */
+  height: 2.25rem !important; /* h-9 - even larger for maximum prominence */
+}
+
+.stock-metadata-label {
+  font-size: 1rem !important; /* text-base - scale up from text-sm (0.875rem) */
+  font-weight: 500 !important; /* font-medium - slightly bolder for better readability */
+}
+
+.stock-metadata-value {
+  font-size: 1rem !important; /* text-base - scale up from text-sm (0.875rem) */
+  font-weight: 500 !important; /* font-medium - slightly bolder for better readability */
+}
+
+.stock-metadata-icon {
+  width: 1.75rem !important; /* w-7 - even larger for better visibility */
+  height: 1.75rem !important; /* h-7 - even larger for better visibility */
+}
+
+.stock-live-data {
+  font-size: 0.875rem !important; /* text-sm - scale up from text-xs (0.75rem) */
+}
+
+.stock-live-data-icon {
+  width: 1.5rem !important; /* w-6 - even larger for better visibility */
+  height: 1.5rem !important; /* h-6 - even larger for better visibility */
+}
+
+.stock-symbol-badge {
+  font-size: 0.875rem !important; /* text-sm - slightly larger than default badge */
+  padding: 0.375rem 0.75rem !important; /* py-1.5 px-3 - increase padding */
+  font-weight: 500 !important; /* font-medium */
+}
+
+/* AI Prediction Card Content Scaling */
+.prediction-price-main {
+  font-size: 2.5rem !important; /* Match stock price main - 2.5rem */
+  font-weight: 700 !important; /* font-bold - make it prominent */
+  line-height: 1.2 !important; /* Tighter line height for large text */
+}
+
+.prediction-change-info {
+  font-size: 1.25rem !important; /* text-xl - match stock change info */
+  font-weight: 500 !important; /* font-medium */
+}
+
+.prediction-icon {
+  width: 2.25rem !important; /* w-9 - match stock change icons */
+  height: 2.25rem !important; /* h-9 - match stock change icons */
+}
+
+.prediction-metadata-label {
+  font-size: 1rem !important; /* text-base - match stock metadata labels */
+  font-weight: 500 !important; /* font-medium */
+}
+
+.prediction-metadata-value {
+  font-size: 1rem !important; /* text-base - match stock metadata values */
+  font-weight: 500 !important; /* font-medium */
+}
+
+.prediction-small-icon {
+  width: 1.75rem !important; /* w-7 - match stock metadata icons */
+  height: 1.75rem !important; /* h-7 - match stock metadata icons */
+}
+
+.prediction-confidence-badge {
+  font-size: 0.875rem !important; /* text-sm - slightly larger than default */
+  padding: 0.5rem 0.75rem !important; /* py-2 px-3 - increase padding */
+  font-weight: 500 !important; /* font-medium */
+}
+
+.prediction-model-heading {
+  font-size: 1.5rem !important; /* text-2xl - much larger and more prominent */
+  font-weight: 700 !important; /* font-bold - make it stand out more */
+}
+
+.prediction-model-text {
+  font-size: 1.25rem !important; /* text-xl - 25% larger for better readability */
+  line-height: 1.2 !important; /* Tighter line height for compact display */
+}
+
+.prediction-empty-state {
+  font-size: 1rem !important; /* text-base - scale up from text-sm */
+  font-weight: 500 !important; /* font-medium */
+}
+
+.prediction-alert-text {
+  font-size: 1rem !important; /* text-base - scale up for better readability */
+  line-height: 1.6 !important; /* Better line height for readability */
+  font-weight: 500 !important; /* font-medium */
+}
+
+.prediction-alert {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 1.5rem !important; /* 24px - much more visible spacing */
+}
+
+.prediction-alert-icon {
+  width: 1.75rem !important; /* w-7 - back to original larger size */
+  height: 1.75rem !important; /* h-7 - back to original larger size */
+  margin-top: 0.125rem !important; /* Slight top alignment with text */
+  flex-shrink: 0 !important;
+}
+
+/* Stock Search Component Scaling */
+.stock-search-icon {
+  width: 1.25rem !important; /* w-5 - scale up search icon */
+  height: 1.25rem !important; /* h-5 - scale up search icon */
+}
+
+.stock-search-heading {
+  font-size: 1rem !important; /* text-base - scale up from text-sm */
+  font-weight: 600 !important; /* font-semibold - make it more prominent */
+}
+
+.stock-search-symbol {
+  font-size: 0.875rem !important; /* text-sm - scale up from text-xs */
+  font-weight: 600 !important; /* font-semibold - make symbols more prominent */
+  padding: 0.375rem 0.75rem !important; /* py-1.5 px-3 - increase padding */
+}
+
+.stock-search-company {
+  font-size: 1rem !important; /* text-base - scale up from text-sm */
+  font-weight: 500 !important; /* font-medium */
+}
+
+.stock-search-loading {
+  font-size: 1rem !important; /* text-base - scale up loading text */
+  font-weight: 500 !important; /* font-medium */
+}
+
+.stock-search-no-results {
+  font-size: 1rem !important; /* text-base - scale up no results text */
+  font-weight: 500 !important; /* font-medium */
+}
+
+.stock-search-input {
+  font-size: 1.25rem !important; /* text-xl - scale up search input text more */
+  padding: 1rem 1.25rem 1rem 2.75rem !important; /* py-4 px-5 pl-11 - increase padding proportionally */
+}
+
+.stock-search-heading {
+  font-size: 1.25rem !important; /* text-xl - scale up heading more */
+  font-weight: 700 !important; /* font-bold - make it more prominent */
+}
+
+.stock-search-selected {
+  background-color: rgb(219 234 254) !important; /* blue-100 - light blue like chart */
+  color: rgb(30 64 175) !important; /* blue-800 - dark blue text for contrast */
+  border: 1px solid rgb(147 197 253) !important; /* blue-300 - subtle blue border */
+}
+
+.stock-search-selected:hover {
+  background-color: rgb(191 219 254) !important; /* blue-200 - slightly darker light blue on hover */
+}

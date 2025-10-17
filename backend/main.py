@@ -25,8 +25,8 @@ import yfinance as yf
 # Import modules
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), 'data-fetching'))
-sys.path.append(os.path.join(os.path.dirname(__file__), 'data-fetching', 'ind_stocks', 'current-fetching'))
+sys.path.append(os.path.join(os.path.dirname(__file__), 'data_fetching'))
+sys.path.append(os.path.join(os.path.dirname(__file__), 'data_fetching', 'ind_stocks', 'current_fetching'))
 from data_manager import LiveFetcher
 from ind_current_fetcher import IndianCurrentFetcher
 from us_stocks.latest_fetching.yfinance_latest import USLatestFetcher
@@ -64,6 +64,48 @@ ind_latest_fetcher = IndianLatestFetcher()
 # [FUTURE] Initialize other components when implemented
 # company_info_fetcher = CompanyInfoFetcher()
 # prediction_engine = PredictionEngine()
+
+def initialize_dynamic_indexes():
+    """Initialize dynamic indexes on startup if needed"""
+    try:
+        from shared.index_manager import DynamicIndexManager
+        
+        logger.info("Checking dynamic indexes initialization...")
+        index_manager = DynamicIndexManager(config.data_dir)
+        
+        # Check US stocks
+        us_count = index_manager.get_stock_count('us_stocks')
+        logger.info(f"US stocks in dynamic index: {us_count}")
+        
+        if us_count < 400:
+            logger.warning(f"US dynamic index has only {us_count} stocks, initializing from permanent...")
+            success = index_manager.initialize_from_permanent('us_stocks')
+            if success:
+                new_count = index_manager.get_stock_count('us_stocks')
+                logger.info(f"✅ US dynamic index initialized with {new_count} stocks")
+            else:
+                logger.error("❌ Failed to initialize US dynamic index")
+        
+        # Check Indian stocks
+        ind_count = index_manager.get_stock_count('ind_stocks')
+        logger.info(f"Indian stocks in dynamic index: {ind_count}")
+        
+        if ind_count < 400:
+            logger.warning(f"Indian dynamic index has only {ind_count} stocks, initializing from permanent...")
+            success = index_manager.initialize_from_permanent('ind_stocks')
+            if success:
+                new_count = index_manager.get_stock_count('ind_stocks')
+                logger.info(f"✅ Indian dynamic index initialized with {new_count} stocks")
+            else:
+                logger.error("❌ Failed to initialize Indian dynamic index")
+        
+        logger.info("Dynamic indexes initialization check completed")
+        
+    except Exception as e:
+        logger.error(f"Error during dynamic indexes initialization: {e}")
+
+# Initialize dynamic indexes on startup
+initialize_dynamic_indexes()
 
 
 @app.route('/health', methods=['GET'])
@@ -256,43 +298,167 @@ def get_symbols():
         logger.error(f"Error getting symbols: {str(e)}")
         return jsonify({'success': False, 'error': 'Failed to get symbols', 'message': str(e)}), 500
 
-# [FUTURE] Prediction endpoints
-@app.route('/predict', methods=['POST'])
+# ML Prediction endpoints
+@app.route('/api/predict', methods=['GET'])
 def predict_stock_price():
     """
-    [FUTURE] Generate stock price prediction using selected algorithm
+    Generate stock price prediction using ML models
+    
+    Query parameters:
+    - symbol: Stock symbol (required)
+    - horizon: Prediction horizon (1d, 1w, 1m, 1y, 5y) - default: 1d
+    - model: Model to use (all, lstm, rf, arima, svr, linear, knn) - default: all
+    """
+    try:
+        symbol = request.args.get('symbol')
+        horizon = request.args.get('horizon', '1d')
+        model = request.args.get('model', 'all')
+        
+        if not symbol:
+            return jsonify({
+                'error': 'Symbol parameter is required'
+            }), 400
+        
+        # Validate horizon
+        valid_horizons = ['1d', '1w', '1m', '1y', '5y']
+        if horizon not in valid_horizons:
+            return jsonify({
+                'error': f'Invalid horizon: {horizon}. Must be one of {valid_horizons}'
+            }), 400
+        
+        # Import prediction function
+        from algorithms.utils import predict_for_symbol
+        
+        # Determine models to use
+        if model == 'all':
+            model_names = None  # Use all models
+        else:
+            model_map = {
+                'lstm': ['lstm'],
+                'rf': ['random_forest'],
+                'arima': ['arima'],
+                'svr': ['svr'],
+                'linear': ['linear_ridge'],
+                'knn': ['knn']
+            }
+            if model not in model_map:
+                return jsonify({
+                    'error': f'Invalid model: {model}. Must be one of {list(model_map.keys())} or "all"'
+                }), 400
+            model_names = model_map[model]
+        
+        # Generate prediction
+        result = predict_for_symbol(symbol, horizon, model_names)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error in prediction: {str(e)}")
+        return jsonify({
+            'error': 'Prediction failed',
+            'message': str(e)
+        }), 500
+
+
+@app.route('/api/train', methods=['POST'])
+def train_models():
+    """
+    Train ML models for a specific symbol
     
     Expected JSON payload:
     {
         "symbol": "AAPL",
-        "algorithm": "LSTM",
-        "days_ahead": 7
+        "models": ["lstm", "rf", "arima"],  # Optional, defaults to all
+        "force": true,  # Optional, retrain even if models exist
+        "max_data_points": 1000  # Optional, limit training data
     }
     """
     try:
         data = request.get_json()
         symbol = data.get('symbol')
-        algorithm = data.get('algorithm', 'LSTM')
-        days_ahead = data.get('days_ahead', 7)
+        models = data.get('models', None)
+        force = data.get('force', False)
+        max_data_points = data.get('max_data_points', None)
         
         if not symbol:
             return jsonify({
-                'success': False,
                 'error': 'Symbol is required'
             }), 400
         
-        # [FUTURE] Implement prediction logic
-        return jsonify({
-            'success': False,
-            'error': 'Prediction feature not yet implemented',
-            'message': 'This endpoint will be available in a future update'
-        }), 501
+        # Import training function
+        from algorithms.utils import predict_for_symbol
+        
+        # Train models (this will train and return prediction)
+        result = predict_for_symbol(symbol, '1d', models, max_data_points)
+        
+        # Extract training metrics
+        training_results = {
+            'symbol': symbol,
+            'models_trained': result['model_info']['members'],
+            'training_metrics': result.get('individual_predictions', {}),
+            'data_points_used': result['data_points_used'],
+            'last_updated': result['last_updated']
+        }
+        
+        return jsonify(training_results)
         
     except Exception as e:
-        logger.error(f"Error in prediction: {str(e)}")
+        logger.error(f"Error in training: {str(e)}")
         return jsonify({
-            'success': False,
-            'error': 'Prediction failed',
+            'error': 'Training failed',
+            'message': str(e)
+        }), 500
+
+
+@app.route('/api/models/<symbol>', methods=['GET'])
+def get_models(symbol):
+    """
+    Get information about trained models for a symbol
+    
+    Path parameters:
+    - symbol: Stock symbol
+    """
+    try:
+        # Check if models directory exists
+        models_dir = os.path.join('backend', 'models', symbol)
+        
+        if not os.path.exists(models_dir):
+            return jsonify({
+                'symbol': symbol,
+                'models': [],
+                'message': 'No trained models found for this symbol'
+            })
+        
+        # List available models
+        model_files = []
+        for item in os.listdir(models_dir):
+            item_path = os.path.join(models_dir, item)
+            if os.path.isdir(item_path):
+                # Check if it's a valid model directory
+                metadata_file = os.path.join(item_path, 'metadata.json')
+                if os.path.exists(metadata_file):
+                    try:
+                        with open(metadata_file, 'r') as f:
+                            metadata = json.load(f)
+                        model_files.append({
+                            'model_name': item,
+                            'saved_at': metadata.get('saved_at'),
+                            'training_metrics': metadata.get('training_metrics', {}),
+                            'model_params': metadata.get('model_params', {})
+                        })
+                    except Exception as e:
+                        logger.warning(f"Could not read metadata for {item}: {e}")
+        
+        return jsonify({
+            'symbol': symbol,
+            'models': model_files,
+            'count': len(model_files)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting models for {symbol}: {str(e)}")
+        return jsonify({
+            'error': 'Failed to get models',
             'message': str(e)
         }), 500
 
@@ -402,6 +568,12 @@ def get_historical_data():
             start_date = None
         
         
+        # Get currency from dynamic index
+        from shared.index_manager import DynamicIndexManager
+        index_manager = DynamicIndexManager(config.data_dir)
+        stock_info = index_manager.get_stock_info(symbol, category)
+        default_currency = stock_info.get('currency', 'USD') if stock_info else 'USD'
+        
         # Define file paths
         past_file = os.path.join(config.data_dir, 'past', category, 'individual_files', f'{symbol}.csv')
         latest_file = os.path.join(config.data_dir, 'latest', category, 'individual_files', f'{symbol}.csv')
@@ -483,7 +655,8 @@ def get_historical_data():
                     'high': float(row['high']) if pd.notna(row['high']) else None,
                     'low': float(row['low']) if pd.notna(row['low']) else None,
                     'close': float(row['close']) if pd.notna(row['close']) else None,
-                    'volume': int(row['volume']) if pd.notna(row['volume']) else 0
+                    'volume': int(row['volume']) if pd.notna(row['volume']) else 0,
+                    'currency': row['currency'] if pd.notna(row.get('currency')) else default_currency
                 })
             
             # For year and 5year periods, we already have the data we need
@@ -549,7 +722,8 @@ def get_historical_data():
                                             'high': float(row['high']) if row['high'] else None,
                                             'low': float(row['low']) if row['low'] else None,
                                             'close': float(row['close']) if row['close'] else None,
-                                            'volume': int(float(row['volume'])) if row['volume'] else 0
+                                            'volume': int(float(row['volume'])) if row['volume'] else 0,
+                                            'currency': default_currency
                                         })
                                 except (ValueError, KeyError) as e:
                                     continue

@@ -22,6 +22,7 @@ export interface PricePoint {
   close: number;
   volume: number;
   price: number; // Added for chart display compatibility
+  currency?: string; // Add this field
 }
 
 export interface PredictionResult {
@@ -29,6 +30,17 @@ export interface PredictionResult {
   confidence: number;
   algorithm: string;
   timeframe: string;
+  priceRange?: [number, number];
+  timeFrameDays?: number;
+  modelInfo?: {
+    algorithm: string;
+    members?: string[];
+    weights?: Record<string, number>;
+    ensemble_size?: number;
+  };
+  dataPointsUsed?: number;
+  lastUpdated?: string;
+  currency?: string;
 }
 
 // Live price response from backend
@@ -281,7 +293,7 @@ export const stockService = {
       }
 
       // Map backend response to PricePoint format
-      // Backend returns {date, open, high, low, close, volume}
+      // Backend returns {date, open, high, low, close, volume, currency}
       // We need {date, open, high, low, close, volume} with close mapped to price
       const historicalData: PricePoint[] = result.data.map(point => ({
         date: point.date,
@@ -290,7 +302,8 @@ export const stockService = {
         low: point.low,
         close: point.close,
         volume: point.volume,
-        price: point.close // Map close to price for chart display
+        price: point.close, // Map close to price for chart display
+        currency: point.currency || 'USD' // Include currency from backend
       }));
 
       // If no historical data found and period is 5year, try fallback to 1 year
@@ -314,8 +327,9 @@ export const stockService = {
             high: livePrice.price,
             low: livePrice.price,
             close: livePrice.price,
-            volume: livePrice.volume || 0,
-            price: livePrice.price
+            volume: 0,
+            price: livePrice.price,
+            currency: livePrice.currency || 'USD'
           };
           historicalData.push(livePricePoint);
         }
@@ -458,6 +472,54 @@ export const stockService = {
     } catch (error) {
       console.error('Backend health check failed:', error);
       throw new Error('Backend server is unavailable');
+    }
+  },
+
+  // Get ML prediction for a stock
+  getPrediction: async (symbol: string, horizon: string = '1d', model?: string): Promise<PredictionResult> => {
+    try {
+      const params = new URLSearchParams({
+        symbol,
+        horizon
+      });
+      
+      if (model && model !== 'all') {
+        params.append('model', model);
+      }
+
+      const url = `${BACKEND_BASE_URL}/api/predict?${params.toString()}`;
+      console.log(`🌐 Making prediction request to: ${url}`);
+      
+      const response = await fetchWithTimeout(url, 30000); // 30 second timeout for ML predictions
+      console.log(`📡 Prediction response status: ${response.status}`);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log(`📊 Prediction result:`, result);
+
+      // Convert backend response to frontend format
+      const prediction: PredictionResult = {
+        predictedPrice: result.predicted_price,
+        confidence: result.confidence,
+        algorithm: result.model_info?.algorithm || 'Ensemble',
+        timeframe: horizon,
+        priceRange: result.price_range,
+        timeFrameDays: result.time_frame_days,
+        modelInfo: result.model_info,
+        dataPointsUsed: result.data_points_used,
+        lastUpdated: result.last_updated,
+        currency: result.currency
+      };
+
+      return prediction;
+
+    } catch (error) {
+      console.error(`❌ Failed to get prediction for ${symbol}:`, error);
+      throw new Error(`Prediction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 };

@@ -100,3 +100,7 @@ backend/__pycache__/
 backend/*.pyc
 backend/venv/
 backend/.env
+
+# Upstox token cache files
+backend/_cache/
+backend/**/upstox_tokens.json
