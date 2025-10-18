@@ -186,8 +186,7 @@ python scripts/update_indian_stock_isins.py
 ### **Fallback Chain**
 1. **Upstox API v2** (primary)
 2. **yfinance** (fallback 1)
-3. **jugaad-data** (fallback 2)
-4. **Permanent data** (final fallback)
+3. **Permanent data** (final fallback)
 
 ## 📊 Data Storage
 

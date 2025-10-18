@@ -12,11 +12,6 @@ scipy==1.16.2
 yfinance==0.2.28
 requests==2.31.0
 
-# Indian stock market APIs (optional - used as fallback)
-# Note: jugaad-data has click dependency conflicts, making it optional
-# The code will work without it using yfinance fallback
-# Uncomment the line below if you want to try installing it manually:
- jugaad-data>=0.28
 
 # Currency conversion
 forex-python==1.9.2
