@@ -17,7 +17,6 @@ def test_package_availability():
     
     packages = {
         'yfinance': False,
-        'jugaad-data': False,
         'upstox': False
     }
     
@@ -29,13 +28,6 @@ def test_package_availability():
     except ImportError:
         print("❌ yfinance: Not available")
     
-    # Test jugaad-data
-    try:
-        import jugaad_data
-        packages['jugaad-data'] = True
-        print("✅ jugaad-data: Available")
-    except ImportError:
-        print("❌ jugaad-data: Not available")
     
     
     # Test upstox (check if credentials are available)
@@ -70,18 +62,6 @@ def test_direct_package_usage():
     except Exception as e:
         print(f"❌ yfinance: Error - {e}")
     
-    # Test jugaad-data
-    try:
-        from jugaad_data.nse import NSELive
-        print("\n📊 Testing jugaad-data...")
-        nse = NSELive()
-        quote = nse.stock_quote('TCS')
-        if quote and 'lastPrice' in quote:
-            print(f"✅ jugaad-data: Got quote for TCS - ₹{quote['lastPrice']}")
-        else:
-            print("❌ jugaad-data: No data returned")
-    except Exception as e:
-        print(f"❌ jugaad-data: Error - {e}")
 
 def test_fallback_chain():
     """Test the complete fallback chain"""
@@ -144,7 +124,6 @@ def main():
                 print(f"   pip install {package}")
     
     print("\n🚀 Recommendations:")
-    print("1. Install jugaad-data for reliable NSE data (free and actively maintained)")
     print("2. Set up Upstox API for premium real-time data")
     print("3. Use yfinance as fallback for basic data")
     print("4. yfinance with .NS suffix works well for most Indian stocks")

@@ -5,6 +5,7 @@ import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
 import { Skeleton } from './ui/skeleton';
 import { Alert, AlertDescription } from './ui/alert';
+import { Button } from './ui/button';
 import { PredictionResult } from '../services/stockService';
 import { formatPrice, Currency } from '../utils/currency';
 
@@ -19,11 +20,11 @@ interface StockPredictionProps {
 }
 
 const HORIZON_OPTIONS = [
-  { key: '1d', label: '1 day' },
-  { key: '1w', label: '1 week' },
-  { key: '1m', label: '1 month' },
-  { key: '1y', label: '1 year' },
-  { key: '5y', label: '5 years' },
+  { key: '1d', label: '1D' },
+  { key: '1w', label: '1W' },
+  { key: '1m', label: '1M' },
+  { key: '1y', label: '1Y' },
+  { key: '5y', label: '5Y' },
 ];
 
 export function StockPrediction({ 
@@ -47,30 +48,24 @@ export function StockPrediction({
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="card-title-scaled card-title-with-icon">
-            <Brain className="card-icon-scaled" />
-            AI Price Prediction
-          </CardTitle>
-          {/* Horizon Toggle */}
-          <div className="mt-4">
-            <div role="tablist" aria-label="Prediction Horizon" className="flex flex-wrap gap-2">
+          <CardTitle className="card-title-scaled card-title-with-icon flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Brain className="card-icon-scaled" />
+              <span>AI Price Prediction</span>
+            </div>
+            <div className="flex gap-1">
               {HORIZON_OPTIONS.map(option => (
-                <button
+                <Button
                   key={option.key}
-                  role="tab"
-                  aria-pressed={selectedHorizon === option.key}
+                  variant={selectedHorizon === option.key ? 'default' : 'outline'}
+                  size="sm"
                   onClick={() => handleHorizonChange(option.key)}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                    selectedHorizon === option.key
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
                 >
                   {option.label}
-                </button>
+                </Button>
               ))}
             </div>
-          </div>
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
@@ -91,30 +86,24 @@ export function StockPrediction({
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="card-title-scaled card-title-with-icon">
-            <Brain className="card-icon-scaled" />
-            AI Price Prediction
-          </CardTitle>
-          {/* Horizon Toggle */}
-          <div className="mt-4">
-            <div role="tablist" aria-label="Prediction Horizon" className="flex flex-wrap gap-2">
+          <CardTitle className="card-title-scaled card-title-with-icon flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Brain className="card-icon-scaled" />
+              <span>AI Price Prediction</span>
+            </div>
+            <div className="flex gap-1">
               {HORIZON_OPTIONS.map(option => (
-                <button
+                <Button
                   key={option.key}
-                  role="tab"
-                  aria-pressed={selectedHorizon === option.key}
+                  variant={selectedHorizon === option.key ? 'default' : 'outline'}
+                  size="sm"
                   onClick={() => handleHorizonChange(option.key)}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                    selectedHorizon === option.key
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
                 >
                   {option.label}
-                </button>
+                </Button>
               ))}
             </div>
-          </div>
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <Alert>
@@ -129,30 +118,24 @@ export function StockPrediction({
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="card-title-scaled card-title-with-icon">
-            <Brain className="card-icon-scaled" />
-            AI Price Prediction
-          </CardTitle>
-          {/* Horizon Toggle */}
-          <div className="mt-4">
-            <div role="tablist" aria-label="Prediction Horizon" className="flex flex-wrap gap-2">
+          <CardTitle className="card-title-scaled card-title-with-icon flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Brain className="card-icon-scaled" />
+              <span>AI Price Prediction</span>
+            </div>
+            <div className="flex gap-1">
               {HORIZON_OPTIONS.map(option => (
-                <button
+                <Button
                   key={option.key}
-                  role="tab"
-                  aria-pressed={selectedHorizon === option.key}
+                  variant={selectedHorizon === option.key ? 'default' : 'outline'}
+                  size="sm"
                   onClick={() => handleHorizonChange(option.key)}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                    selectedHorizon === option.key
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
                 >
                   {option.label}
-                </button>
+                </Button>
               ))}
             </div>
-          </div>
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <p className="text-muted-foreground prediction-empty-state">
@@ -184,30 +167,24 @@ export function StockPrediction({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="card-title-scaled card-title-with-icon">
-          <Brain className="card-icon-scaled" />
-          AI Price Prediction for {symbol}
-        </CardTitle>
-        {/* Horizon Toggle */}
-        <div className="mt-4">
-          <div role="tablist" aria-label="Prediction Horizon" className="flex flex-wrap gap-2">
+        <CardTitle className="card-title-scaled card-title-with-icon flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Brain className="card-icon-scaled" />
+            <span>AI Price Prediction for {symbol}</span>
+          </div>
+          <div className="flex gap-1">
             {HORIZON_OPTIONS.map(option => (
-              <button
+              <Button
                 key={option.key}
-                role="tab"
-                aria-pressed={selectedHorizon === option.key}
+                variant={selectedHorizon === option.key ? 'default' : 'outline'}
+                size="sm"
                 onClick={() => handleHorizonChange(option.key)}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                  selectedHorizon === option.key
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
               >
                 {option.label}
-              </button>
+              </Button>
             ))}
           </div>
-        </div>
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Prediction Alert */}

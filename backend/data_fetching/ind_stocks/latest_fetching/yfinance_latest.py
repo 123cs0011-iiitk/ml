@@ -2,7 +2,7 @@
 Indian Stocks Latest Data Fetcher
 
 Fetches latest stock data for Indian stocks from 2025-01-01 to current date.
-Uses yfinance as primary source with jugaad-data fallback.
+Uses yfinance as primary source.
 Automatically adds .NS suffix for NSE stocks.
 """
 
@@ -26,7 +26,7 @@ from shared.utilities import (
 
 class IndianLatestFetcher:
     """
-    Fetches latest Indian stock data using yfinance with jugaad-data fallback.
+    Fetches latest Indian stock data using yfinance.
     Period: 2025-01-01 to current date
     Automatically adds .NS suffix for NSE stocks.
     """
@@ -47,21 +47,11 @@ class IndianLatestFetcher:
         self.currency = get_currency_for_category('ind_stocks')
         
         # API configurations
-        self.jugaad_available = self._check_jugaad_availability()
         
         # Rate limiting
         self.rate_limit_delay = 1.5  # seconds between requests
         self.max_retries = 3
     
-    def _check_jugaad_availability(self) -> bool:
-        """Check if jugaad-data library is available"""
-        try:
-            import jugaad_data
-            print("jugaad-data library loaded successfully")
-            return True
-        except ImportError:
-            print("jugaad-data not available - install with: pip install jugaad-data")
-            return False
         
     def prepare_yfinance_symbol(self, symbol: str) -> str:
         """
@@ -216,62 +206,6 @@ class IndianLatestFetcher:
                     print(f"{symbol}: All yfinance attempts failed")
                     return None
     
-    def download_from_jugaad(self, symbol: str) -> Optional[pd.DataFrame]:
-        """
-        Download latest stock data from jugaad-data as fallback.
-        
-        Args:
-            symbol: Stock symbol
-        
-        Returns:
-            DataFrame with stock data or None if error
-        """
-        if not self.jugaad_available:
-            print(f"{symbol}: jugaad-data not available")
-            return None
-        
-        try:
-            from jugaad_data.nse import bhavcopy_save, stock_df
-            print(f"Downloading {symbol} from jugaad-data...")
-            
-            # Get historical data from jugaad-data
-            try:
-                # Fetch historical data for the date range
-                df = stock_df(symbol, from_date=self.start_date, to_date=self.end_date)
-                
-                if df is not None and len(df) > 0:
-                    # Standardize column names
-                    df = standardize_csv_columns(df)
-                    
-                    # Ensure we have the required columns
-                    required_cols = Constants.REQUIRED_STOCK_COLUMNS
-                    available_cols = [col for col in required_cols if col in df.columns]
-                    
-                    if len(available_cols) < len(required_cols):
-                        print(f"{symbol}: Missing columns from jugaad-data. Available: {available_cols}")
-                    
-                    # Select only the columns we need
-                    df = df[available_cols]
-                    
-                    # Add currency column
-                    df['currency'] = self.currency
-                    
-                    print(f"{symbol}: Successfully downloaded {len(df)} rows from jugaad-data")
-                    return df
-                else:
-                    print(f"{symbol}: No data from jugaad-data")
-                    return None
-                    
-            except Exception as e:
-                print(f"{symbol}: jugaad-data historical data error: {e}")
-                return None
-                
-        except ImportError:
-            print(f"{symbol}: jugaad-data not available")
-            return None
-        except Exception as e:
-            print(f"{symbol}: jugaad-data error: {e}")
-            return None
     
     
     
@@ -285,18 +219,12 @@ class IndianLatestFetcher:
         Returns:
             DataFrame with stock data or None if error
         """
-        # Try yfinance first
+        # Try yfinance
         data = self.download_from_yfinance(symbol)
         if data is not None:
             return data
         
-        # Fallback to jugaad-data
-        print(f"{symbol}: Trying jugaad-data fallback...")
-        data = self.download_from_jugaad(symbol)
-        if data is not None:
-            return data
-        
-        print(f"{symbol}: All download methods failed")
+        print(f"{symbol}: yfinance download failed")
         return None
     
     def save_stock_data(self, symbol: str, data: pd.DataFrame) -> bool:

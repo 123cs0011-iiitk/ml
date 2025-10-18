@@ -12,6 +12,8 @@ from typing import Dict, Any, Optional, Tuple
 import logging
 from datetime import datetime
 
+logger = logging.getLogger(__name__)
+
 try:
     import pmdarima as pm
     from pmdarima import auto_arima

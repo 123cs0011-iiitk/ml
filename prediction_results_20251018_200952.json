@@ -1,0 +1,19 @@
+{
+  "total_stocks": 10,
+  "successful_predictions": 0,
+  "failed_predictions": 10,
+  "failed_symbols": [
+    "A (us_stocks)",
+    "AAPL (us_stocks)",
+    "ABBV (us_stocks)",
+    "ABNB (us_stocks)",
+    "ABT (us_stocks)",
+    "360ONE (ind_stocks)",
+    "3MINDIA (ind_stocks)",
+    "AADHARHFC (ind_stocks)",
+    "AARTIIND (ind_stocks)",
+    "AAVAS (ind_stocks)"
+  ],
+  "start_time": "2025-10-18T20:09:51.962060",
+  "end_time": "2025-10-18T20:09:52.326017"
+}

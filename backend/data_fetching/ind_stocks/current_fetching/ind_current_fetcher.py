@@ -2,7 +2,7 @@
 Indian Stocks Current Price Fetcher
 
 Fetches current live stock prices for Indian stocks using multiple data sources.
-Implements fallback chain: Upstox API (primary) → yfinance → jugaad-data → permanent directory
+Implements fallback chain: Upstox API (primary) → yfinance → permanent directory
 
 Rate-limited to respect API limits and ensure reliable data fetching.
 All prices are returned in INR currency.
@@ -67,8 +67,6 @@ class IndianCurrentFetcher:
         self.cache = {}  # {symbol: {data: dict, timestamp: datetime}}
         self.last_request_time = 0
         
-        # Initialize jugaad-data availability check
-        self.jugaad_available = self._check_jugaad_availability()
         
         # Initialize Upstox instruments fetcher for ISIN lookups
         self.instruments_fetcher = get_instruments_fetcher()
@@ -115,15 +113,6 @@ class IndianCurrentFetcher:
             'DIVISLAB': 'NSE_EQ|INE361B01018'
         }
     
-    def _check_jugaad_availability(self) -> bool:
-        """Check if jugaad-data library is available"""
-        try:
-            import jugaad_data
-            print("jugaad-data library loaded successfully")
-            return True
-        except ImportError:
-            print("jugaad-data not available - install with: pip install jugaad-data")
-            return False
     
     def get_instrument_key(self, symbol: str) -> Optional[str]:
         """
@@ -607,42 +596,6 @@ class IndianCurrentFetcher:
         
         return None
     
-    def fetch_price_from_jugaad(self, symbol: str) -> Tuple[float, str]:
-        """
-        Fetch current stock price from jugaad-data library.
-        
-        Args:
-            symbol: Stock symbol
-        
-        Returns:
-            Tuple of (price, company_name)
-        """
-        if not self.jugaad_available:
-            raise ValueError("jugaad-data library not available")
-        
-        try:
-            from jugaad_data.nse import NSELive
-            
-            print(f"Fetching {symbol} from jugaad-data...")
-            
-            # Initialize NSE Live client
-            nse = NSELive()
-            
-            # Get quote data
-            quote_data = nse.stock_quote(symbol)
-            
-            if quote_data and 'lastPrice' in quote_data and quote_data['lastPrice']:
-                price = float(quote_data['lastPrice'])
-                company_name = quote_data.get('companyName', symbol)
-                
-                print(f"Successfully fetched {symbol} from jugaad-data: ₹{price} ({company_name})")
-                return price, company_name
-            else:
-                raise ValueError(f"No price data available for {symbol}")
-                
-        except Exception as e:
-            print(f"jugaad-data error for {symbol}: {str(e)}")
-            raise
     
     
     def fetch_current_price(self, symbol: str) -> Dict[str, Any]:
@@ -671,8 +624,7 @@ class IndianCurrentFetcher:
         # Try each API in order - Upstox as primary
         apis = [
             ('upstox', self.fetch_price_from_upstox),
-            ('yfinance', self.fetch_price_from_yfinance),
-            ('jugaad-data', self.fetch_price_from_jugaad)
+            ('yfinance', self.fetch_price_from_yfinance)
         ]
         
         last_error = None
@@ -909,7 +861,7 @@ class IndianCurrentFetcher:
             Dict with results and statistics
         """
         print(f"Fetching current prices for {len(symbols)} Indian stock symbols...")
-        print("Using fallback chain: Upstox → yfinance → jugaad-data")
+        print("Using fallback chain: Upstox → yfinance")
         
         results = {
             'successful': [],
