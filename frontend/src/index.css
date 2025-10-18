@@ -2038,3 +2038,13 @@ html {
 .stock-search-selected:hover {
   background-color: rgb(191 219 254) !important; /* blue-200 - slightly darker light blue on hover */
 }
+
+/* Model toggle button - increased text size without expanding button height */
+.model-toggle-button {
+  font-size: 1.181rem !important; /* 5% increase from text-lg (1.125rem) */
+  line-height: 1.2 !important; /* Tighter line height to prevent overflow */
+  height: 2.25rem !important; /* h-9 equivalent (36px) - fixed height */
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}

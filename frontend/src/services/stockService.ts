@@ -28,12 +28,12 @@ export interface PricePoint {
 export interface PredictionResult {
   predictedPrice: number;
   confidence: number;
-  algorithm: string;
+  model: string;
   timeframe: string;
   priceRange?: [number, number];
   timeFrameDays?: number;
   modelInfo?: {
-    algorithm: string;
+    model: string;
     members?: string[];
     weights?: Record<string, number>;
     ensemble_size?: number;
@@ -363,7 +363,7 @@ export const stockService = {
     return {
       predictedPrice: 0,
       confidence: 0,
-      algorithm: 'Not Available',
+      model: 'Not Available',
       timeframe: 'N/A'
     };
   },
@@ -505,7 +505,7 @@ export const stockService = {
       const prediction: PredictionResult = {
         predictedPrice: result.predicted_price,
         confidence: result.confidence,
-        algorithm: result.model_info?.algorithm || 'Ensemble',
+        model: result.model_info?.model || 'Ensemble',
         timeframe: horizon,
         priceRange: result.price_range,
         timeFrameDays: result.time_frame_days,
