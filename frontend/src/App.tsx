@@ -144,7 +144,7 @@ export default function App() {
             <h1 className="stock-price-prediction-header">Stock Price Prediction</h1>
           </div>
           <p className="text-2xl text-muted-foreground max-w-2xl mx-auto">
-            Analyze real-time stock data and get AI-powered price predictions using machine learning algorithms.
+            Analyze real-time stock data and get AI-powered price predictions using machine learning models.
             Always conduct your own research before making investment decisions.
           </p>
         </div>
@@ -213,13 +213,13 @@ export default function App() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-2xl text-muted-foreground">
-              This stock prediction dashboard uses k-nearest neighbor (KNN) machine learning algorithm
-              to analyze recent price patterns and predict short-term price movements. The algorithm
+              This stock prediction dashboard uses k-nearest neighbor (KNN) machine learning model
+              to analyze recent price patterns and predict short-term price movements. The model
               examines the most recent trading data to identify similar patterns and estimate future prices.
             </p>
             <div className="text-2xl text-muted-foreground space-y-2">
               <p><strong>Backend:</strong> Powered by Supabase edge functions with real-time data processing</p>
-              <p><strong>Prediction Model:</strong> K-Nearest Neighbor algorithm with weighted recent data analysis</p>
+              <p><strong>Prediction Model:</strong> K-Nearest Neighbor model with weighted recent data analysis</p>
               <p><strong>Timeframes:</strong> Weekly, monthly, and yearly historical data analysis</p>
               <p><strong>Caching:</strong> Smart caching for performance - stock data (5 min), historical data (1 hour), predictions (15 min)</p>
               <p><strong>Currency Support:</strong> Real-time conversion between USD and INR with live formatting</p>

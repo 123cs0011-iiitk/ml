@@ -22,7 +22,7 @@ export interface PricePoint {
 export interface PredictionResult {
     predictedPrice: number;
     confidence: number;
-    algorithm: string;
+    model: string;
     timeframe: string;
 }
 
@@ -120,7 +120,7 @@ function generateHistoricalData(symbol: string, days: number): PricePoint[] {
     return data.reverse();
 }
 
-// K-nearest neighbor prediction algorithm
+// K-nearest neighbor prediction model
 function knnPredict(historicalData: PricePoint[], k: number = 5): PredictionResult {
     if (historicalData.length < k) {
         throw new Error('Not enough historical data for prediction');
@@ -161,7 +161,7 @@ function knnPredict(historicalData: PricePoint[], k: number = 5): PredictionResu
     return {
         predictedPrice: parseFloat(Math.max(predictedPrice, 0.01).toFixed(2)),
         confidence: parseFloat(Math.min(Math.max(confidence, 20), 90).toFixed(1)),
-        algorithm: 'K-Nearest Neighbor',
+        model: 'K-Nearest Neighbor',
         timeframe: '1 day'
     };
 }
