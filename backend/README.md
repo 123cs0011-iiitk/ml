@@ -1,58 +1,25 @@
-# Stock Prediction ML Backend
+# Backend API
 
-A comprehensive machine learning backend for stock price prediction using multiple algorithms and ensemble methods.
+Machine learning backend for stock price prediction with 16 optimized algorithms.
 
 ## Features
 
-- **Multiple ML Algorithms**: LSTM, Random Forest, ARIMA, SVR, Linear Regression, KNN
-- **Ensemble Prediction**: Weighted ensemble based on validation performance
-- **Feature Engineering**: Technical indicators (SMA, EMA, MACD, RSI, Bollinger Bands, OBV)
+- **16 ML Algorithms**: Linear Regression, Random Forest, Decision Tree, KNN, SVM, ANN, CNN, ARIMA, K-Means, DBSCAN, Hierarchical Clustering, General Clustering, PCA, SVD, t-SNE, Autoencoders
+- **OHLC Data**: Uses Open, High, Low, Close data (volume not used)
+- **Technical Indicators**: SMA, EMA, MACD, RSI, Bollinger Bands, ATR, momentum, volatility
 - **Multi-horizon Forecasting**: 1 day, 1 week, 1 month, 1 year, 5 years
 - **RESTful API**: Flask-based API with comprehensive endpoints
-- **Model Persistence**: Save and load trained models
-- **Comprehensive Testing**: Unit and integration tests
-
-## Installation
-
-1. **Clone the repository**:
-   ```bash
-   git clone <repository-url>
-   cd ml/backend
-   ```
-
-2. **Create virtual environment**:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Set up environment variables**:
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
 
 ## Quick Start
 
-1. **Start the Flask server**:
-   ```bash
-   python main.py
-   ```
+```bash
+# Start the Flask server
+python main.py
 
-2. **Test the API**:
-   ```bash
-   curl "http://localhost:5000/health"
-   ```
-
-3. **Get a prediction**:
-   ```bash
-   curl "http://localhost:5000/api/predict?symbol=AAPL&horizon=1d"
-   ```
+# Test the API
+curl "http://localhost:5000/health"
+curl "http://localhost:5000/api/predict?symbol=AAPL&horizon=1d"
+```
 
 ## API Endpoints
 
@@ -162,54 +129,53 @@ rf_model = RandomForestWrapper(
 
 ## Data Requirements
 
-The system expects stock data in CSV format with the following columns:
-
-- `date`: Date in YYYY-MM-DD format
-- `open`: Opening price
-- `high`: Highest price
-- `low`: Lowest price
-- `close`: Closing price
-- `volume`: Trading volume
-- `adjusted_close`: Adjusted closing price
-- `currency`: Currency code (USD, INR, etc.)
+The system expects stock data in CSV format. See the [main README](../README.md#data-structure) for detailed column specifications.
 
 ## Model Architecture
 
-### LSTM Model
-- 3-layer LSTM architecture (128, 64, 32 units)
-- Dropout regularization (0.2)
-- Early stopping with patience=20
-- MinMaxScaler for normalization
+### Available Algorithms (16 total)
+1. **Linear Regression** - Standard linear regression with feature scaling
+2. **Random Forest** - Ensemble of decision trees with hyperparameter tuning
+3. **Decision Tree** - Single decision tree with interpretable rules
+4. **K-Nearest Neighbors** - Instance-based learning with distance-based prediction
+5. **Support Vector Regression** - SVM for regression with multiple kernels
+6. **Artificial Neural Network** - Multi-layer perceptron with dropout
+7. **1D Convolutional Neural Network** - Time series CNN with sequence modeling
+8. **ARIMA** - AutoRegressive Integrated Moving Average for time series
+9. **K-Means Clustering** - Market regime detection + prediction
+10. **DBSCAN Clustering** - Anomaly detection + prediction
+11. **Hierarchical Clustering** - Stock grouping + prediction
+12. **General Clustering** - Pattern-based prediction
+13. **PCA** - Principal Component Analysis for feature reduction
+14. **SVD** - Singular Value Decomposition for feature extraction
+15. **t-SNE** - Pattern recognition + prediction
+16. **Autoencoders** - Feature extraction + prediction
 
-### Random Forest
-- GridSearchCV for hyperparameter tuning
-- Parameters: n_estimators, max_depth
-- Time series cross-validation
-- Feature importance analysis
-
-### ARIMA
-- Automatic parameter selection using pmdarima
-- Seasonal and non-seasonal variants
-- Prediction intervals (95% confidence)
-- Fallback to statsmodels if pmdarima unavailable
+### Technical Indicators (Volume Excluded)
+- **Moving Averages**: SMA (5,10,20,50,200), EMA (12,26)
+- **Momentum**: RSI (14), MACD (12,26,9), Price momentum (1,5,10 day)
+- **Volatility**: Bollinger Bands, ATR, Rolling standard deviation
+- **Price Patterns**: High/Low ratios, Open/Close ratios, Price position
+- **Lagged Features**: 1,2,3,5,10 day price lags
+- **Rolling Statistics**: Min/Max/Std over 5,10,20 day windows
 
 ### Ensemble System
-- Weighted averaging based on inverse RMSE
+- Weighted averaging based on model performance
 - Confidence calculation from prediction variance
 - Multi-horizon forecasting support
 - Individual model predictions available
 
 ## Feature Engineering
 
-The system automatically generates technical indicators:
+The system automatically generates technical indicators from OHLC data only (volume excluded):
 
-- **Moving Averages**: SMA(20,50,200), EMA(12,26)
-- **MACD**: 12,26,9 with signal and histogram
-- **RSI**: 14-period Relative Strength Index
-- **Bollinger Bands**: 20-period, 2 standard deviations
-- **OBV**: On-Balance Volume
-- **Volume Indicators**: Volume moving averages
-- **Lag Features**: 1,2,3,5,10,30 day lags
+- **Moving Averages**: SMA(5,10,20,50,200), EMA(12,26)
+- **Momentum Indicators**: RSI(14), MACD(12,26,9), Price momentum
+- **Volatility**: Bollinger Bands(20,2σ), ATR(14), Rolling volatility
+- **Price Patterns**: High/Low ratios, Open/Close ratios, Price position
+- **Lagged Features**: 1,2,3,5,10 day price lags
+- **Rolling Statistics**: Min/Max/Std over 5,10,20 day windows
+- **Time-based Features**: Day of week, month, quarter
 
 ## Testing
 
@@ -277,5 +243,6 @@ This project is licensed under the MIT License.
 
 For issues and questions:
 - Create an issue on GitHub
-- Check the documentation
+- Check the [documentation](../documentation/README.md)
 - Review the test cases for examples
+- See [API Usage Guide](../documentation/API_USAGE.md) for detailed examples

@@ -77,6 +77,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Data Accuracy**: 99%+ for live prices
 - **Caching**: 95% reduction in API calls
 
+### 🤖 ML Backend Features (Added 2025-01-17)
+- **Model Interface**: Abstract base class for consistent model API
+- **Data Pipeline**: Comprehensive feature engineering with 20+ technical indicators
+- **Ensemble System**: Weighted ensemble prediction with confidence calculation
+- **Multi-horizon Forecasting**: Support for 1d, 1w, 1m, 1y, 5y prediction horizons
+
+#### ML Models
+- **LSTM Wrapper**: 3-layer LSTM architecture with dropout regularization
+- **Random Forest**: GridSearchCV hyperparameter tuning with feature importance
+- **ARIMA**: Automatic parameter selection with prediction intervals
+- **SVR**: RBF kernel with hyperparameter tuning
+- **Linear Models**: Ridge, Lasso, ElasticNet with hyperparameter tuning
+- **KNN**: Distance-based prediction with uncertainty estimation
+
+#### API Endpoints
+- **Prediction API** (`/api/predict`): Stock price predictions with multiple horizons
+- **Training API** (`/api/train`): Model training with configurable options
+- **Models API** (`/api/models/<symbol>`): List trained models and metadata
+
+#### Technical Specifications
+- **Training Time**: 5-10 minutes for full ensemble
+- **Prediction Time**: < 500ms for ensemble
+- **Memory Usage**: 2-4 GB for LSTM training
+- **Model Size**: 10-100 MB per model
+
 ## 🔮 Future Releases
 
 ### Planned Features

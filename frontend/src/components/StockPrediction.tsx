@@ -197,8 +197,66 @@ export function StockPrediction({
         </CardTitle>
       </CardHeader>
       
+      <CardContent className="space-y-6">
+        {/* Prediction Alert */}
+        <Alert className="prediction-alert">
+          <AlertTriangle className="prediction-alert-icon" />
+          <AlertDescription className="prediction-alert-text">
+            This prediction is based on historical data analysis using machine learning. 
+            Market conditions can change rapidly and predictions may not reflect future performance.
+          </AlertDescription>
+        </Alert>
+
+        {/* Main Prediction */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="prediction-metadata-label text-muted-foreground">Predicted Price</span>
+            <div className="flex items-center gap-2">
+              {isPositiveChange ? (
+                <TrendingUp className="prediction-icon text-green-600" />
+              ) : (
+                <TrendingDown className="prediction-icon text-red-600" />
+              )}
+              <Badge variant={getConfidenceBadgeVariant(displayPrediction.confidence)} className="prediction-confidence-badge">
+                {displayPrediction.confidence ? displayPrediction.confidence.toFixed(1) : '0.0'}% confidence
+              </Badge>
+            </div>
+          </div>
+          
+          <div className="prediction-price-main">
+            {formatPrice(displayPrediction.predictedPrice, currency)}
+          </div>
+          
+          {currentPrice && (
+            <div className={`prediction-change-info ${
+              isPositiveChange ? 'text-green-600' : 'text-red-600'
+            }`}>
+              {isPositiveChange ? '+' : ''}{formatPrice(change, currency)} ({changePercent.toFixed(2)}%)
+            </div>
+          )}
+        </div>
+
+        {/* Confidence Indicator */}
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <span className="prediction-metadata-label text-muted-foreground">Prediction Confidence</span>
+            <span className={`prediction-metadata-value ${getConfidenceColor(displayPrediction.confidence)}`}>
+              {displayPrediction.confidence ? displayPrediction.confidence.toFixed(1) : '0.0'}%
+            </span>
+          </div>
+          <Progress 
+            value={displayPrediction.confidence || 0} 
+            indicatorClassName={getProgressBarColor(displayPrediction.confidence)}
+            className="h-2" 
+          />
+        </div>
+
+        {/* Additional Metrics - Removed Price Range section */}
+
+      </CardContent>
+      
       {/* Model Selection */}
-      <div className="px-6 pb-4">
+      <div className="px-6 pb-16">
         <div className="space-y-4">
           <h3 className="text-2xl font-bold text-foreground">Models</h3>
           
@@ -260,7 +318,7 @@ export function StockPrediction({
           </div>
           
           {/* Unsupervised Models */}
-          <div className="space-y-2">
+          <div className="space-y-2 mb-12">
             <button
               onClick={() => setShowUnsupervised(!showUnsupervised)}
               className="flex items-center gap-2 text-base font-medium text-muted-foreground uppercase tracking-wide hover:text-foreground transition-colors"
@@ -315,74 +373,11 @@ export function StockPrediction({
               </div>
             )}
           </div>
+          
+          {/* Bottom separator and spacing */}
+          <div className="border-t border-gray-200 mt-6 pt-6"></div>
         </div>
       </div>
-      
-      <CardContent className="space-y-6">
-        {/* Static Dummy Data Warning */}
-        <Alert className="border-orange-200 bg-orange-50">
-          <AlertTriangle className="h-4 w-4 text-orange-600" />
-          <AlertDescription className="text-orange-800 font-semibold">
-            ⚠️ STATIC DUMMY DATA - FOR TESTING ONLY
-          </AlertDescription>
-        </Alert>
-
-        {/* Prediction Alert */}
-        <Alert className="prediction-alert">
-          <AlertTriangle className="prediction-alert-icon" />
-          <AlertDescription className="prediction-alert-text">
-            This prediction is based on historical data analysis using machine learning. 
-            Market conditions can change rapidly and predictions may not reflect future performance.
-          </AlertDescription>
-        </Alert>
-
-        {/* Main Prediction */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="prediction-metadata-label text-muted-foreground">Predicted Price</span>
-            <div className="flex items-center gap-2">
-              {isPositiveChange ? (
-                <TrendingUp className="prediction-icon text-green-600" />
-              ) : (
-                <TrendingDown className="prediction-icon text-red-600" />
-              )}
-              <Badge variant={getConfidenceBadgeVariant(displayPrediction.confidence)} className="prediction-confidence-badge">
-                {displayPrediction.confidence ? displayPrediction.confidence.toFixed(1) : '0.0'}% confidence
-              </Badge>
-            </div>
-          </div>
-          
-          <div className="prediction-price-main">
-            {formatPrice(displayPrediction.predictedPrice, currency)}
-          </div>
-          
-          {currentPrice && (
-            <div className={`prediction-change-info ${
-              isPositiveChange ? 'text-green-600' : 'text-red-600'
-            }`}>
-              {isPositiveChange ? '+' : ''}{formatPrice(change, currency)} ({changePercent.toFixed(2)}%)
-            </div>
-          )}
-        </div>
-
-        {/* Confidence Indicator */}
-        <div className="space-y-3">
-          <div className="flex justify-between items-center">
-            <span className="prediction-metadata-label text-muted-foreground">Prediction Confidence</span>
-            <span className={`prediction-metadata-value ${getConfidenceColor(displayPrediction.confidence)}`}>
-              {displayPrediction.confidence ? displayPrediction.confidence.toFixed(1) : '0.0'}%
-            </span>
-          </div>
-          <Progress 
-            value={displayPrediction.confidence || 0} 
-            indicatorClassName={getProgressBarColor(displayPrediction.confidence)}
-            className="h-2" 
-          />
-        </div>
-
-        {/* Additional Metrics - Removed Price Range section */}
-
-      </CardContent>
     </Card>
   );
 }
