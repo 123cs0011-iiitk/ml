@@ -28,40 +28,100 @@ from .prediction_saver import PredictionSaver
 
 # Import all algorithms from optimised directory (with fallback handling)
 try:
-    from algorithms.optimised.linear_models import LinearModelsWrapper
+    from algorithms.optimised.linear_regression.linear_regression import LinearRegressionModel
 except ImportError as e:
-    logger.warning(f"Could not import LinearModelsWrapper: {e}")
-    LinearModelsWrapper = None
+    logger.warning(f"Could not import LinearRegressionModel: {e}")
+    LinearRegressionModel = None
 
 try:
-    from algorithms.optimised.random_forest import RandomForestWrapper
+    from algorithms.optimised.random_forest.random_forest import RandomForestModel
 except ImportError as e:
-    logger.warning(f"Could not import RandomForestWrapper: {e}")
-    RandomForestWrapper = None
+    logger.warning(f"Could not import RandomForestModel: {e}")
+    RandomForestModel = None
 
 try:
-    from algorithms.optimised.knn import KNNWrapper
+    from algorithms.optimised.knn.knn import KNNModel
 except ImportError as e:
-    logger.warning(f"Could not import KNNWrapper: {e}")
-    KNNWrapper = None
+    logger.warning(f"Could not import KNNModel: {e}")
+    KNNModel = None
 
 try:
-    from algorithms.optimised.svr import SVRWrapper
+    from algorithms.optimised.svm.svm import SVMModel
 except ImportError as e:
-    logger.warning(f"Could not import SVRWrapper: {e}")
-    SVRWrapper = None
+    logger.warning(f"Could not import SVMModel: {e}")
+    SVMModel = None
 
 try:
-    from algorithms.optimised.lstm_wrapper import LSTMWrapper
+    from algorithms.optimised.decision_tree.decision_tree import DecisionTreeModel
 except ImportError as e:
-    logger.warning(f"Could not import LSTMWrapper: {e}")
-    LSTMWrapper = None
+    logger.warning(f"Could not import DecisionTreeModel: {e}")
+    DecisionTreeModel = None
 
 try:
-    from algorithms.optimised.arima_wrapper import ARIMAWrapper
+    from algorithms.optimised.ann.ann import ANNModel
 except ImportError as e:
-    logger.warning(f"Could not import ARIMAWrapper: {e}")
-    ARIMAWrapper = None
+    logger.warning(f"Could not import ANNModel: {e}")
+    ANNModel = None
+
+try:
+    from algorithms.optimised.cnn.cnn import CNNModel
+except ImportError as e:
+    logger.warning(f"Could not import CNNModel: {e}")
+    CNNModel = None
+
+try:
+    from algorithms.optimised.arima.arima import ARIMAModel
+except ImportError as e:
+    logger.warning(f"Could not import ARIMAModel: {e}")
+    ARIMAModel = None
+
+try:
+    from algorithms.optimised.autoencoders.autoencoder import AutoencoderModel
+except ImportError as e:
+    logger.warning(f"Could not import AutoencoderModel: {e}")
+    AutoencoderModel = None
+
+try:
+    from algorithms.optimised.kmeans.kmeans import KMeansModel
+except ImportError as e:
+    logger.warning(f"Could not import KMeansModel: {e}")
+    KMeansModel = None
+
+try:
+    from algorithms.optimised.dbscan.dbscan import DBSCANModel
+except ImportError as e:
+    logger.warning(f"Could not import DBSCANModel: {e}")
+    DBSCANModel = None
+
+try:
+    from algorithms.optimised.hierarchical_clustering.hierarchical_clustering import HierarchicalClusteringModel
+except ImportError as e:
+    logger.warning(f"Could not import HierarchicalClusteringModel: {e}")
+    HierarchicalClusteringModel = None
+
+try:
+    from algorithms.optimised.general_clustering.general_clustering import GeneralClusteringModel
+except ImportError as e:
+    logger.warning(f"Could not import GeneralClusteringModel: {e}")
+    GeneralClusteringModel = None
+
+try:
+    from algorithms.optimised.pca.pca import PCAModel
+except ImportError as e:
+    logger.warning(f"Could not import PCAModel: {e}")
+    PCAModel = None
+
+try:
+    from algorithms.optimised.svd.svd import SVDModel
+except ImportError as e:
+    logger.warning(f"Could not import SVDModel: {e}")
+    SVDModel = None
+
+try:
+    from algorithms.optimised.t_sne.tsne import TSNEModel
+except ImportError as e:
+    logger.warning(f"Could not import TSNEModel: {e}")
+    TSNEModel = None
 
 
 class StockPredictor:
@@ -88,31 +148,63 @@ class StockPredictor:
         models = {}
         
         try:
-            # Linear Models (Ridge, Lasso, ElasticNet)
-            if LinearModelsWrapper is not None:
-                models['ridge'] = LinearModelsWrapper(model_type='ridge')
-                models['lasso'] = LinearModelsWrapper(model_type='lasso')
-                models['elasticnet'] = LinearModelsWrapper(model_type='elasticnet')
+            # Linear Regression
+            if LinearRegressionModel is not None:
+                models['linear_regression'] = LinearRegressionModel()
             
             # Random Forest
-            if RandomForestWrapper is not None:
-                models['random_forest'] = RandomForestWrapper()
+            if RandomForestModel is not None:
+                models['random_forest'] = RandomForestModel()
             
             # KNN
-            if KNNWrapper is not None:
-                models['knn'] = KNNWrapper()
+            if KNNModel is not None:
+                models['knn'] = KNNModel()
             
-            # SVR
-            if SVRWrapper is not None:
-                models['svr'] = SVRWrapper()
+            # SVM/SVR
+            if SVMModel is not None:
+                models['svm'] = SVMModel()
             
-            # LSTM
-            if LSTMWrapper is not None:
-                models['lstm'] = LSTMWrapper()
+            # Decision Tree
+            if DecisionTreeModel is not None:
+                models['decision_tree'] = DecisionTreeModel()
             
-            # ARIMA
-            if ARIMAWrapper is not None:
-                models['arima'] = ARIMAWrapper()
+            # Neural Networks
+            if ANNModel is not None:
+                models['ann'] = ANNModel()
+            
+            if CNNModel is not None:
+                models['cnn'] = CNNModel()
+            
+            # Time Series
+            if ARIMAModel is not None:
+                models['arima'] = ARIMAModel()
+            
+            # Autoencoders
+            if AutoencoderModel is not None:
+                models['autoencoder'] = AutoencoderModel()
+            
+            # Clustering Models
+            if KMeansModel is not None:
+                models['kmeans'] = KMeansModel()
+            
+            if DBSCANModel is not None:
+                models['dbscan'] = DBSCANModel()
+            
+            if HierarchicalClusteringModel is not None:
+                models['hierarchical_clustering'] = HierarchicalClusteringModel()
+            
+            if GeneralClusteringModel is not None:
+                models['general_clustering'] = GeneralClusteringModel()
+            
+            # Dimensionality Reduction
+            if PCAModel is not None:
+                models['pca'] = PCAModel()
+            
+            if SVDModel is not None:
+                models['svd'] = SVDModel()
+            
+            if TSNEModel is not None:
+                models['tsne'] = TSNEModel()
             
             logger.info(f"Initialized {len(models)} models: {list(models.keys())}")
             
@@ -127,45 +219,58 @@ class StockPredictor:
         """Initialize only the models that are available."""
         models = {}
         
-        if LinearModelsWrapper is not None:
+        if LinearRegressionModel is not None:
             try:
-                models['ridge'] = LinearModelsWrapper(model_type='ridge')
-                models['lasso'] = LinearModelsWrapper(model_type='lasso')
-                logger.info("Initialized basic linear models")
+                models['linear_regression'] = LinearRegressionModel()
+                logger.info("Initialized Linear Regression")
             except Exception as e:
-                logger.warning(f"Could not initialize linear models: {str(e)}")
+                logger.warning(f"Could not initialize Linear Regression: {str(e)}")
         
-        if RandomForestWrapper is not None:
+        if RandomForestModel is not None:
             try:
-                models['random_forest'] = RandomForestWrapper()
+                models['random_forest'] = RandomForestModel()
                 logger.info("Initialized Random Forest")
             except Exception as e:
                 logger.warning(f"Could not initialize Random Forest: {str(e)}")
         
-        if KNNWrapper is not None:
+        if KNNModel is not None:
             try:
-                models['knn'] = KNNWrapper()
+                models['knn'] = KNNModel()
                 logger.info("Initialized KNN")
             except Exception as e:
                 logger.warning(f"Could not initialize KNN: {str(e)}")
         
-        if SVRWrapper is not None:
+        if SVMModel is not None:
             try:
-                models['svr'] = SVRWrapper()
-                logger.info("Initialized SVR")
+                models['svm'] = SVMModel()
+                logger.info("Initialized SVM")
             except Exception as e:
-                logger.warning(f"Could not initialize SVR: {str(e)}")
+                logger.warning(f"Could not initialize SVM: {str(e)}")
         
-        if LSTMWrapper is not None:
+        if DecisionTreeModel is not None:
             try:
-                models['lstm'] = LSTMWrapper()
-                logger.info("Initialized LSTM")
+                models['decision_tree'] = DecisionTreeModel()
+                logger.info("Initialized Decision Tree")
             except Exception as e:
-                logger.warning(f"Could not initialize LSTM: {str(e)}")
+                logger.warning(f"Could not initialize Decision Tree: {str(e)}")
         
-        if ARIMAWrapper is not None:
+        if ANNModel is not None:
             try:
-                models['arima'] = ARIMAWrapper()
+                models['ann'] = ANNModel()
+                logger.info("Initialized ANN")
+            except Exception as e:
+                logger.warning(f"Could not initialize ANN: {str(e)}")
+        
+        if CNNModel is not None:
+            try:
+                models['cnn'] = CNNModel()
+                logger.info("Initialized CNN")
+            except Exception as e:
+                logger.warning(f"Could not initialize CNN: {str(e)}")
+        
+        if ARIMAModel is not None:
+            try:
+                models['arima'] = ARIMAModel()
                 logger.info("Initialized ARIMA")
             except Exception as e:
                 logger.warning(f"Could not initialize ARIMA: {str(e)}")
