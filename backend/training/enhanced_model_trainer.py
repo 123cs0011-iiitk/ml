@@ -292,7 +292,10 @@ class EnhancedModelTrainer:
     def load_all_stock_data_with_progress(self, max_stocks: int = None, 
                                         progress_callback=None) -> Tuple[np.ndarray, np.ndarray, List[str]]:
         """
-        Load and combine data from all stocks with progress tracking.
+        Load and combine data from all stocks for TRAINING with progress tracking.
+        
+        IMPORTANT: Uses ONLY historical data from data/past/ directory.
+        Does NOT use data/latest/ to ensure consistency across all stocks.
         
         Returns:
             Tuple of (X, y, stock_symbols) where:
@@ -697,7 +700,7 @@ class EnhancedModelTrainer:
         print(f"DATA TARGET:")
         print(f"   Stocks: ~1,000 stocks (US + Indian)")
         print(f"   Historical Data: 5 years per stock")
-        print(f"   Features: 43 technical indicators per stock")
+        print(f"   Features: 37 technical indicators per stock")
         print(f"   Total Samples: ~1,000,000+ data points")
         print(f"")
         print(f"TIMING ESTIMATES:")
@@ -1256,7 +1259,7 @@ class EnhancedModelTrainer:
                 print(f"   {time_estimates['status_message']}")
                 print(f"   Training on full dataset (~1,000 stocks)")
                 print(f"   Data: {total_samples:,} samples from ~1,000 stocks")
-                print(f"   Features: 43 technical indicators per stock")
+                print(f"   Features: 37 technical indicators per stock")
                 
                 if has_verbose:
                     print(f"   Model supports verbose output - see console above for details")

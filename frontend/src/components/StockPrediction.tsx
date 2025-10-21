@@ -52,21 +52,11 @@ const MODEL_OPTIONS = {
     { key: 'decision_tree', label: 'Decision Tree' },
     { key: 'knn', label: 'K-Nearest Neighbors' },
     { key: 'linear_regression', label: 'Linear Regression' },
-    { key: 'logistic_regression', label: 'Logistic Regression' },
-    { key: 'naive_bayes', label: 'Naive Bayes' },
     { key: 'random_forest', label: 'Random Forest' },
     { key: 'svm', label: 'Support Vector Machine' },
   ],
   unsupervised: [
     { key: 'autoencoders', label: 'Autoencoders' },
-    { key: 'dbscan', label: 'Density-Based Spatial Clustering' },
-    { key: 'general_clustering', label: 'General Clustering' },
-    { key: 'hierarchical_clustering', label: 'Hierarchical Clustering' },
-    { key: 'kmeans', label: 'K-Means Clustering' },
-    { key: 'lazy_learning', label: 'Lazy Learning' },
-    { key: 'pca', label: 'Principal Component Analysis' },
-    { key: 'svd', label: 'Singular Value Decomposition' },
-    { key: 'tsne', label: 't-Distributed Stochastic Neighbor Embedding' },
   ]
 };
 

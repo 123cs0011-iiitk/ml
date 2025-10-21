@@ -113,9 +113,50 @@ pip install upstox-totp
 ### **Rate Limits**: 50 requests/second, 500 requests/minute
 
 ### **Supported Stocks**
-- **20 Major Indian Stocks**: Hardcoded mappings (RELIANCE, TCS, HDFCBANK, etc.)
-- **Dynamic Fallback**: `NSE_EQ|SYMBOL` format for other stocks
-- **500+ Total Stocks**: Available in permanent directory
+- **500 Indian Stocks**: All with verified ISINs
+- **20 Major Stocks**: Hardcoded mappings (RELIANCE, TCS, HDFCBANK, etc.)
+- **Dynamic Format**: `NSE_EQ|SYMBOL` for other stocks
+- **Permanent Storage**: Full coverage in permanent directory
+
+## 🔑 ISIN Requirements
+
+### **Indian Stocks - ISINs MANDATORY**
+
+**All 500 Indian stocks require ISINs** (International Securities Identification Number) for Upstox API integration.
+
+**Verification Status**:
+- ✅ **100% Coverage**: All 500 stocks in `permanent/ind_stocks/index_ind_stocks.csv`
+- ✅ **Live Verified**: Random sample of 25 stocks tested with live Upstox API (100% success)
+- ✅ **Format Validated**: All ISINs are 12 characters starting with "INE"
+
+**ISIN Format**:
+- **Length**: 12 characters
+- **Prefix**: "INE" (India)
+- **Example**: `INE009A01021` (Infosys Limited)
+- **Structure**: INE + 6 alphanumeric + 2 check digits
+
+**Verification Command**:
+```bash
+python backend/scripts/verify_indian_isins.py --count 25
+```
+
+**Why ISINs Are Required**:
+- Upstox API uses instrument keys in format: `NSE_EQ|INE009A01021`
+- Without correct ISIN, API returns "wrong ISIN number" error
+- ISINs uniquely identify securities across global markets
+
+### **US Stocks - NO ISINs**
+
+**US stocks do NOT require ISINs** for this system:
+- ❌ No ISIN column in `permanent/us_stocks/index_us_stocks.csv`
+- ✅ Use ticker symbols only (e.g., AAPL, MSFT, GOOGL)
+- ✅ Identified by exchange (NYSE/NASDAQ)
+- ✅ Finnhub API doesn't require ISINs
+
+**Data Structure Comparison**:
+
+Indian: `symbol,company_name,sector,market_cap,headquarters,exchange,currency,isin`  
+US: `symbol,company_name,sector,market_cap,headquarters,exchange,currency`
 
 ## 🔧 Configuration
 

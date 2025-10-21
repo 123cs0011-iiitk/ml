@@ -73,26 +73,6 @@ class FeatureEngineer:
             'lower': lower_band
         }
     
-    @staticmethod
-    def calculate_obv(data: pd.DataFrame) -> pd.Series:
-        """Calculate On-Balance Volume"""
-        obv = pd.Series(index=data.index, dtype=float)
-        obv.iloc[0] = data['volume'].iloc[0]
-        
-        for i in range(1, len(data)):
-            if data['close'].iloc[i] > data['close'].iloc[i-1]:
-                obv.iloc[i] = obv.iloc[i-1] + data['volume'].iloc[i]
-            elif data['close'].iloc[i] < data['close'].iloc[i-1]:
-                obv.iloc[i] = obv.iloc[i-1] - data['volume'].iloc[i]
-            else:
-                obv.iloc[i] = obv.iloc[i-1]
-        
-        return obv
-    
-    @staticmethod
-    def calculate_volume_ma(data: pd.Series, window: int = 20) -> pd.Series:
-        """Calculate Volume Moving Average"""
-        return data.rolling(window=window).mean()
     
     @staticmethod
     def add_lag_features(data: pd.DataFrame, lags: List[int]) -> pd.DataFrame:
@@ -100,7 +80,6 @@ class FeatureEngineer:
         df = data.copy()
         for lag in lags:
             df[f'close_lag_{lag}'] = df['close'].shift(lag)
-            df[f'volume_lag_{lag}'] = df['volume'].shift(lag)
         return df
 
 
@@ -228,20 +207,12 @@ class DataPipeline:
         df['bb_width'] = (bb_data['upper'] - bb_data['lower']) / bb_data['middle']
         df['bb_position'] = (df['close'] - bb_data['lower']) / (bb_data['upper'] - bb_data['lower'])
         
-        # On-Balance Volume
-        df['obv'] = self.feature_engineer.calculate_obv(df)
-        
-        # Volume features
-        df['volume_ma_20'] = self.feature_engineer.calculate_volume_ma(df['volume'], 20)
-        df['volume_ratio'] = df['volume'] / df['volume_ma_20']
-        
         # Lag features
         lag_periods = [1, 2, 3, 5, 10, 30]
         df = self.feature_engineer.add_lag_features(df, lag_periods)
         
         # Additional technical indicators
         df['price_volatility'] = df['close'].rolling(window=20).std()
-        df['volume_volatility'] = df['volume'].rolling(window=20).std()
         
         # Drop rows with NaN values (due to rolling calculations)
         df = df.dropna()
