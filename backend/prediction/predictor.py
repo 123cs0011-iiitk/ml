@@ -28,40 +28,60 @@ from .prediction_saver import PredictionSaver
 
 # Import all algorithms from optimised directory (with fallback handling)
 try:
-    from algorithms.optimised.linear_models import LinearModelsWrapper
+    from algorithms.optimised.linear_regression.linear_regression import LinearRegressionModel
 except ImportError as e:
-    logger.warning(f"Could not import LinearModelsWrapper: {e}")
-    LinearModelsWrapper = None
+    logger.warning(f"Could not import LinearRegressionModel: {e}")
+    LinearRegressionModel = None
 
 try:
-    from algorithms.optimised.random_forest import RandomForestWrapper
+    from algorithms.optimised.random_forest.random_forest import RandomForestModel
 except ImportError as e:
-    logger.warning(f"Could not import RandomForestWrapper: {e}")
-    RandomForestWrapper = None
+    logger.warning(f"Could not import RandomForestModel: {e}")
+    RandomForestModel = None
 
 try:
-    from algorithms.optimised.knn import KNNWrapper
+    from algorithms.optimised.knn.knn import KNNModel
 except ImportError as e:
-    logger.warning(f"Could not import KNNWrapper: {e}")
-    KNNWrapper = None
+    logger.warning(f"Could not import KNNModel: {e}")
+    KNNModel = None
 
 try:
-    from algorithms.optimised.svr import SVRWrapper
+    from algorithms.optimised.svm.svm import SVMModel
 except ImportError as e:
-    logger.warning(f"Could not import SVRWrapper: {e}")
-    SVRWrapper = None
+    logger.warning(f"Could not import SVMModel: {e}")
+    SVMModel = None
 
 try:
-    from algorithms.optimised.lstm_wrapper import LSTMWrapper
+    from algorithms.optimised.decision_tree.decision_tree import DecisionTreeModel
 except ImportError as e:
-    logger.warning(f"Could not import LSTMWrapper: {e}")
-    LSTMWrapper = None
+    logger.warning(f"Could not import DecisionTreeModel: {e}")
+    DecisionTreeModel = None
 
 try:
-    from algorithms.optimised.arima_wrapper import ARIMAWrapper
+    from algorithms.optimised.ann.ann import ANNModel
 except ImportError as e:
-    logger.warning(f"Could not import ARIMAWrapper: {e}")
-    ARIMAWrapper = None
+    logger.warning(f"Could not import ANNModel: {e}")
+    ANNModel = None
+
+try:
+    from algorithms.optimised.cnn.cnn import CNNModel
+except ImportError as e:
+    logger.warning(f"Could not import CNNModel: {e}")
+    CNNModel = None
+
+try:
+    from algorithms.optimised.arima.arima import ARIMAModel
+except ImportError as e:
+    logger.warning(f"Could not import ARIMAModel: {e}")
+    ARIMAModel = None
+
+try:
+    from algorithms.optimised.autoencoders.autoencoder import AutoencoderModel
+except ImportError as e:
+    logger.warning(f"Could not import AutoencoderModel: {e}")
+    AutoencoderModel = None
+
+# Clustering and dimensionality reduction models removed - not used for direct price prediction
 
 
 class StockPredictor:
@@ -84,94 +104,44 @@ class StockPredictor:
         self.model_performance = {}
         
     def _initialize_models(self) -> Dict[str, Any]:
-        """Initialize all available models."""
+        """Load pre-trained models from disk."""
         models = {}
+        models_dir = os.path.join(os.path.dirname(__file__), '..', 'models')
         
-        try:
-            # Linear Models (Ridge, Lasso, ElasticNet)
-            if LinearModelsWrapper is not None:
-                models['ridge'] = LinearModelsWrapper(model_type='ridge')
-                models['lasso'] = LinearModelsWrapper(model_type='lasso')
-                models['elasticnet'] = LinearModelsWrapper(model_type='elasticnet')
-            
-            # Random Forest
-            if RandomForestWrapper is not None:
-                models['random_forest'] = RandomForestWrapper()
-            
-            # KNN
-            if KNNWrapper is not None:
-                models['knn'] = KNNWrapper()
-            
-            # SVR
-            if SVRWrapper is not None:
-                models['svr'] = SVRWrapper()
-            
-            # LSTM
-            if LSTMWrapper is not None:
-                models['lstm'] = LSTMWrapper()
-            
-            # ARIMA
-            if ARIMAWrapper is not None:
-                models['arima'] = ARIMAWrapper()
-            
-            logger.info(f"Initialized {len(models)} models: {list(models.keys())}")
-            
-        except Exception as e:
-            logger.error(f"Error initializing models: {str(e)}")
-            # Initialize with available models only
-            models = self._initialize_available_models()
+        # Model configurations
+        model_configs = {
+            'linear_regression': LinearRegressionModel,
+            'random_forest': RandomForestModel,
+            'svm': SVMModel,
+            'knn': KNNModel,
+            'decision_tree': DecisionTreeModel,
+            'ann': ANNModel,
+            'cnn': CNNModel,
+            'arima': ARIMAModel,
+            'autoencoder': AutoencoderModel
+        }
         
+        for model_name, model_class in model_configs.items():
+            if model_class is None:
+                logger.warning(f"Model class not available: {model_name}")
+                continue
+            
+            model_path = os.path.join(models_dir, f"{model_name}_model.pkl")
+            
+            if os.path.exists(model_path):
+                try:
+                    # Load pre-trained model
+                    model = model_class().load(model_path)
+                    models[model_name] = model
+                    logger.info(f"✅ Loaded pre-trained {model_name}")
+                except Exception as e:
+                    logger.error(f"❌ Error loading {model_name}: {e}")
+            else:
+                logger.warning(f"⚠️ Pre-trained model not found: {model_path}")
+        
+        logger.info(f"Loaded {len(models)} pre-trained models: {list(models.keys())}")
         return models
     
-    def _initialize_available_models(self) -> Dict[str, Any]:
-        """Initialize only the models that are available."""
-        models = {}
-        
-        if LinearModelsWrapper is not None:
-            try:
-                models['ridge'] = LinearModelsWrapper(model_type='ridge')
-                models['lasso'] = LinearModelsWrapper(model_type='lasso')
-                logger.info("Initialized basic linear models")
-            except Exception as e:
-                logger.warning(f"Could not initialize linear models: {str(e)}")
-        
-        if RandomForestWrapper is not None:
-            try:
-                models['random_forest'] = RandomForestWrapper()
-                logger.info("Initialized Random Forest")
-            except Exception as e:
-                logger.warning(f"Could not initialize Random Forest: {str(e)}")
-        
-        if KNNWrapper is not None:
-            try:
-                models['knn'] = KNNWrapper()
-                logger.info("Initialized KNN")
-            except Exception as e:
-                logger.warning(f"Could not initialize KNN: {str(e)}")
-        
-        if SVRWrapper is not None:
-            try:
-                models['svr'] = SVRWrapper()
-                logger.info("Initialized SVR")
-            except Exception as e:
-                logger.warning(f"Could not initialize SVR: {str(e)}")
-        
-        if LSTMWrapper is not None:
-            try:
-                models['lstm'] = LSTMWrapper()
-                logger.info("Initialized LSTM")
-            except Exception as e:
-                logger.warning(f"Could not initialize LSTM: {str(e)}")
-        
-        if ARIMAWrapper is not None:
-            try:
-                models['arima'] = ARIMAWrapper()
-                logger.info("Initialized ARIMA")
-            except Exception as e:
-                logger.warning(f"Could not initialize ARIMA: {str(e)}")
-        
-        logger.info(f"Successfully initialized {len(models)} models: {list(models.keys())}")
-        return models
     
     def predict_stock(self, symbol: str, category: str) -> bool:
         """
@@ -276,10 +246,7 @@ class StockPredictor:
             
             for model_name, model in self.models.items():
                 try:
-                    logger.debug(f"Training {model_name} for {symbol} {horizon}")
-                    
-                    # Train the model
-                    model.fit(X, y)
+                    logger.debug(f"Using pre-trained {model_name} for {symbol} {horizon}")
                     
                     # Get prediction (for next day, then extrapolate for longer horizons)
                     if horizon == '1D':

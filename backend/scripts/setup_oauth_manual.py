@@ -21,9 +21,9 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from shared.upstox_token_manager import UpstoxTokenManager
 
 # Your credentials (from your .env file)
-CLIENT_ID = "2c142e65-3c21-4418-933e-857ca341c186"
-CLIENT_SECRET = "8rf38ndcmr"
-REDIRECT_URI = "http://localhost:8080"
+CLIENT_ID = "73d5a375-8ec1-472b-8a7b-33d3a88ed750"
+CLIENT_SECRET = "89sgkrjdrm"
+REDIRECT_URI = "http://localhost:3000"
 
 class OAuthCallbackHandler(http.server.BaseHTTPRequestHandler):
     def __init__(self, *args, callback_data=None, **kwargs):
@@ -192,13 +192,16 @@ def main():
     print(f"Listening on: {REDIRECT_URI}")
     print()
     
-    # Open browser
-    try:
-        webbrowser.open(auth_url)
-        print("✓ Browser opened with authorization page")
-    except Exception as e:
-        print(f"⚠ Could not open browser automatically: {e}")
-        print("Please open the URL manually in your browser.")
+    # Manual browser opening
+    print("Please open the following URL manually in your browser:")
+    print(f"URL: {auth_url}")
+    print()
+    print("Steps:")
+    print("1. Copy the URL above")
+    print("2. Paste it in your browser")
+    print("3. Log in to Upstox with your credentials")
+    print("4. Authorize the application")
+    print("5. You will be redirected to a success page")
     
     print()
     print("Please complete the authorization in your browser...")
@@ -206,7 +209,7 @@ def main():
     print()
     
     # Wait for callback
-    auth_code = start_callback_server(port=8080, timeout=300)
+    auth_code = start_callback_server(port=3000, timeout=300)
     
     if not auth_code:
         print("✗ Authorization failed or timed out")

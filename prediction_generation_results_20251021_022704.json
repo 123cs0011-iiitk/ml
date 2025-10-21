@@ -1,0 +1,15 @@
+{
+  "total_stocks": 6,
+  "successful_predictions": 3,
+  "failed_predictions": 3,
+  "failed_symbols": [
+    "AAPL (us_stocks)",
+    "3MINDIA (ind_stocks)",
+    "AADHARHFC (ind_stocks)"
+  ],
+  "start_time": "2025-10-21T02:27:04.558298",
+  "end_time": "2025-10-21T02:27:04.836074",
+  "models_used": [
+    "linear_regression"
+  ]
+}

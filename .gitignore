@@ -88,8 +88,12 @@ temp/
 
 # Permanent Directories
 /permanent/
-/data/
 /inspirations/
+
+# Data directory - ignore everything except dynamic index files
+/data/*
+!/data/index_us_stocks_dynamic.csv
+!/data/index_ind_stocks_dynamic.csv
 
 # Specific files
 IMPLEMENTATION.md

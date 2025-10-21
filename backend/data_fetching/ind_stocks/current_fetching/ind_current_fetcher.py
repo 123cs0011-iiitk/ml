@@ -1,11 +1,12 @@
 """
 Indian Stocks Current Price Fetcher
 
-Fetches current live stock prices for Indian stocks using multiple data sources.
-Implements fallback chain: Upstox API (primary) → yfinance → permanent directory
+Fetches current live stock prices for Indian stocks using real-time data sources.
+Implements fallback chain: Upstox API (real-time) → permanent directory (historical)
 
 Rate-limited to respect API limits and ensure reliable data fetching.
 All prices are returned in INR currency.
+Note: yfinance removed from real-time fetching as it only provides delayed data.
 """
 
 import os
@@ -402,39 +403,6 @@ class IndianCurrentFetcher:
         # If we get here, all retries failed
         raise ValueError(f"Upstox OHLCV API failed after {max_retries} attempts")
     
-    def fetch_price_from_yfinance(self, symbol: str) -> Tuple[float, str]:
-        """
-        Fetch current stock price from yfinance with .NS suffix.
-        
-        Args:
-            symbol: Stock symbol
-        
-        Returns:
-            Tuple of (price, company_name)
-        """
-        try:
-            import yfinance as yf
-            
-            # Add .NS suffix for NSE stocks
-            yfinance_symbol = f"{symbol}.NS"
-            ticker = yf.Ticker(yfinance_symbol)
-            
-            # Get recent data (last 1 day) instead of info to avoid rate limits
-            hist = ticker.history(period="1d")
-            
-            if not hist.empty and 'Close' in hist.columns:
-                price = float(hist['Close'].iloc[-1])
-                company_name = symbol
-                
-                print(f"Successfully fetched {symbol} from yfinance: ₹{price} ({company_name})")
-                return price, company_name
-            else:
-                raise ValueError(f"No current price data available for {symbol}")
-                
-        except Exception as e:
-            print(f"yfinance error for {symbol}: {str(e)}")
-            raise
-    
     def fetch_batch_prices_upstox(self, symbols: List[str]) -> Dict[str, Tuple[float, str]]:
         """
         Fetch multiple stock prices in a single Upstox API call.
@@ -621,10 +589,9 @@ class IndianCurrentFetcher:
         
         timestamp = datetime.now().isoformat()
         
-        # Try each API in order - Upstox as primary
+        # Try each API in order - Upstox as primary (only real-time API)
         apis = [
-            ('upstox', self.fetch_price_from_upstox),
-            ('yfinance', self.fetch_price_from_yfinance)
+            ('upstox', self.fetch_price_from_upstox)
         ]
         
         last_error = None
@@ -699,6 +666,13 @@ class IndianCurrentFetcher:
                         
                 except Exception as e:
                     print(f"Warning: Could not update dynamic index for {symbol}: {e}")
+                
+                # Save OHLCV data to individual file
+                try:
+                    self.save_daily_data(symbol, result)
+                    print(f"✓ Saved OHLCV data for {symbol} to individual file")
+                except Exception as e:
+                    print(f"Warning: Could not save daily data for {symbol}: {e}")
                 
                 print(f"Successfully fetched {symbol} price ₹{price} from {api_name}")
                 return result

@@ -99,8 +99,8 @@ class DataLoader:
                 logger.warning(f"Missing columns in {symbol} historical data: {missing_columns}")
                 return None
             
-            # Convert date column
-            df['date'] = pd.to_datetime(df['date'])
+            # Convert date column - ensure timezone-naive for consistency
+            df['date'] = pd.to_datetime(df['date'], utc=False)
             
             # Sort by date
             df = df.sort_values('date').reset_index(drop=True)
@@ -142,8 +142,8 @@ class DataLoader:
                 logger.warning(f"Missing columns in {symbol} latest data: {missing_columns}")
                 return None
             
-            # Convert date column
-            df['date'] = pd.to_datetime(df['date'])
+            # Convert date column - ensure timezone-naive for consistency
+            df['date'] = pd.to_datetime(df['date'], utc=False)
             
             # Sort by date
             df = df.sort_values('date').reset_index(drop=True)
@@ -249,12 +249,59 @@ class DataLoader:
             # Remove rows with NaN values created by rolling calculations
             df = df.dropna()
             
+            # Ensure consistent feature set
+            df = self._standardize_features(df)
+            
             logger.debug(f"Created {len(df.columns)} features for prediction")
             return df
             
         except Exception as e:
             logger.error(f"Error creating features: {str(e)}")
             return df
+    
+    def _standardize_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Ensure all stocks have the same feature set by adding missing features with default values.
+        
+        Args:
+            df: DataFrame with features
+            
+        Returns:
+            DataFrame with standardized feature set
+        """
+        # Define the expected feature set (43 features total)
+        expected_features = [
+            'price_change', 'price_change_abs', 'volatility', 'rsi', 'volume_ma', 'volume_ratio',
+            'hl_ratio', 'oc_ratio', 'price_position', 'day_of_week', 'month', 'quarter'
+        ]
+        
+        # Add moving averages
+        for window in self.config.MOVING_AVERAGES:
+            expected_features.extend([f'ma_{window}', f'ma_{window}_ratio'])
+        
+        # Add lagged features
+        for lag in [1, 2, 3, 5, 10]:
+            expected_features.extend([f'close_lag_{lag}', f'volume_lag_{lag}'])
+        
+        # Add rolling statistics
+        for window in [5, 10, 20]:
+            expected_features.extend([f'close_std_{window}', f'close_min_{window}', f'close_max_{window}'])
+        
+        # Add missing features with default values
+        for feature in expected_features:
+            if feature not in df.columns:
+                if feature in ['day_of_week', 'month', 'quarter']:
+                    df[feature] = 0  # Default for time features
+                elif 'ratio' in feature or 'position' in feature:
+                    df[feature] = 1.0  # Default for ratio features
+                else:
+                    df[feature] = 0.0  # Default for other features
+        
+        # Remove any extra features that aren't in the expected set
+        columns_to_keep = ['date', 'open', 'high', 'low', 'close', 'volume'] + expected_features
+        df = df[[col for col in columns_to_keep if col in df.columns]]
+        
+        return df
     
     def _calculate_rsi(self, prices: pd.Series, period: int = 14) -> pd.Series:
         """Calculate Relative Strength Index."""
@@ -286,6 +333,9 @@ class DataLoader:
             return np.array([]), np.array([])
         
         try:
+            # Ensure consistent feature set before preparing training data
+            df = self._standardize_features(df)
+            
             # Select feature columns (exclude target and metadata columns)
             exclude_columns = [
                 'date', 'data_source', target_column, 'adjusted_close', 'currency'
@@ -314,6 +364,12 @@ class DataLoader:
             # Remove last row (no target for prediction)
             X = X[:-1]
             y = y[:-1]
+            
+            # Handle infinity and NaN values
+            X = np.nan_to_num(X, nan=0.0, posinf=1e6, neginf=-1e6)
+            y = np.nan_to_num(y, nan=np.nanmean(y) if not np.isnan(np.nanmean(y)) else 0.0, 
+                             posinf=np.nanmax(y) if not np.isnan(np.nanmax(y)) else 1e6, 
+                             neginf=np.nanmin(y) if not np.isnan(np.nanmin(y)) else -1e6)
             
             # Remove any rows with NaN values
             valid_mask = ~(np.isnan(X).any(axis=1) | np.isnan(y))

@@ -24,16 +24,19 @@ class PredictionConfig:
             '5Y': 1825    # 5 years (1825 days)
         }
         
-        # Model weights for ensemble predictions (based on historical performance)
+        # Model weights for ensemble predictions (updated based on current performance)
+        # Only models with R² > 0.8 are included in ensemble
         self.MODEL_WEIGHTS = {
-            'ridge': 0.15,
-            'lasso': 0.15,
-            'elasticnet': 0.10,
-            'random_forest': 0.20,
-            'knn': 0.10,
-            'svr': 0.15,
-            'lstm': 0.10,
-            'arima': 0.05
+            'random_forest': 0.70,      # R² = 0.994 (excellent performance)
+            'decision_tree': 0.20,      # R² = 0.85 (good performance)
+            'linear_regression': 0.10,  # R² = 0.894 (good performance)
+            # Models with poor performance are excluded from ensemble
+            'svm': 0.0,                 # R² = -26.2 (failed)
+            'knn': 0.0,                 # R² = -27.9 (failed)
+            'ann': 0.0,                 # R² = -9,757,687 (catastrophic)
+            'cnn': 0.0,                 # Memory allocation failure
+            'arima': 0.0,               # No validation metrics
+            'autoencoder': 0.0          # R² = -136,355 (failed)
         }
         
         # Data configuration
@@ -89,8 +92,9 @@ class PredictionConfig:
         self.CONFIDENCE_LEVEL = 0.95  # 95% confidence interval
         self.CONFIDENCE_MULTIPLIER = 1.96  # For 95% CI (normal distribution)
         
-        # File paths
-        self.BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        # File paths - use absolute paths to avoid issues with working directory
+        current_file = os.path.abspath(__file__)
+        self.BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(current_file)))
         self.DATA_DIR = os.path.join(self.BASE_DIR, 'data')
         self.PAST_DATA_DIR = os.path.join(self.DATA_DIR, 'past')
         self.LATEST_DATA_DIR = os.path.join(self.DATA_DIR, 'latest')
@@ -121,6 +125,14 @@ class PredictionConfig:
         # Performance settings
         self.MAX_WORKERS = 4  # For parallel processing
         self.CHUNK_SIZE = 10  # Process stocks in chunks
+        
+        # Batch training configuration
+        self.USE_BATCH_TRAINING = True
+        self.STOCK_BATCH_SIZE = 1  # Number of stocks per batch (each stock as one batch)
+        self.ROW_BATCH_SIZE = 50000  # Rows per mini-batch for training
+        self.BATCH_OVERLAP_PERCENT = 0.0  # Overlap between batches (0-100)
+        self.SUBSAMPLE_PERCENT = 50  # For non-incremental models (%)
+        self.ENABLE_INCREMENTAL_TRAINING = True  # Use partial_fit when available
         
         # Validation settings
         self.MIN_PRICE = 0.01  # Minimum valid price
