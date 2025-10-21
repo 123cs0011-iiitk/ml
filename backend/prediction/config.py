@@ -45,7 +45,7 @@ class PredictionConfig:
         self.TEST_SIZE = 0.2          # 20% of data for testing
         
         # Feature engineering parameters
-        self.MOVING_AVERAGES = [5, 10, 20, 50]  # Moving average windows
+        self.MOVING_AVERAGES = [5, 10, 20, 50, 200]  # Moving average windows
         self.RSI_PERIOD = 14          # RSI calculation period
         self.VOLATILITY_WINDOW = 20   # Volatility calculation window
         
@@ -96,9 +96,9 @@ class PredictionConfig:
         current_file = os.path.abspath(__file__)
         self.BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(current_file)))
         self.DATA_DIR = os.path.join(self.BASE_DIR, 'data')
-        self.PAST_DATA_DIR = os.path.join(self.DATA_DIR, 'past')
-        self.LATEST_DATA_DIR = os.path.join(self.DATA_DIR, 'latest')
-        self.FUTURE_DATA_DIR = os.path.join(self.DATA_DIR, 'future')
+        self.PAST_DATA_DIR = os.path.join(self.DATA_DIR, 'past')  # Used for TRAINING (5 years historical)
+        self.LATEST_DATA_DIR = os.path.join(self.DATA_DIR, 'latest')  # Not used for training; for live predictions
+        self.FUTURE_DATA_DIR = os.path.join(self.DATA_DIR, 'future')  # Output predictions
         
         # Index files
         self.US_INDEX_FILE = os.path.join(self.DATA_DIR, 'index_us_stocks_dynamic.csv')

@@ -35,14 +35,14 @@ class DataLoader:
         
     def load_stock_data(self, symbol: str, category: str) -> Optional[pd.DataFrame]:
         """
-        Load and combine historical and latest data for a stock.
+        Load historical data for a stock (training uses ONLY data/past/).
         
         Args:
             symbol: Stock symbol (e.g., 'AAPL', 'RELIANCE')
             category: Stock category ('us_stocks' or 'ind_stocks')
             
         Returns:
-            Combined DataFrame with all available data or None if not found
+            DataFrame with historical data from data/past/ directory only
         """
         cache_key = f"{symbol}_{category}"
         if cache_key in self.cache:
@@ -50,26 +50,75 @@ class DataLoader:
             return self.cache[cache_key]
         
         try:
-            # Load historical data
+            # Load ONLY historical data for training
             historical_data = self._load_historical_data(symbol, category)
             
-            # Load latest data
-            latest_data = self._load_latest_data(symbol, category)
-            
-            # Combine data
-            combined_data = self._combine_data(historical_data, latest_data)
-            
-            if combined_data is not None and len(combined_data) > 0:
+            if historical_data is not None and len(historical_data) > 0:
                 # Cache the result
-                self.cache[cache_key] = combined_data
-                logger.info(f"Loaded {len(combined_data)} data points for {symbol}")
-                return combined_data
+                self.cache[cache_key] = historical_data
+                logger.info(f"Loaded {len(historical_data)} historical data points for {symbol}")
+                return historical_data
             else:
-                logger.warning(f"No data found for {symbol}")
+                logger.warning(f"No historical data found for {symbol}")
                 return None
                 
         except Exception as e:
             logger.error(f"Error loading data for {symbol}: {str(e)}")
+            return None
+    
+    def load_stock_data_with_current_price(self, symbol: str, category: str, 
+                                           current_price: Optional[Dict] = None) -> Optional[pd.DataFrame]:
+        """
+        Load historical data + optionally append current live price for prediction.
+        
+        This method is used for making predictions with real-time data.
+        
+        Args:
+            symbol: Stock symbol
+            category: Stock category ('us_stocks' or 'ind_stocks')
+            current_price: Optional dict with keys: 'close', 'open', 'high', 'low', 'date'
+                          If None, uses only historical data
+        
+        Returns:
+            DataFrame with historical data + current price (if provided)
+        """
+        try:
+            # Load historical data
+            df = self.load_stock_data(symbol, category)
+            
+            if df is None or len(df) == 0:
+                logger.warning(f"No historical data available for {symbol}")
+                return None
+            
+            # Append current price if provided
+            if current_price:
+                logger.info(f"Appending current live price for {symbol}")
+                
+                # Create new row with current price
+                new_row = pd.DataFrame([{
+                    'date': current_price.get('date', pd.Timestamp.now()),
+                    'open': current_price.get('open', current_price['close']),
+                    'high': current_price.get('high', current_price['close']),
+                    'low': current_price.get('low', current_price['close']),
+                    'close': current_price['close'],
+                    'volume': np.nan,  # Volume not available, set to NaN
+                    'data_source': 'live'
+                }])
+                
+                # Standardize column names
+                new_row.columns = new_row.columns.str.lower()
+                new_row['date'] = pd.to_datetime(new_row['date'], utc=False)
+                
+                # Append to historical data
+                df = pd.concat([df, new_row], ignore_index=True)
+                df = df.sort_values('date').reset_index(drop=True)
+                
+                logger.info(f"Added current price to {symbol}, total points: {len(df)}")
+            
+            return df
+            
+        except Exception as e:
+            logger.error(f"Error loading data with current price for {symbol}: {str(e)}")
             return None
     
     def _load_historical_data(self, symbol: str, category: str) -> Optional[pd.DataFrame]:
@@ -116,7 +165,12 @@ class DataLoader:
             return None
     
     def _load_latest_data(self, symbol: str, category: str) -> Optional[pd.DataFrame]:
-        """Load latest data from data/latest directory."""
+        """
+        Load latest data from data/latest directory.
+        
+        NOTE: This method is kept for potential future use in predictions.
+        It is NOT used during model training to ensure consistency.
+        """
         try:
             file_path = os.path.join(
                 self.config.LATEST_DATA_DIR,
@@ -160,7 +214,13 @@ class DataLoader:
     
     def _combine_data(self, historical_data: Optional[pd.DataFrame], 
                      latest_data: Optional[pd.DataFrame]) -> Optional[pd.DataFrame]:
-        """Combine historical and latest data, removing duplicates."""
+        """
+        Combine historical and latest data, removing duplicates.
+        
+        NOTE: This method is deprecated for training.
+        Training now uses ONLY historical data from data/past/.
+        Kept for potential future use in prediction pipeline.
+        """
         if historical_data is None and latest_data is None:
             return None
         
@@ -218,10 +278,6 @@ class DataLoader:
             # RSI (Relative Strength Index)
             df['rsi'] = self._calculate_rsi(df['close'], self.config.RSI_PERIOD)
             
-            # Volume features
-            df['volume_ma'] = df['volume'].rolling(window=20).mean()
-            df['volume_ratio'] = df['volume'] / df['volume_ma']
-            
             # High-Low features
             df['hl_ratio'] = df['high'] / df['low']
             df['oc_ratio'] = df['open'] / df['close']
@@ -232,7 +288,6 @@ class DataLoader:
             # Lagged features
             for lag in [1, 2, 3, 5, 10]:
                 df[f'close_lag_{lag}'] = df['close'].shift(lag)
-                df[f'volume_lag_{lag}'] = df['volume'].shift(lag)
             
             # Rolling statistics
             for window in [5, 10, 20]:
@@ -269,9 +324,9 @@ class DataLoader:
         Returns:
             DataFrame with standardized feature set
         """
-        # Define the expected feature set (43 features total)
+        # Define the expected feature set (37 features total)
         expected_features = [
-            'price_change', 'price_change_abs', 'volatility', 'rsi', 'volume_ma', 'volume_ratio',
+            'price_change', 'price_change_abs', 'volatility', 'rsi',
             'hl_ratio', 'oc_ratio', 'price_position', 'day_of_week', 'month', 'quarter'
         ]
         
@@ -281,7 +336,7 @@ class DataLoader:
         
         # Add lagged features
         for lag in [1, 2, 3, 5, 10]:
-            expected_features.extend([f'close_lag_{lag}', f'volume_lag_{lag}'])
+            expected_features.append(f'close_lag_{lag}')
         
         # Add rolling statistics
         for window in [5, 10, 20]:
@@ -298,7 +353,7 @@ class DataLoader:
                     df[feature] = 0.0  # Default for other features
         
         # Remove any extra features that aren't in the expected set
-        columns_to_keep = ['date', 'open', 'high', 'low', 'close', 'volume'] + expected_features
+        columns_to_keep = ['date', 'open', 'high', 'low', 'close'] + expected_features
         df = df[[col for col in columns_to_keep if col in df.columns]]
         
         return df
@@ -338,7 +393,7 @@ class DataLoader:
             
             # Select feature columns (exclude target and metadata columns)
             exclude_columns = [
-                'date', 'data_source', target_column, 'adjusted_close', 'currency'
+                'date', 'data_source', target_column, 'adjusted_close', 'currency', 'volume'
             ]
             
             feature_columns = [col for col in df.columns if col not in exclude_columns]
@@ -446,7 +501,7 @@ class DataLoader:
                 return False
             
             # Check for missing values in essential columns
-            essential_columns = ['date', 'open', 'high', 'low', 'close', 'volume']
+            essential_columns = ['date', 'open', 'high', 'low', 'close']
             missing_data = df[essential_columns].isnull().sum()
             
             if missing_data.any():

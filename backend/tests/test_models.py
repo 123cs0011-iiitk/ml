@@ -61,7 +61,7 @@ class TestDataPipeline:
             'high': np.random.uniform(100, 200, 100),
             'low': np.random.uniform(100, 200, 100),
             'close': np.random.uniform(100, 200, 100),
-            'volume': np.random.uniform(1000000, 5000000, 100),
+            # volume removed - matches real data where volume is missing
             'currency': 'USD'
         })
         mock_load_data.return_value = mock_df

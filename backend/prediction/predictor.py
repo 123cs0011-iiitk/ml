@@ -157,7 +157,9 @@ class StockPredictor:
         try:
             logger.info(f"Starting prediction for {symbol} ({category})")
             
-            # Load and prepare data
+            # Load and prepare data (historical only)
+            # TODO: For live predictions, use load_stock_data_with_current_price() 
+            # and pass current_price parameter fetched from API
             df = self.data_loader.load_stock_data(symbol, category)
             if df is None:
                 logger.warning(f"No data available for {symbol}")
