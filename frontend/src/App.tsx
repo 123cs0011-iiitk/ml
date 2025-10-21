@@ -213,17 +213,17 @@ export default function App() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-2xl text-muted-foreground">
-              This stock prediction dashboard uses k-nearest neighbor (KNN) machine learning model
-              to analyze recent price patterns and predict short-term price movements. The model
-              examines the most recent trading data to identify similar patterns and estimate future prices.
+              This stock analysis dashboard provides real-time stock data, historical charts, and experimental 
+              machine learning predictions. The system uses multiple ML algorithms including Random Forest, 
+              Linear Regression, and Neural Networks to analyze price patterns and generate predictions.
             </p>
             <div className="text-2xl text-muted-foreground space-y-2">
-              <p><strong>Backend:</strong> Powered by Supabase edge functions with real-time data processing</p>
-              <p><strong>Prediction Model:</strong> K-Nearest Neighbor model with weighted recent data analysis</p>
+              <p><strong>Backend:</strong> Powered by Flask with real-time data processing and ML model integration</p>
+              <p><strong>Prediction Models:</strong> Ensemble of 9 ML algorithms (Random Forest, Linear Regression, ANN, etc.)</p>
               <p><strong>Timeframes:</strong> Weekly, monthly, and yearly historical data analysis</p>
               <p><strong>Caching:</strong> Smart caching for performance - stock data (5 min), historical data (1 hour), predictions (15 min)</p>
               <p><strong>Currency Support:</strong> Real-time conversion between USD and INR with live formatting</p>
-              <p><strong>Future:</strong> Ready for Yahoo Finance API integration with environment variable configuration</p>
+              <p><strong>Status:</strong> ML prediction system in BETA - data fetching and charts fully operational</p>
             </div>
           </CardContent>
         </Card>

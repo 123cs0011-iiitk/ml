@@ -1,24 +1,87 @@
 # Backend API
 
-Machine learning backend for stock price prediction with 16 optimized algorithms.
+Machine learning backend for stock price prediction with 9 algorithms, automated training system, and comprehensive RESTful API.
 
 ## Features
 
-- **16 ML Algorithms**: Linear Regression, Random Forest, Decision Tree, KNN, SVM, ANN, CNN, ARIMA, K-Means, DBSCAN, Hierarchical Clustering, General Clustering, PCA, SVD, t-SNE, Autoencoders
-- **OHLC Data**: Uses Open, High, Low, Close data (volume not used)
-- **Technical Indicators**: SMA, EMA, MACD, RSI, Bollinger Bands, ATR, momentum, volatility
+- **9 ML Algorithms**: Linear Regression, Random Forest, Decision Tree, KNN, SVM, ANN, CNN, ARIMA, Autoencoders
+- **Training System**: Automated model training with status tracking and validation
+- **OHLC Data**: Uses Open, High, Low, Close data with technical indicators (SMA, EMA, MACD, RSI, Bollinger Bands, ATR)
 - **Multi-horizon Forecasting**: 1 day, 1 week, 1 month, 1 year, 5 years
 - **RESTful API**: Flask-based API with comprehensive endpoints
+- **Status Tracking**: Simple status checking with `python status.py`
 
 ## Quick Start
 
 ```bash
+# Check model status
+python status.py
+
+# Train all models (first time setup)
+python backend/training/train_full_dataset.py
+
 # Start the Flask server
 python main.py
 
 # Test the API
 curl "http://localhost:5000/health"
 curl "http://localhost:5000/api/predict?symbol=AAPL&horizon=1d"
+```
+
+## Training System
+
+The backend now includes a unified training system that trains models on combined data from all stocks:
+
+### Training Commands
+
+```bash
+# Check model status
+python status.py                    # Table format
+python status.py --json             # JSON format
+python status.py --simple           # Simple format
+
+# Train all models
+python backend/training/train_full_dataset.py
+
+# Train specific model
+python backend/training/train_full_dataset.py --model linear_regression
+
+# Generate predictions using trained models
+python backend/training/generate_predictions.py --max-stocks 10
+```
+
+### Model Training Process
+
+1. **Data Loading**: Combines historical and latest data from all 1,000+ stocks
+2. **Feature Engineering**: Creates technical indicators using `StockIndicators`
+3. **Unified Training**: Trains each model on the combined dataset
+4. **Validation**: Tests models on predefined validation stocks
+5. **Status Tracking**: Maintains training progress in `backend/models/model_status.json`
+6. **Model Storage**: Saves trained models to `backend/models/`
+
+### Current Model Status
+
+Check with `python status.py`:
+
+- **✅ Working**: Random Forest (R²=0.994), Decision Tree (R²=0.85)
+- **⚠️ Poor Performance**: SVM (R²=-26.2), KNN (R²=-27.9), ANN (R²=-9.7M)
+- **❌ Failed/Stuck**: Linear Regression, CNN, ARIMA, Autoencoder
+
+⚠️ **Note**: Only 2 out of 9 models are currently producing reliable predictions. ML predictions are unreliable.
+
+### Prediction Generation
+
+The system generates predictions for all stocks using pre-trained models:
+
+```bash
+# Generate predictions for all stocks
+python backend/training/generate_predictions.py
+
+# Generate predictions for specific category
+python backend/training/generate_predictions.py --category us_stocks
+
+# Test with limited stocks
+python backend/training/generate_predictions.py --max-stocks 10 --test
 ```
 
 ## API Endpoints
@@ -45,7 +108,6 @@ curl "http://localhost:5000/api/predict?symbol=AAPL&horizon=1d"
 ## Usage Examples
 
 ### Get Prediction
-
 ```bash
 # Basic prediction
 curl "http://localhost:5000/api/predict?symbol=AAPL&horizon=1d"
@@ -58,7 +120,6 @@ curl "http://localhost:5000/api/predict?symbol=AAPL&horizon=1m&model=all"
 ```
 
 ### Train Models
-
 ```bash
 # Train all models
 curl -X POST "http://localhost:5000/api/train" \
@@ -69,17 +130,27 @@ curl -X POST "http://localhost:5000/api/train" \
 curl -X POST "http://localhost:5000/api/train" \
   -H "Content-Type: application/json" \
   -d '{"symbol": "AAPL", "models": ["lstm", "random_forest"]}'
-
-# Train with data limit
-curl -X POST "http://localhost:5000/api/train" \
-  -H "Content-Type: application/json" \
-  -d '{"symbol": "AAPL", "max_data_points": 1000}'
 ```
 
-### List Models
-
+### Data Endpoints
 ```bash
-curl "http://localhost:5000/api/models/AAPL"
+# Get live price
+curl "http://localhost:5000/live_price?symbol=AAPL"
+
+# Get historical data
+curl "http://localhost:5000/historical?symbol=AAPL&period=year"
+
+# Search stocks
+curl "http://localhost:5000/search?q=apple"
+```
+
+### Response Format
+```json
+{
+  "success": true,
+  "data": { ... },
+  "error": "Error message if any"
+}
 ```
 
 ## Configuration
@@ -103,6 +174,12 @@ LOG_DIR=backend/logs
 
 # API Configuration
 CORS_ORIGINS=http://localhost:3000
+
+# API Keys (Required)
+FINNHUB_API_KEY=your_finnhub_key_here
+UPSTOX_CLIENT_ID=your_upstox_client_id_here
+UPSTOX_CLIENT_SECRET=your_upstox_secret_here
+UPSTOX_REDIRECT_URI=http://localhost:3000
 ```
 
 ### Model Configuration
@@ -129,11 +206,38 @@ rf_model = RandomForestWrapper(
 
 ## Data Requirements
 
-The system expects stock data in CSV format. See the [main README](../README.md#data-structure) for detailed column specifications.
+The system expects stock data in CSV format with the following important considerations:
+
+### ISIN Requirements
+
+**Indian Stocks (MANDATORY):**
+- **ISINs are required** for Upstox API to work correctly
+- All 500 Indian stocks have ISINs populated (100% coverage)
+- ISINs are stored in:
+  - `permanent/ind_stocks/index_ind_stocks.csv` (permanent index)
+  - `data/index_ind_stocks_dynamic.csv` (dynamic index)
+- ISIN format: 12-character alphanumeric code (e.g., `INE009A01021` for Infosys)
+- Without correct ISINs, Upstox will return "wrong ISIN number" errors
+
+**US Stocks (NOT Required):**
+- Finnhub API uses ticker symbols, not ISINs
+- ISINs are optional for US stocks
+- System works perfectly without ISINs for US stocks
+
+### Data Sources
+
+**Real-time Fetching:**
+- **US Stocks**: Finnhub API → Permanent directory (fallback)
+- **Indian Stocks**: Upstox API → Permanent directory (fallback)
+- **Note**: yfinance has been removed from real-time fetching (only used for historical data)
+
+**Historical Data:**
+- Both US and Indian stocks use yfinance for historical data fetching
+- Period: 2020-01-01 to 2024-12-31 (5 years)
 
 ## Model Architecture
 
-### Available Algorithms (16 total)
+### Available Algorithms (9 total)
 1. **Linear Regression** - Standard linear regression with feature scaling
 2. **Random Forest** - Ensemble of decision trees with hyperparameter tuning
 3. **Decision Tree** - Single decision tree with interpretable rules
@@ -142,14 +246,7 @@ The system expects stock data in CSV format. See the [main README](../README.md#
 6. **Artificial Neural Network** - Multi-layer perceptron with dropout
 7. **1D Convolutional Neural Network** - Time series CNN with sequence modeling
 8. **ARIMA** - AutoRegressive Integrated Moving Average for time series
-9. **K-Means Clustering** - Market regime detection + prediction
-10. **DBSCAN Clustering** - Anomaly detection + prediction
-11. **Hierarchical Clustering** - Stock grouping + prediction
-12. **General Clustering** - Pattern-based prediction
-13. **PCA** - Principal Component Analysis for feature reduction
-14. **SVD** - Singular Value Decomposition for feature extraction
-15. **t-SNE** - Pattern recognition + prediction
-16. **Autoencoders** - Feature extraction + prediction
+9. **Autoencoders** - Feature extraction + prediction
 
 ### Technical Indicators (Volume Excluded)
 - **Moving Averages**: SMA (5,10,20,50,200), EMA (12,26)

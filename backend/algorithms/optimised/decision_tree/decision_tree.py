@@ -50,6 +50,31 @@ class DecisionTreeModel(ModelInterface):
         """Calculate technical indicators from OHLC data (no volume)."""
         return StockIndicators.calculate_all_indicators(df)
     
+    def _clean_data(self, X: np.ndarray) -> np.ndarray:
+        """
+        Clean data by handling infinity and NaN values.
+        
+        Args:
+            X: Feature matrix
+            
+        Returns:
+            Cleaned feature matrix
+        """
+        # Replace infinity with NaN
+        X_clean = np.copy(X)
+        X_clean[np.isinf(X_clean)] = np.nan
+        
+        # Replace NaN with median of each feature
+        for i in range(X_clean.shape[1]):
+            col = X_clean[:, i]
+            if np.any(np.isnan(col)):
+                median_val = np.nanmedian(col)
+                if np.isnan(median_val):
+                    median_val = 0.0  # Fallback to 0 if all values are NaN
+                X_clean[np.isnan(col), i] = median_val
+        
+        return X_clean
+    
     def fit(self, X: np.ndarray, y: np.ndarray) -> 'ModelInterface':
         """
         Train the Decision Tree model on stock data.
@@ -63,6 +88,18 @@ class DecisionTreeModel(ModelInterface):
         """
         self.validate_input(X, y)
         
+        # Clean data: handle infinity and NaN values
+        X_clean = self._clean_data(X)
+        y_clean = y[~np.isnan(y) & ~np.isinf(y)]
+        
+        # Ensure X and y have same length after cleaning
+        min_len = min(len(X_clean), len(y_clean))
+        X_clean = X_clean[:min_len]
+        y_clean = y_clean[:min_len]
+        
+        if len(X_clean) == 0:
+            raise ValueError("No valid data after cleaning")
+        
         # Initialize model
         self.model = DecisionTreeRegressor(
             max_depth=self.max_depth,
@@ -74,17 +111,30 @@ class DecisionTreeModel(ModelInterface):
         
         # Optional: Scale features (Decision Trees are usually robust to scaling)
         self.scaler = StandardScaler()
-        X_scaled = self.scaler.fit_transform(X)
+        X_scaled = self.scaler.fit_transform(X_clean)
         
-        # Train model
-        self.model.fit(X_scaled, y)
+        # Train model with progress updates
+        print(f"[TRAINING] Starting decision tree training on {len(X_clean)} samples...")
+        print(f"[TRAINING] Features: {X_clean.shape[1]}, Samples: {X_clean.shape[0]:,}")
+        
+        # Estimate processing batches (decision trees process data in chunks)
+        estimated_batches = max(1, len(X_clean) // 50000)  # ~50k samples per batch
+        print(f"[TRAINING] Estimated processing batches: {estimated_batches}")
+        
+        # Train the model
+        import time
+        start_time = time.time()
+        self.model.fit(X_scaled, y_clean)
+        training_time = time.time() - start_time
+        print(f"[COMPLETED] Decision tree training completed in {training_time:.1f} seconds")
+        print(f"[COMPLETED] Processed {estimated_batches} batches of data")
         
         # Calculate training metrics
         y_pred = self.model.predict(X_scaled)
-        mse = mean_squared_error(y, y_pred)
+        mse = mean_squared_error(y_clean, y_pred)
         rmse = np.sqrt(mse)
-        r2 = r2_score(y, y_pred)
-        mae = mean_absolute_error(y, y_pred)
+        r2 = r2_score(y_clean, y_pred)
+        mae = mean_absolute_error(y_clean, y_pred)
         
         # Get feature importance
         self.feature_importance_ = self.model.feature_importances_
@@ -113,8 +163,11 @@ class DecisionTreeModel(ModelInterface):
         
         self.validate_input(X)
         
+        # Clean data
+        X_clean = self._clean_data(X)
+        
         # Scale features
-        X_scaled = self.scaler.transform(X)
+        X_scaled = self.scaler.transform(X_clean)
         
         # Make predictions
         predictions = self.model.predict(X_scaled)
@@ -249,9 +302,10 @@ class DecisionTreeModel(ModelInterface):
             n_jobs=-1, verbose=0
         )
         
-        # Scale features
+        # Clean and scale features
+        X_clean = self._clean_data(X)
         self.scaler = StandardScaler()
-        X_scaled = self.scaler.fit_transform(X)
+        X_scaled = self.scaler.fit_transform(X_clean)
         
         # Fit grid search
         grid_search.fit(X_scaled, y)

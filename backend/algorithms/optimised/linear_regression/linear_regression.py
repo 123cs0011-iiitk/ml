@@ -11,7 +11,7 @@ from typing import Dict, Any, Tuple
 import sys
 import os
 import joblib
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression, SGDRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.preprocessing import StandardScaler
 
@@ -29,11 +29,12 @@ class LinearRegressionModel(ModelInterface):
     future stock prices. Volume is excluded from all calculations.
     """
     
-    def __init__(self, **kwargs):
+    def __init__(self, use_sgd: bool = False, **kwargs):
         super().__init__('Linear Regression', **kwargs)
         self.model = None
         self.scaler = None
         self.feature_columns = None
+        self.use_sgd = use_sgd  # Use SGD for incremental learning
         
     def _create_technical_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """Calculate technical indicators from OHLC data (no volume)."""
@@ -52,8 +53,18 @@ class LinearRegressionModel(ModelInterface):
         """
         self.validate_input(X, y)
         
-        # Initialize and train model
-        self.model = LinearRegression()
+        # Initialize model (SGD for incremental learning, LinearRegression for batch)
+        if self.use_sgd:
+            self.model = SGDRegressor(
+                loss='squared_error',
+                learning_rate='adaptive',
+                eta0=0.01,
+                max_iter=1000,
+                random_state=42
+            )
+        else:
+            self.model = LinearRegression()
+        
         self.scaler = StandardScaler()
         
         # Scale features
@@ -98,6 +109,40 @@ class LinearRegressionModel(ModelInterface):
         predictions = self.model.predict(X_scaled)
         
         return predictions
+    
+    def supports_incremental_learning(self) -> bool:
+        """Check if model supports partial_fit."""
+        return self.use_sgd and hasattr(self.model, 'partial_fit')
+    
+    def partial_fit(self, X: np.ndarray, y: np.ndarray) -> 'ModelInterface':
+        """
+        Incrementally train on a batch of data.
+        
+        Args:
+            X: Feature matrix (n_samples, n_features)
+            y: Target vector (n_samples,) - stock prices
+            
+        Returns:
+            self: Returns self for method chaining
+        """
+        if not self.supports_incremental_learning():
+            raise ValueError("Model does not support incremental learning. Use SGDRegressor.")
+        
+        self.validate_input(X, y)
+        
+        # Scale features (fit scaler on first batch, transform on subsequent)
+        if not hasattr(self.scaler, 'mean_'):
+            X_scaled = self.scaler.fit_transform(X)
+        else:
+            X_scaled = self.scaler.transform(X)
+        
+        # Incrementally train model
+        self.model.partial_fit(X_scaled, y)
+        
+        # Update training status
+        self.is_trained = True
+        
+        return self
     
     def save(self, path: str) -> None:
         """

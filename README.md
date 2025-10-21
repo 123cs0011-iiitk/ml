@@ -1,22 +1,20 @@
 # Stock Price Prediction System
 
-A comprehensive full-stack web application for real-time stock price analysis and prediction using 16 machine learning algorithms. Supports both US and Indian markets with live data fetching and AI-powered predictions.
+A full-stack web application for real-time stock price analysis and prediction using 9 machine learning algorithms, supporting both US and Indian markets with live data fetching and interactive visualization.
 
 ## ✨ Key Features
 
-- **16 ML Algorithms**: Linear Regression, Random Forest, KNN, SVM, ANN, CNN, ARIMA, K-Means, DBSCAN, PCA, SVD, t-SNE, and more
-- **Real-time Data**: Live price fetching for US and Indian stocks
-- **Interactive Dashboard**: Modern React frontend with TypeScript
-- **Historical Analysis**: 5-year historical data with chart visualization
-- **Currency Support**: Real-time USD/INR conversion
-- **Stock Search**: 1000+ stocks (500 US + 500 Indian)
-- **OHLC Data**: Uses Open, High, Low, Close data (volume not used)
+- **9 ML Algorithms**: Linear Regression, Random Forest, KNN, SVM, ANN, CNN, ARIMA, Decision Tree, Autoencoders
+- **Real-time Data**: Live price fetching for US stocks via Finnhub API and Indian stocks via Upstox API
+- **Interactive Dashboard**: Modern React frontend with TypeScript and Tailwind CSS
+- **Historical Analysis**: 5-year historical data with interactive charts and currency support (USD/INR)
+- **Stock Search**: 1000+ stocks (500 US + 500 Indian) using OHLC data for analysis
 
 ## 🛠️ Technology Stack
 
-**Backend**: Flask, Python, yfinance, Upstox API, Finnhub API, Pandas, Scikit-learn, TensorFlow, Keras  
+**Backend**: Flask, Python, Finnhub API, Upstox API, yfinance, Pandas, Scikit-learn, TensorFlow, Keras  
 **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, Radix UI, Recharts  
-**ML**: 16 algorithms including Linear Regression, Random Forest, KNN, SVM, ANN, CNN, ARIMA, Clustering, PCA, SVD, t-SNE
+**ML**: 9 algorithms (Linear Regression, Random Forest, KNN, SVM, ANN, CNN, ARIMA, Decision Tree, Autoencoders)
 
 ## 🚀 Quick Start
 
@@ -28,8 +26,7 @@ A comprehensive full-stack web application for real-time stock price analysis an
 # Clone and setup backend
 cd backend
 python -m venv venv
-source venv/bin/activate  # Linux/macOS
-# venv\Scripts\activate    # Windows
+venv\Scripts\activate  # Windows
 pip install -r requirements.txt
 python main.py
 
@@ -45,16 +42,39 @@ npm run dev
 
 ## 📊 Data Sources
 
-**US Stocks**: yfinance (primary), Finnhub API (fallback)  
-**Indian Stocks**: Upstox API (primary), NSEPython → yfinance (fallback)  
+**US Stocks**: Finnhub API (primary), Permanent directory (fallback)  
+**Indian Stocks**: Upstox API (primary), Permanent directory (fallback)  
 **Currency**: forex-python with real-time USD/INR conversion
+
+### Important: ISIN Requirements
+
+**Indian Stocks (REQUIRED):**
+- **ISINs are mandatory** for Upstox API integration
+- All 500 Indian stocks have ISINs (100% coverage)
+- ISINs are stored in both permanent and dynamic index files
+- Without ISINs, Upstox will return "wrong ISIN number" errors
+
+**US Stocks (NOT Required):**
+- Finnhub API uses ticker symbols, not ISINs
+- ISINs are optional for US stocks
+- System works perfectly without ISINs for US stocks
 
 ## 📚 Documentation
 
 - **[Complete Documentation](documentation/README.md)** - All technical documentation
 - **[API Usage Guide](documentation/API_USAGE.md)** - Detailed API examples
-- **[Implementation Notes](documentation/IMPLEMENTATION_NOTES.md)** - Technical details
-- **[Project Status](documentation/PROJECT_STATUS_FINAL.md)** - Current system status
+- **[Upstox Integration](documentation/UPSTOX_INTEGRATION_FINAL.md)** - Indian market integration
+
+## 📊 Current System Status
+
+**✅ Working**: Real-time data fetching, historical charts, stock search, currency conversion, interactive dashboard
+
+**⚠️ ML Models** (Check with `python status.py`):
+- **Working**: Random Forest (R²=0.994), Decision Tree (R²=0.85)
+- **Poor**: SVM, KNN, ANN (negative R² scores)
+- **Failed**: Linear Regression, CNN, ARIMA, Autoencoder
+
+**ML Predictions**: Currently unreliable due to model performance issues
 
 ## ⚠️ Disclaimer
 

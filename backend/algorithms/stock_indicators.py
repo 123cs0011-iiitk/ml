@@ -53,6 +53,9 @@ class StockIndicators:
         df = StockIndicators._add_lagged_features(df)
         df = StockIndicators._add_rolling_statistics(df)
         
+        # Final cleanup: replace any remaining infinity values
+        df = df.replace([np.inf, -np.inf], np.nan)
+        
         return df
     
     @staticmethod
@@ -63,7 +66,10 @@ class StockIndicators:
         for period in periods:
             if len(df) >= period:
                 df[f'sma_{period}'] = df['close'].rolling(window=period).mean()
-                df[f'sma_{period}_ratio'] = df['close'] / df[f'sma_{period}']
+                # Handle division by zero in SMA ratios
+                sma_ratio = df['close'] / df[f'sma_{period}']
+                sma_ratio = sma_ratio.replace([np.inf, -np.inf], np.nan)
+                df[f'sma_{period}_ratio'] = sma_ratio.fillna(1.0)  # Neutral ratio when SMA is 0
         
         return df
     
@@ -75,7 +81,10 @@ class StockIndicators:
         for period in periods:
             if len(df) >= period:
                 df[f'ema_{period}'] = df['close'].ewm(span=period).mean()
-                df[f'ema_{period}_ratio'] = df['close'] / df[f'ema_{period}']
+                # Handle division by zero in EMA ratios
+                ema_ratio = df['close'] / df[f'ema_{period}']
+                ema_ratio = ema_ratio.replace([np.inf, -np.inf], np.nan)
+                df[f'ema_{period}_ratio'] = ema_ratio.fillna(1.0)  # Neutral ratio when EMA is 0
         
         return df
     
@@ -90,10 +99,15 @@ class StockIndicators:
         gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
         
+        # Handle division by zero and infinity
         rs = gain / loss
+        rs = rs.replace([np.inf, -np.inf], np.nan)
+        rs = rs.fillna(1.0)  # Neutral RS when loss is 0
+        
         df['rsi'] = 100 - (100 / (1 + rs))
         
-        # Fill NaN values with neutral RSI
+        # Fill NaN values with neutral RSI and handle infinity
+        df['rsi'] = df['rsi'].replace([np.inf, -np.inf], 50.0)
         df['rsi'] = df['rsi'].fillna(50.0)
         
         return df
@@ -143,11 +157,16 @@ class StockIndicators:
         df['bb_upper'] = df['bb_middle'] + (bb_std * std_dev)
         df['bb_lower'] = df['bb_middle'] - (bb_std * std_dev)
         
-        # Band width
-        df['bb_width'] = (df['bb_upper'] - df['bb_lower']) / df['bb_middle']
+        # Band width - handle division by zero
+        bb_width = (df['bb_upper'] - df['bb_lower']) / df['bb_middle']
+        bb_width = bb_width.replace([np.inf, -np.inf], np.nan)
+        df['bb_width'] = bb_width.fillna(0.0)
         
-        # Position within bands
-        df['bb_position'] = (df['close'] - df['bb_lower']) / (df['bb_upper'] - df['bb_lower'])
+        # Position within bands - handle division by zero
+        bb_range = df['bb_upper'] - df['bb_lower']
+        bb_position = (df['close'] - df['bb_lower']) / bb_range
+        bb_position = bb_position.replace([np.inf, -np.inf], np.nan)
+        df['bb_position'] = bb_position.fillna(0.5)  # Middle position when range is 0
         
         return df
     
@@ -191,17 +210,26 @@ class StockIndicators:
     @staticmethod
     def _add_price_ratios(df: pd.DataFrame) -> pd.DataFrame:
         """Add price ratio indicators."""
-        # High-Low ratio
-        df['hl_ratio'] = df['high'] / df['low']
+        # High-Low ratio - handle division by zero
+        hl_ratio = df['high'] / df['low']
+        hl_ratio = hl_ratio.replace([np.inf, -np.inf], np.nan)
+        df['hl_ratio'] = hl_ratio.fillna(1.0)  # Neutral ratio when low is 0
         
-        # Open-Close ratio
-        df['oc_ratio'] = df['open'] / df['close']
+        # Open-Close ratio - handle division by zero
+        oc_ratio = df['open'] / df['close']
+        oc_ratio = oc_ratio.replace([np.inf, -np.inf], np.nan)
+        df['oc_ratio'] = oc_ratio.fillna(1.0)  # Neutral ratio when close is 0
         
-        # Price position within day range
-        df['price_position'] = (df['close'] - df['low']) / (df['high'] - df['low'])
+        # Price position within day range - handle division by zero
+        day_range = df['high'] - df['low']
+        price_position = (df['close'] - df['low']) / day_range
+        price_position = price_position.replace([np.inf, -np.inf], np.nan)
+        df['price_position'] = price_position.fillna(0.5)  # Middle position when range is 0
         
-        # Body size (Open-Close range)
-        df['body_size'] = np.abs(df['close'] - df['open']) / (df['high'] - df['low'])
+        # Body size (Open-Close range) - handle division by zero
+        body_size = np.abs(df['close'] - df['open']) / day_range
+        body_size = body_size.replace([np.inf, -np.inf], np.nan)
+        df['body_size'] = body_size.fillna(0.0)  # No body when range is 0
         
         return df
     
@@ -211,7 +239,10 @@ class StockIndicators:
         # Lagged close prices
         for lag in [1, 2, 3, 5, 10]:
             df[f'close_lag_{lag}'] = df['close'].shift(lag)
-            df[f'close_lag_{lag}_ratio'] = df['close'] / df[f'close_lag_{lag}']
+            # Handle division by zero in lagged ratios
+            lag_ratio = df['close'] / df[f'close_lag_{lag}']
+            lag_ratio = lag_ratio.replace([np.inf, -np.inf], np.nan)
+            df[f'close_lag_{lag}_ratio'] = lag_ratio.fillna(1.0)  # Neutral ratio when lagged value is 0
         
         # Lagged high and low
         for lag in [1, 2, 5]:

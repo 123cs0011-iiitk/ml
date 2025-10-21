@@ -81,47 +81,7 @@ except ImportError as e:
     logger.warning(f"Could not import AutoencoderModel: {e}")
     AutoencoderModel = None
 
-try:
-    from algorithms.optimised.kmeans.kmeans import KMeansModel
-except ImportError as e:
-    logger.warning(f"Could not import KMeansModel: {e}")
-    KMeansModel = None
-
-try:
-    from algorithms.optimised.dbscan.dbscan import DBSCANModel
-except ImportError as e:
-    logger.warning(f"Could not import DBSCANModel: {e}")
-    DBSCANModel = None
-
-try:
-    from algorithms.optimised.hierarchical_clustering.hierarchical_clustering import HierarchicalClusteringModel
-except ImportError as e:
-    logger.warning(f"Could not import HierarchicalClusteringModel: {e}")
-    HierarchicalClusteringModel = None
-
-try:
-    from algorithms.optimised.general_clustering.general_clustering import GeneralClusteringModel
-except ImportError as e:
-    logger.warning(f"Could not import GeneralClusteringModel: {e}")
-    GeneralClusteringModel = None
-
-try:
-    from algorithms.optimised.pca.pca import PCAModel
-except ImportError as e:
-    logger.warning(f"Could not import PCAModel: {e}")
-    PCAModel = None
-
-try:
-    from algorithms.optimised.svd.svd import SVDModel
-except ImportError as e:
-    logger.warning(f"Could not import SVDModel: {e}")
-    SVDModel = None
-
-try:
-    from algorithms.optimised.t_sne.tsne import TSNEModel
-except ImportError as e:
-    logger.warning(f"Could not import TSNEModel: {e}")
-    TSNEModel = None
+# Clustering and dimensionality reduction models removed - not used for direct price prediction
 
 
 class StockPredictor:
@@ -144,139 +104,44 @@ class StockPredictor:
         self.model_performance = {}
         
     def _initialize_models(self) -> Dict[str, Any]:
-        """Initialize all available models."""
+        """Load pre-trained models from disk."""
         models = {}
+        models_dir = os.path.join(os.path.dirname(__file__), '..', 'models')
         
-        try:
-            # Linear Regression
-            if LinearRegressionModel is not None:
-                models['linear_regression'] = LinearRegressionModel()
-            
-            # Random Forest
-            if RandomForestModel is not None:
-                models['random_forest'] = RandomForestModel()
-            
-            # KNN
-            if KNNModel is not None:
-                models['knn'] = KNNModel()
-            
-            # SVM/SVR
-            if SVMModel is not None:
-                models['svm'] = SVMModel()
-            
-            # Decision Tree
-            if DecisionTreeModel is not None:
-                models['decision_tree'] = DecisionTreeModel()
-            
-            # Neural Networks
-            if ANNModel is not None:
-                models['ann'] = ANNModel()
-            
-            if CNNModel is not None:
-                models['cnn'] = CNNModel()
-            
-            # Time Series
-            if ARIMAModel is not None:
-                models['arima'] = ARIMAModel()
-            
-            # Autoencoders
-            if AutoencoderModel is not None:
-                models['autoencoder'] = AutoencoderModel()
-            
-            # Clustering Models
-            if KMeansModel is not None:
-                models['kmeans'] = KMeansModel()
-            
-            if DBSCANModel is not None:
-                models['dbscan'] = DBSCANModel()
-            
-            if HierarchicalClusteringModel is not None:
-                models['hierarchical_clustering'] = HierarchicalClusteringModel()
-            
-            if GeneralClusteringModel is not None:
-                models['general_clustering'] = GeneralClusteringModel()
-            
-            # Dimensionality Reduction
-            if PCAModel is not None:
-                models['pca'] = PCAModel()
-            
-            if SVDModel is not None:
-                models['svd'] = SVDModel()
-            
-            if TSNEModel is not None:
-                models['tsne'] = TSNEModel()
-            
-            logger.info(f"Initialized {len(models)} models: {list(models.keys())}")
-            
-        except Exception as e:
-            logger.error(f"Error initializing models: {str(e)}")
-            # Initialize with available models only
-            models = self._initialize_available_models()
+        # Model configurations
+        model_configs = {
+            'linear_regression': LinearRegressionModel,
+            'random_forest': RandomForestModel,
+            'svm': SVMModel,
+            'knn': KNNModel,
+            'decision_tree': DecisionTreeModel,
+            'ann': ANNModel,
+            'cnn': CNNModel,
+            'arima': ARIMAModel,
+            'autoencoder': AutoencoderModel
+        }
         
+        for model_name, model_class in model_configs.items():
+            if model_class is None:
+                logger.warning(f"Model class not available: {model_name}")
+                continue
+            
+            model_path = os.path.join(models_dir, f"{model_name}_model.pkl")
+            
+            if os.path.exists(model_path):
+                try:
+                    # Load pre-trained model
+                    model = model_class().load(model_path)
+                    models[model_name] = model
+                    logger.info(f"✅ Loaded pre-trained {model_name}")
+                except Exception as e:
+                    logger.error(f"❌ Error loading {model_name}: {e}")
+            else:
+                logger.warning(f"⚠️ Pre-trained model not found: {model_path}")
+        
+        logger.info(f"Loaded {len(models)} pre-trained models: {list(models.keys())}")
         return models
     
-    def _initialize_available_models(self) -> Dict[str, Any]:
-        """Initialize only the models that are available."""
-        models = {}
-        
-        if LinearRegressionModel is not None:
-            try:
-                models['linear_regression'] = LinearRegressionModel()
-                logger.info("Initialized Linear Regression")
-            except Exception as e:
-                logger.warning(f"Could not initialize Linear Regression: {str(e)}")
-        
-        if RandomForestModel is not None:
-            try:
-                models['random_forest'] = RandomForestModel()
-                logger.info("Initialized Random Forest")
-            except Exception as e:
-                logger.warning(f"Could not initialize Random Forest: {str(e)}")
-        
-        if KNNModel is not None:
-            try:
-                models['knn'] = KNNModel()
-                logger.info("Initialized KNN")
-            except Exception as e:
-                logger.warning(f"Could not initialize KNN: {str(e)}")
-        
-        if SVMModel is not None:
-            try:
-                models['svm'] = SVMModel()
-                logger.info("Initialized SVM")
-            except Exception as e:
-                logger.warning(f"Could not initialize SVM: {str(e)}")
-        
-        if DecisionTreeModel is not None:
-            try:
-                models['decision_tree'] = DecisionTreeModel()
-                logger.info("Initialized Decision Tree")
-            except Exception as e:
-                logger.warning(f"Could not initialize Decision Tree: {str(e)}")
-        
-        if ANNModel is not None:
-            try:
-                models['ann'] = ANNModel()
-                logger.info("Initialized ANN")
-            except Exception as e:
-                logger.warning(f"Could not initialize ANN: {str(e)}")
-        
-        if CNNModel is not None:
-            try:
-                models['cnn'] = CNNModel()
-                logger.info("Initialized CNN")
-            except Exception as e:
-                logger.warning(f"Could not initialize CNN: {str(e)}")
-        
-        if ARIMAModel is not None:
-            try:
-                models['arima'] = ARIMAModel()
-                logger.info("Initialized ARIMA")
-            except Exception as e:
-                logger.warning(f"Could not initialize ARIMA: {str(e)}")
-        
-        logger.info(f"Successfully initialized {len(models)} models: {list(models.keys())}")
-        return models
     
     def predict_stock(self, symbol: str, category: str) -> bool:
         """
@@ -381,10 +246,7 @@ class StockPredictor:
             
             for model_name, model in self.models.items():
                 try:
-                    logger.debug(f"Training {model_name} for {symbol} {horizon}")
-                    
-                    # Train the model
-                    model.fit(X, y)
+                    logger.debug(f"Using pre-trained {model_name} for {symbol} {horizon}")
                     
                     # Get prediction (for next day, then extrapolate for longer horizons)
                     if horizon == '1D':

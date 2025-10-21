@@ -32,7 +32,8 @@ class RandomForestModel(ModelInterface):
     
     def __init__(self, n_estimators: int = 100, max_depth: int = None, 
                  min_samples_split: int = 2, min_samples_leaf: int = 1,
-                 max_features: str = 'sqrt', random_state: int = 42, **kwargs):
+                 max_features: str = 'sqrt', random_state: int = 42, 
+                 warm_start: bool = False, **kwargs):
         super().__init__('Random Forest', **kwargs)
         self.model = None
         self.scaler = None
@@ -46,6 +47,7 @@ class RandomForestModel(ModelInterface):
         self.min_samples_leaf = min_samples_leaf
         self.max_features = max_features
         self.random_state = random_state
+        self.warm_start = warm_start
         
     def _create_technical_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """Calculate technical indicators from OHLC data (no volume)."""
@@ -73,7 +75,8 @@ class RandomForestModel(ModelInterface):
             max_features=self.max_features,
             random_state=self.random_state,
             n_jobs=-1,
-            oob_score=True
+            oob_score=True,
+            warm_start=self.warm_start
         )
         
         # Optional: Scale features (Random Forest is usually robust to scaling)
@@ -125,6 +128,40 @@ class RandomForestModel(ModelInterface):
         predictions = self.model.predict(X_scaled)
         
         return predictions
+    
+    def supports_incremental_learning(self) -> bool:
+        """Check if model supports warm_start for incremental learning."""
+        return self.warm_start
+    
+    def partial_fit(self, X: np.ndarray, y: np.ndarray) -> 'ModelInterface':
+        """
+        Incrementally train on a batch of data using warm_start.
+        
+        Args:
+            X: Feature matrix (n_samples, n_features)
+            y: Target vector (n_samples,) - stock prices
+            
+        Returns:
+            self: Returns self for method chaining
+        """
+        if not self.supports_incremental_learning():
+            raise ValueError("Model does not support incremental learning. Enable warm_start.")
+        
+        self.validate_input(X, y)
+        
+        # Scale features (fit scaler on first batch, transform on subsequent)
+        if not hasattr(self.scaler, 'mean_'):
+            X_scaled = self.scaler.fit_transform(X)
+        else:
+            X_scaled = self.scaler.transform(X)
+        
+        # Incrementally train model using warm_start
+        self.model.fit(X_scaled, y)
+        
+        # Update training status
+        self.is_trained = True
+        
+        return self
     
     def predict_with_uncertainty(self, X: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """

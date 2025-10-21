@@ -62,6 +62,36 @@ class KNNModel(ModelInterface):
         """
         self.validate_input(X, y)
         
+        # Enhanced data cleaning for infinity and NaN values
+        # Replace infinity values with large finite numbers
+        X_clean = np.nan_to_num(X, nan=0.0, posinf=1e6, neginf=-1e6)
+        y_clean = np.nan_to_num(y, nan=np.nanmean(y), posinf=np.nanmax(y), neginf=np.nanmin(y))
+        
+        # Additional outlier detection and removal
+        # Remove extreme outliers that might cause issues
+        if len(X_clean) > 0:
+            # Check for extreme values in features
+            feature_std = np.std(X_clean, axis=0)
+            feature_mean = np.mean(X_clean, axis=0)
+            
+            # Remove samples with features beyond 10 standard deviations
+            outlier_mask = np.all(np.abs(X_clean - feature_mean) <= 10 * feature_std, axis=1)
+            X_clean = X_clean[outlier_mask]
+            y_clean = y_clean[outlier_mask]
+            
+            # Final check for any remaining infinity values
+            if np.any(np.isinf(X_clean)) or np.any(np.isinf(y_clean)):
+                X_clean = np.nan_to_num(X_clean, nan=0.0, posinf=1e6, neginf=-1e6)
+                y_clean = np.nan_to_num(y_clean, nan=np.nanmean(y_clean), posinf=np.nanmax(y_clean), neginf=np.nanmin(y_clean))
+        
+        # Remove any rows where y is still NaN after cleaning
+        valid_mask = ~np.isnan(y_clean)
+        X_clean = X_clean[valid_mask]
+        y_clean = y_clean[valid_mask]
+        
+        if len(X_clean) == 0:
+            raise ValueError("No valid data points after cleaning infinity and NaN values")
+        
         # Initialize model
         self.model = KNeighborsRegressor(
             n_neighbors=self.n_neighbors,
@@ -74,17 +104,17 @@ class KNNModel(ModelInterface):
         
         # Scale features (important for KNN)
         self.scaler = StandardScaler()
-        X_scaled = self.scaler.fit_transform(X)
+        X_scaled = self.scaler.fit_transform(X_clean)
         
         # Train model
-        self.model.fit(X_scaled, y)
+        self.model.fit(X_scaled, y_clean)
         
         # Calculate training metrics
         y_pred = self.model.predict(X_scaled)
-        mse = mean_squared_error(y, y_pred)
+        mse = mean_squared_error(y_clean, y_pred)
         rmse = np.sqrt(mse)
-        r2 = r2_score(y, y_pred)
-        mae = mean_absolute_error(y, y_pred)
+        r2 = r2_score(y_clean, y_pred)
+        mae = mean_absolute_error(y_clean, y_pred)
         
         self.set_training_metrics({
             'mse': mse,
@@ -110,8 +140,11 @@ class KNNModel(ModelInterface):
         
         self.validate_input(X)
         
+        # Handle infinity and NaN values in X
+        X_clean = np.nan_to_num(X, nan=0.0, posinf=1e6, neginf=-1e6)
+        
         # Scale features
-        X_scaled = self.scaler.transform(X)
+        X_scaled = self.scaler.transform(X_clean)
         
         # Make predictions
         predictions = self.model.predict(X_scaled)

@@ -35,9 +35,9 @@ class CNNModel(ModelInterface):
     future stock prices. Volume is excluded from all calculations.
     """
     
-    def __init__(self, sequence_length: int = 60, filters: List[int] = [64, 32, 16],
+    def __init__(self, sequence_length: int = 30, filters: List[int] = [64, 32, 16],
                  kernel_size: int = 3, dropout_rate: float = 0.2,
-                 learning_rate: float = 0.001, batch_size: int = 32, 
+                 learning_rate: float = 0.001, batch_size: int = 16, 
                  epochs: int = 100, use_lstm: bool = False, **kwargs):
         super().__init__('1D Convolutional Neural Network', **kwargs)
         self.model = None
@@ -136,7 +136,7 @@ class CNNModel(ModelInterface):
     
     def fit(self, X: np.ndarray, y: np.ndarray) -> 'ModelInterface':
         """
-        Train the CNN model on stock data.
+        Train the CNN model on stock data with memory-efficient batch training.
         
         Args:
             X: Feature matrix (n_samples, n_features)
@@ -157,23 +157,49 @@ class CNNModel(ModelInterface):
         if len(X_seq) == 0:
             raise ValueError(f"Not enough data to create sequences. Need at least {self.sequence_length} samples.")
         
-        # Build model
+        # Check memory requirements and adjust batch size if needed
+        memory_per_sample = X_seq[0].nbytes
+        total_memory_estimate = memory_per_sample * len(X_seq)
+        
+        # Aggressive memory optimization for large datasets
+        if total_memory_estimate > 2e9:  # 2GB
+            self.batch_size = min(self.batch_size, 4)  # Very small batch size
+            self.filters = [min(f, 16) for f in self.filters]  # Much smaller filters
+            print(f"Large dataset detected ({total_memory_estimate/1e9:.1f}GB), using aggressive memory optimization:")
+            print(f"  - Batch size: {self.batch_size}")
+            print(f"  - Filters: {self.filters}")
+        
+        # Additional memory checks
+        if total_memory_estimate > 1e9:  # 1GB
+            # Reduce sequence length for very large datasets
+            if self.sequence_length > 30:
+                self.sequence_length = 30
+                print(f"  - Sequence length reduced to: {self.sequence_length}")
+        
+        # Final memory check - if still too large, use minimal settings
+        if total_memory_estimate > 5e8:  # 500MB
+            self.batch_size = 2
+            self.filters = [8, 4]  # Minimal filters
+            self.sequence_length = min(self.sequence_length, 20)
+            print(f"  - Using minimal settings due to memory constraints")
+        
         self.model = self._build_model((self.sequence_length, X_scaled.shape[1]))
         
         # Callbacks
         callbacks = [
-            EarlyStopping(monitor='val_loss', patience=20, restore_best_weights=True),
-            ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=10, min_lr=1e-7)
+            EarlyStopping(monitor='val_loss', patience=15, restore_best_weights=True),
+            ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=8, min_lr=1e-7)
         ]
         
-        # Train model
+        # Train model with memory-efficient settings
         history = self.model.fit(
             X_seq, y_seq,
             batch_size=self.batch_size,
             epochs=self.epochs,
             validation_split=0.2,
             callbacks=callbacks,
-            verbose=0
+            verbose=1,
+            shuffle=True
         )
         
         # Calculate training metrics

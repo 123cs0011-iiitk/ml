@@ -34,8 +34,8 @@ class AutoencoderModel(ModelInterface):
     then applies linear regression on the encoded features for prediction.
     """
     
-    def __init__(self, encoding_dim: int = 10, hidden_layers: List[int] = [64, 32], 
-                 dropout_rate: float = 0.2, **kwargs):
+    def __init__(self, encoding_dim: int = 16, hidden_layers: List[int] = [32, 16], 
+                 dropout_rate: float = 0.3, **kwargs):
         """
         Initialize Autoencoder model.
         
@@ -130,7 +130,7 @@ class AutoencoderModel(ModelInterface):
                 batch_size=32,
                 validation_split=0.2,
                 callbacks=callbacks,
-                verbose=0
+                verbose=1
             )
             
             # Extract encoded features
@@ -140,6 +140,9 @@ class AutoencoderModel(ModelInterface):
             logger.info("Training regression model on encoded features...")
             self.regressor = LinearRegression()
             self.regressor.fit(encoded_features, y)
+            
+            # Set trained flag before calculating metrics
+            self.is_trained = True
             
             # Calculate training metrics
             y_pred = self.predict(X)
@@ -151,8 +154,6 @@ class AutoencoderModel(ModelInterface):
                 'reconstruction_loss': history.history['loss'][-1],
                 'val_reconstruction_loss': history.history['val_loss'][-1]
             }
-            
-            self.is_trained = True
             logger.info(f"Autoencoder training completed. R² Score: {self.training_metrics['r2_score']:.4f}")
             
         except Exception as e:

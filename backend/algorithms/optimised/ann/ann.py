@@ -35,7 +35,7 @@ class ANNModel(ModelInterface):
     """
     
     def __init__(self, hidden_layers: List[int] = [64, 32, 16], 
-                 activation: str = 'relu', dropout_rate: float = 0.2,
+                 activation: str = 'relu', dropout_rate: float = 0.5,
                  learning_rate: float = 0.001, optimizer: str = 'adam',
                  batch_size: int = 32, epochs: int = 100, **kwargs):
         super().__init__('Artificial Neural Network', **kwargs)
@@ -78,7 +78,7 @@ class ANNModel(ModelInterface):
         # Hidden layers
         for units in self.hidden_layers[1:]:
             model.add(Dense(units, activation=self.activation,
-                           kernel_regularizer=l1_l2(l1=0.01, l2=0.01)))
+                           kernel_regularizer=l1_l2(l1=0.001, l2=0.001)))
             model.add(BatchNormalization())
             model.add(Dropout(self.dropout_rate))
         
@@ -132,7 +132,7 @@ class ANNModel(ModelInterface):
             epochs=self.epochs,
             validation_split=0.2,
             callbacks=callbacks,
-            verbose=0
+            verbose=1
         )
         
         # Calculate training metrics

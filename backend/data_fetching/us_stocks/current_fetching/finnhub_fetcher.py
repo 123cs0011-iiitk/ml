@@ -167,8 +167,12 @@ class USCurrentFetcher:
                 'timestamp': datetime.now()
             }
             
-            # Save to CSV
-            self.save_to_csv(result)
+            # Save OHLCV data to individual file
+            try:
+                self.save_daily_data(symbol, result)
+                print(f"✓ Saved OHLCV data for {symbol} to individual file")
+            except Exception as e:
+                print(f"Warning: Could not save daily data for {symbol}: {e}")
             
             print(f"Successfully fetched {symbol} price ${price} from Finnhub")
             return result
@@ -313,6 +317,66 @@ class USCurrentFetcher:
                 print(f"  ❌ {error}")
         
         return results
+    
+    def save_daily_data(self, symbol: str, ohlcv_data: Dict[str, Any]):
+        """
+        Append today's OHLCV data to individual stock file in latest directory.
+        Only saves if data for today doesn't already exist.
+        """
+        try:
+            from datetime import datetime
+            
+            # Path to individual file in latest directory
+            individual_file = os.path.join(
+                self.latest_dir, 'individual_files', f'{symbol}.csv'
+            )
+            
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(individual_file), exist_ok=True)
+            
+            # Today's date
+            today = datetime.now().strftime('%Y-%m-%d')
+            
+            # Check if file exists and read it
+            if os.path.exists(individual_file):
+                df = pd.read_csv(individual_file)
+                # Check if today's data already exists
+                if 'date' in df.columns and today in df['date'].values:
+                    print(f"Today's data already exists for {symbol}, skipping")
+                    return
+            else:
+                # Create new DataFrame with proper columns
+                df = pd.DataFrame(columns=['date', 'open', 'high', 'low', 'close', 'volume', 'adjusted_close', 'currency'])
+            
+            # Add new row for today
+            new_row = {
+                'date': today,
+                'open': ohlcv_data.get('open', ohlcv_data.get('price', 0)),
+                'high': ohlcv_data.get('high', ohlcv_data.get('price', 0)),
+                'low': ohlcv_data.get('low', ohlcv_data.get('price', 0)),
+                'close': ohlcv_data.get('close', ohlcv_data.get('price', 0)),
+                'volume': ohlcv_data.get('volume', 0),
+                'adjusted_close': ohlcv_data.get('adjusted_close', ''),
+                'currency': self.currency
+            }
+            
+            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+            
+            # Sort by date and save
+            df = df.sort_values('date').reset_index(drop=True)
+            df.to_csv(individual_file, index=False)
+            
+            print(f"Saved today's data for {symbol} to {individual_file}")
+            
+            # Update dynamic index
+            try:
+                self.update_dynamic_index()
+                print(f"✓ Updated dynamic index for {symbol}")
+            except Exception as e:
+                print(f"Warning: Could not update dynamic index for {symbol}: {e}")
+            
+        except Exception as e:
+            print(f"Error saving daily data for {symbol}: {str(e)}")
 
 def main():
     """Main function for command line usage"""

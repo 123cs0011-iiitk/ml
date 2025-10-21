@@ -7,9 +7,8 @@ Maintains all existing functionality while working with the new data_fetching st
 
 import os
 import requests
-import yfinance as yf
 from datetime import datetime, timedelta
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Any
 import logging
 import time
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
@@ -34,9 +33,12 @@ logger = logging.getLogger(__name__)
 class CurrentFetcher:
     """
     Current stock price fetcher with multiple API fallbacks:
-    1. yfinance (primary, free)
-    2. Finnhub (fallback, requires API key)
-    3. Alpha Vantage (fallback, requires API key)
+    1. Finnhub (primary for US stocks, requires API key)
+    2. Upstox (primary for Indian stocks, requires OAuth)
+    3. Permanent directory (fallback, historical data)
+    
+    Note: yfinance removed from real-time fetching as it only provides delayed data (15+ min).
+    yfinance is still used for historical data fetching where appropriate.
     
     This maintains all existing functionality while working with the new structure.
     """
@@ -77,58 +79,6 @@ class CurrentFetcher:
     def _categorize_stock(self, symbol: str) -> str:
         """Categorize stock based on symbol suffix"""
         return categorize_stock(symbol)
-    
-    def _fetch_from_yfinance(self, symbol: str) -> Tuple[float, str]:
-        """
-        Fetch stock price from yfinance using proven history-based approach.
-        Adapted from inspiration project for better reliability.
-        
-        Handles Indian stocks by automatically adding .NS suffix when needed.
-        """
-        for attempt in range(3):  # Manual retry logic instead of Tenacity decorator
-            try:
-                # Enforce rate limiting
-                self._enforce_rate_limit()
-                
-                # Add shorter delay to avoid rate limiting
-                time.sleep(0.5)
-                
-                # Handle Indian stocks - add .NS suffix if not present
-                # This is required for yfinance to recognize NSE stocks
-                yfinance_symbol = symbol
-                if self._categorize_stock(symbol) == 'ind_stocks' and not symbol.endswith('.NS'):
-                    yfinance_symbol = f"{symbol}.NS"
-                    logger.debug(f"Added .NS suffix for Indian stock: {symbol} -> {yfinance_symbol}")
-                
-                ticker = yf.Ticker(yfinance_symbol)
-                
-                # Use history-based approach (more reliable than ticker.info)
-                # This is the proven pattern from inspiration project with auto_adjust=False
-                hist = ticker.history(period="1d", auto_adjust=False)
-                
-                if hist.empty:
-                    raise ValueError(f"No price data available for {yfinance_symbol}")
-                
-                # Extract price from most recent close (proven reliable method)
-                price = hist['Close'].iloc[-1]
-                
-                # Try to get company name from info, fallback to symbol
-                try:
-                    info = ticker.info
-                    company_name = info.get('longName', info.get('shortName', symbol))
-                except:
-                    company_name = symbol
-                
-                logger.debug(f"Successfully fetched {symbol}: ${price} ({company_name})")
-                return float(price), company_name
-                        
-            except Exception as e:
-                logger.warning(f"yfinance attempt {attempt + 1} failed for {symbol}: {str(e)}")
-                if attempt < 2:  # If not the last attempt
-                    time.sleep(1.0)  # Shorter retry delay
-                else:
-                    logger.error(f"All yfinance attempts failed for {symbol}")
-                    raise
     
     def _fetch_from_finnhub(self, symbol: str) -> Tuple[float, str]:
         """Fetch stock price from Finnhub API"""
@@ -390,7 +340,6 @@ class CurrentFetcher:
         
         # Try APIs in order of preference
         apis = [
-            ('yfinance', self._fetch_from_yfinance),
             ('finnhub', self._fetch_from_finnhub),
             ('permanent_directory', self._fetch_from_permanent_directory)
         ]
@@ -458,22 +407,17 @@ class CurrentFetcher:
         raise Exception(error_msg)
     
     def save_to_csv(self, data: Dict):
-        """Save stock data to appropriate CSV file"""
+        """Save stock data to individual files only (latest_prices.csv disabled)"""
         symbol = data['symbol']
         category = self._categorize_stock(symbol)
         
-        csv_path = os.path.join(self.latest_dir, category, 'latest_prices.csv')
-        
+        # Only save to individual files, not latest_prices.csv
         try:
-            if PANDAS_AVAILABLE:
-                self._save_with_pandas(data, csv_path, symbol, category)
-            else:
-                self._save_with_csv_module(data, csv_path, symbol, category)
-            
-            logger.info(f"Saved {symbol} data to {csv_path}")
+            self.save_daily_data(symbol, data, category)
+            logger.info(f"Saved {symbol} data to individual file")
             
         except Exception as e:
-            logger.error(f"Error saving to CSV for {symbol}: {str(e)}")
+            logger.error(f"Error saving to individual file for {symbol}: {str(e)}")
             # Don't raise exception to avoid breaking the main flow
     
     def _save_with_pandas(self, data: Dict, csv_path: str, symbol: str, category: str):
@@ -507,6 +451,13 @@ class CurrentFetcher:
         
         # Update dynamic index
         self.update_dynamic_index(category)
+        
+        # Save OHLCV data to individual file
+        try:
+            self.save_daily_data(symbol, data, category)
+            logger.info(f"✓ Saved OHLCV data for {symbol} to individual file")
+        except Exception as e:
+            logger.warning(f"Could not save daily data for {symbol}: {e}")
     
     def _save_with_csv_module(self, data: Dict, csv_path: str, symbol: str, category: str):
         """Save using built-in csv module (fallback)"""
@@ -540,6 +491,13 @@ class CurrentFetcher:
         
         # Update dynamic index
         self.update_dynamic_index(category)
+        
+        # Save OHLCV data to individual file
+        try:
+            self.save_daily_data(symbol, data, category)
+            logger.info(f"✓ Saved OHLCV data for {symbol} to individual file")
+        except Exception as e:
+            logger.warning(f"Could not save daily data for {symbol}: {e}")
     
     def update_dynamic_index(self, category: str):
         """Update the dynamic index CSV file for the category with company info using DynamicIndexManager"""
@@ -617,31 +575,59 @@ class CurrentFetcher:
             logger.error(f"Error updating index for {category}: {str(e)}")
     
     def get_latest_prices(self, category: Optional[str] = None):
-        """Get latest prices for a category or all categories"""
+        """Get latest prices for a category or all categories by reading individual files"""
         if not PANDAS_AVAILABLE:
             logger.warning("Pandas not available, returning empty list")
             return []
         
+        all_data = []
+        
         if category:
-            csv_path = os.path.join(self.latest_dir, category, 'latest_prices.csv')
-            if os.path.exists(csv_path):
-                return pd.read_csv(csv_path)
-            else:
-                return pd.DataFrame()
+            categories = [category]
         else:
-            # Get all categories
-            all_data = []
-            for cat in ['us_stocks', 'ind_stocks']:
-                csv_path = os.path.join(self.latest_dir, cat, 'latest_prices.csv')
-                if os.path.exists(csv_path):
-                    cat_df = pd.read_csv(csv_path)
-                    cat_df['category'] = cat
-                    all_data.append(cat_df)
-            
-            if all_data:
-                return pd.concat(all_data, ignore_index=True)
-            else:
-                return pd.DataFrame()
+            categories = ['us_stocks', 'ind_stocks']
+        
+        for cat in categories:
+            individual_dir = os.path.join(self.latest_dir, cat, 'individual_files')
+            if not os.path.exists(individual_dir):
+                continue
+                
+            # Get all individual files in the directory
+            for filename in os.listdir(individual_dir):
+                if filename.endswith('.csv'):
+                    symbol = filename[:-4]  # Remove .csv extension
+                    file_path = os.path.join(individual_dir, filename)
+                    
+                    try:
+                        # Read the individual file
+                        df = pd.read_csv(file_path)
+                        if df.empty:
+                            continue
+                        
+                        # Get the latest row (last row)
+                        latest_row = df.iloc[-1]
+                        
+                        # Create a row with the latest price data
+                        latest_data = {
+                            'symbol': symbol,
+                            'price': latest_row.get('close', latest_row.get('price', 0)),
+                            'timestamp': latest_row.get('date', ''),
+                            'source': 'individual_file',
+                            'company_name': symbol,  # Will be updated from dynamic index if available
+                            'currency': latest_row.get('currency', get_currency_for_category(cat)),
+                            'category': cat
+                        }
+                        
+                        all_data.append(latest_data)
+                        
+                    except Exception as e:
+                        logger.warning(f"Error reading individual file {filename}: {e}")
+                        continue
+        
+        if all_data:
+            return pd.DataFrame(all_data)
+        else:
+            return pd.DataFrame()
     
     def _get_latest_day_data(self, symbol: str) -> Dict:
         """
@@ -720,6 +706,98 @@ class CurrentFetcher:
         except Exception as e:
             logger.debug(f"Error getting latest day data for {symbol}: {e}")
             return {}
+    
+    def save_daily_data(self, symbol: str, ohlcv_data: Dict[str, Any], category: str = None):
+        """
+        Append today's OHLCV data to individual stock file in latest directory.
+        Only saves if data for today doesn't already exist.
+        """
+        try:
+            from datetime import datetime
+            
+            # Determine category if not provided
+            if not category:
+                category = self._categorize_stock(symbol)
+            
+            # Path to individual file in latest directory
+            individual_file = os.path.join(
+                self.latest_dir, category, 'individual_files', f'{symbol}.csv'
+            )
+            
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(individual_file), exist_ok=True)
+            
+            # Today's date
+            today = datetime.now().strftime('%Y-%m-%d')
+            
+            # Check if file exists and read it
+            if os.path.exists(individual_file):
+                if PANDAS_AVAILABLE:
+                    df = pd.read_csv(individual_file)
+                    # Check if today's data already exists
+                    if 'date' in df.columns and today in df['date'].values:
+                        logger.debug(f"Today's data already exists for {symbol}, skipping")
+                        return
+                else:
+                    # Use csv module fallback
+                    with open(individual_file, 'r', newline='', encoding='utf-8') as f:
+                        reader = csv.DictReader(f)
+                        existing_data = list(reader)
+                        if any(row.get('date') == today for row in existing_data):
+                            logger.debug(f"Today's data already exists for {symbol}, skipping")
+                            return
+            else:
+                # Create new DataFrame with proper columns
+                if PANDAS_AVAILABLE:
+                    df = pd.DataFrame(columns=['date', 'open', 'high', 'low', 'close', 'volume', 'adjusted_close', 'currency'])
+                else:
+                    # Initialize empty list for csv module
+                    existing_data = []
+            
+            # Get currency for category
+            currency = get_currency_for_category(category)
+            
+            # Add new row for today
+            new_row = {
+                'date': today,
+                'open': ohlcv_data.get('open', ohlcv_data.get('price', 0)),
+                'high': ohlcv_data.get('high', ohlcv_data.get('price', 0)),
+                'low': ohlcv_data.get('low', ohlcv_data.get('price', 0)),
+                'close': ohlcv_data.get('close', ohlcv_data.get('price', 0)),
+                'volume': ohlcv_data.get('volume', 0),
+                'adjusted_close': ohlcv_data.get('adjusted_close', ''),
+                'currency': currency
+            }
+            
+            if PANDAS_AVAILABLE:
+                df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+                # Sort by date and save
+                df = df.sort_values('date').reset_index(drop=True)
+                df.to_csv(individual_file, index=False)
+            else:
+                # Use csv module fallback
+                existing_data.append(new_row)
+                # Sort by date
+                existing_data.sort(key=lambda x: x.get('date', ''))
+                
+                # Write updated data
+                with open(individual_file, 'w', newline='', encoding='utf-8') as f:
+                    fieldnames = ['date', 'open', 'high', 'low', 'close', 'volume', 'adjusted_close', 'currency']
+                    writer = csv.DictWriter(f, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(existing_data)
+            
+            logger.info(f"Saved today's data for {symbol} to {individual_file}")
+            
+            # Update dynamic index
+            try:
+                self.update_dynamic_index(category)
+                logger.info(f"✓ Updated dynamic index for {symbol}")
+            except Exception as e:
+                logger.warning(f"Could not update dynamic index for {symbol}: {e}")
+            
+        except Exception as e:
+            logger.error(f"Error saving daily data for {symbol}: {str(e)}")
 
     def fetch_historical_data(self, symbol: str, start_date: str, end_date: str) -> Dict:
         """

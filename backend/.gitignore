@@ -21,5 +21,8 @@ ENV/
 .DS_Store
 Thumbs.db
 
+# Trained models (9.5 GB - too large for git)
+models/
+
 # Logs
 *.log
