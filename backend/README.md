@@ -1,15 +1,14 @@
-# Backend API
+# Backend API Documentation
 
-Machine learning backend for stock price prediction with 9 algorithms, automated training system, and comprehensive RESTful API.
+ML backend with 9 algorithms, automated training, RESTful API, and real-time data for 1000+ stocks.
 
-## Features
+## 🎯 Core Features
 
-- **9 ML Algorithms**: Linear Regression, Random Forest, Decision Tree, KNN, SVM, ANN, CNN, ARIMA, Autoencoders
-- **Training System**: Automated model training with status tracking and validation
-- **OHLC Data**: Uses Open, High, Low, Close data with technical indicators (SMA, EMA, MACD, RSI, Bollinger Bands, ATR)
-- **Multi-horizon Forecasting**: 1 day, 1 week, 1 month, 1 year, 5 years
-- **RESTful API**: Flask-based API with comprehensive endpoints
-- **Status Tracking**: Simple status checking with `python status.py`
+- **9 ML Algorithms**: Linear Regression, Random Forest, Decision Tree, KNN, SVM, ANN, CNN, ARIMA, Autoencoders with automated batch training
+- **Technical Indicators**: 50+ features from OHLC data (SMA, EMA, MACD, RSI, Bollinger Bands, ATR)
+- **Multi-horizon Forecasting**: 1d/1w/1m/1y/5y predictions via Flask 2.3.3 API with CORS
+- **Real-time Data**: Finnhub (US) + Upstox (India) APIs with permanent storage fallback
+- **Status Tracking**: `python status.py` (table/JSON/simple formats) with USD/INR currency conversion
 
 ## Quick Start
 
@@ -30,98 +29,88 @@ curl "http://localhost:5000/api/predict?symbol=AAPL&horizon=1d"
 
 ## Training System
 
-The backend now includes a unified training system that trains models on combined data from all stocks:
-
-### Training Commands
+Unified training system combining data from all 1000+ stocks with batch processing.
 
 ```bash
-# Check model status
-python status.py                    # Table format
-python status.py --json             # JSON format
-python status.py --simple           # Simple format
-
-# Train all models
-python backend/training/train_full_dataset.py
-
-# Train specific model
-python backend/training/train_full_dataset.py --model linear_regression
-
-# Generate predictions using trained models
-python backend/training/generate_predictions.py --max-stocks 10
+python status.py [--json|--simple]                          # Check model status
+python backend/training/train_full_dataset.py               # Train all models
+python backend/training/train_full_dataset.py --model <name> # Train specific model
+python backend/training/generate_predictions.py --max-stocks 10 # Generate predictions
 ```
 
-### Model Training Process
+**Process**: Data loading (1000+ stocks) → Feature engineering (50+ indicators) → Batch training (11 batches) → Validation → Save to `backend/models/` with status tracking in `model_status.json`
 
-1. **Data Loading**: Combines historical and latest data from all 1,000+ stocks
-2. **Feature Engineering**: Creates technical indicators using `StockIndicators`
-3. **Unified Training**: Trains each model on the combined dataset
-4. **Validation**: Tests models on predefined validation stocks
-5. **Status Tracking**: Maintains training progress in `backend/models/model_status.json`
-6. **Model Storage**: Saves trained models to `backend/models/`
+### Model Status (Oct 21, 2025)
 
-### Current Model Status
+Run `python status.py` for real-time status.
 
-Check with `python status.py`:
+| Model | Status | Stocks | R² | Notes |
+|-------|--------|--------|----|----|
+| Random Forest | ✅ | 913 | 0.994 | Production ready |
+| Decision Tree | ✅ | 913 | 0.850 | Production ready |
+| SVM | ⚠️ | 913 | -26.2 | Overfitting |
+| KNN | ⚠️ | 913 | -27.9 | Poor performance |
+| ANN | ❌ | 913 | -9.7M | Catastrophic failure |
+| Linear Reg | ❌ | 0 | N/A | Stuck at batch 9/11 |
+| CNN | ❌ | 0 | N/A | Stuck at batch 10/11 |
+| ARIMA | ❌ | 0 | N/A | Incomplete training |
+| Autoencoder | ❌ | 17 | -136K | Failed training |
 
-- **✅ Working**: Random Forest (R²=0.994), Decision Tree (R²=0.85)
-- **⚠️ Poor Performance**: SVM (R²=-26.2), KNN (R²=-27.9), ANN (R²=-9.7M)
-- **❌ Failed/Stuck**: Linear Regression, CNN, ARIMA, Autoencoder
+**Summary**: 2/9 working (22%), 3/9 poor (33%), 4/9 failed (44%). Only Random Forest & Decision Tree reliable.
 
-⚠️ **Note**: Only 2 out of 9 models are currently producing reliable predictions. ML predictions are unreliable.
-
-### Prediction Generation
-
-The system generates predictions for all stocks using pre-trained models:
-
-```bash
-# Generate predictions for all stocks
-python backend/training/generate_predictions.py
-
-# Generate predictions for specific category
-python backend/training/generate_predictions.py --category us_stocks
-
-# Test with limited stocks
-python backend/training/generate_predictions.py --max-stocks 10 --test
-```
-
-## API Endpoints
+## 🔌 API Endpoints
 
 ### Prediction Endpoints
 
-- `GET /api/predict` - Get stock price prediction
-- `POST /api/train` - Train models for a symbol
-- `GET /api/models/<symbol>` - List trained models for a symbol
+| Endpoint | Method | Description | Query Parameters |
+|----------|--------|-------------|------------------|
+| `/api/predict` | GET | Get ML price prediction | `symbol`, `horizon` (1d/1w/1m/1y/5y), `model` (optional) |
+| `/api/train` | POST | Train models for a symbol | Body: `{"symbol": "AAPL", "models": ["random_forest"]}` |
+| `/api/models/<symbol>` | GET | List trained models | Path: `symbol` |
 
 ### Data Endpoints
 
-- `GET /live_price` - Get current stock price
-- `GET /latest_prices` - Get latest prices for all stocks
-- `GET /historical` - Get historical data for charting
-- `GET /search` - Search for stocks
-- `GET /symbols` - Get available stock symbols
+| Endpoint | Method | Description | Query Parameters |
+|----------|--------|-------------|------------------|
+| `/live_price` | GET | Get current stock price | `symbol`, `category` (optional) |
+| `/latest_prices` | GET | Get latest prices for all stocks | `category` (us_stocks/ind_stocks, optional) |
+| `/historical` | GET | Get historical OHLC data | `symbol`, `period` (5d/1mo/3mo/6mo/1y/2y/5y/max) |
+| `/search` | GET | Fuzzy search for stocks | `q` (query string), `limit` (optional, default 10) |
+| `/symbols` | GET | Get all available symbols | `category` (optional) |
 
 ### Utility Endpoints
 
-- `GET /health` - Health check
-- `GET /stock_info` - Get stock metadata
+| Endpoint | Method | Description | Query Parameters |
+|----------|--------|-------------|------------------|
+| `/health` | GET | API health check | None |
+| `/stock_info` | GET | Get stock metadata | `symbol` |
+| `/convert_currency` | GET | Convert USD to INR or vice versa | `amount`, `from_currency`, `to_currency` |
 
-## Usage Examples
+## 📖 Usage Examples
 
-### Get Prediction
+### Prediction Endpoints
+
 ```bash
-# Basic prediction
+# Basic prediction (1 day horizon)
 curl "http://localhost:5000/api/predict?symbol=AAPL&horizon=1d"
 
 # Specific model
-curl "http://localhost:5000/api/predict?symbol=AAPL&horizon=1w&model=lstm"
+curl "http://localhost:5000/api/predict?symbol=AAPL&horizon=1w&model=random_forest"
 
-# All models (ensemble)
-curl "http://localhost:5000/api/predict?symbol=AAPL&horizon=1m&model=all"
+# Response format
+{
+  "success": true,
+  "prediction": 175.50,
+  "current_price": 173.25,
+  "model": "random_forest",
+  "confidence": 0.95
+}
 ```
 
-### Train Models
+### Training Models
+
 ```bash
-# Train all models
+# Train all models for a symbol (requires historical data)
 curl -X POST "http://localhost:5000/api/train" \
   -H "Content-Type: application/json" \
   -d '{"symbol": "AAPL"}'
@@ -129,217 +118,186 @@ curl -X POST "http://localhost:5000/api/train" \
 # Train specific models
 curl -X POST "http://localhost:5000/api/train" \
   -H "Content-Type: application/json" \
-  -d '{"symbol": "AAPL", "models": ["lstm", "random_forest"]}'
+  -d '{"symbol": "AAPL", "models": ["random_forest", "decision_tree"]}'
 ```
 
-### Data Endpoints
+### Data Fetching
+
 ```bash
-# Get live price
+# Get live price (real-time)
 curl "http://localhost:5000/live_price?symbol=AAPL"
 
-# Get historical data
-curl "http://localhost:5000/historical?symbol=AAPL&period=year"
+# Get historical data (OHLC + Volume)
+curl "http://localhost:5000/historical?symbol=AAPL&period=1y"
 
-# Search stocks
-curl "http://localhost:5000/search?q=apple"
+# Search stocks (fuzzy search)
+curl "http://localhost:5000/search?q=apple&limit=5"
+
+# Get all US stock symbols
+curl "http://localhost:5000/symbols?category=us_stocks"
+
+# Get latest prices for all stocks
+curl "http://localhost:5000/latest_prices?category=ind_stocks"
 ```
 
-### Response Format
+### Currency Conversion
+
+```bash
+# Convert USD to INR
+curl "http://localhost:5000/convert_currency?amount=100&from_currency=USD&to_currency=INR"
+
+# Response format
+{
+  "success": true,
+  "amount": 100,
+  "from_currency": "USD",
+  "to_currency": "INR",
+  "converted_amount": 8325.50,
+  "rate": 83.255
+}
+```
+
+### Standard Response Format
+
+All endpoints return JSON in this format:
+
 ```json
 {
   "success": true,
   "data": { ... },
-  "error": "Error message if any"
+  "error": null
 }
 ```
 
-## Configuration
+Or on error:
+
+```json
+{
+  "success": false,
+  "error": "Error message here",
+  "data": null
+}
+```
+
+## ⚙️ Configuration
 
 ### Environment Variables
 
-Create a `.env` file in the backend directory:
+Create a `.env` file in the backend directory (or set environment variables):
 
 ```env
 # Flask Configuration
 FLASK_ENV=development
 FLASK_DEBUG=True
 PORT=5000
+HOST=0.0.0.0
 
 # Data Configuration
-DATA_DIR=data
-
-# Model Configuration
+DATA_DIR=../data
+PERMANENT_DIR=../permanent
 MODEL_SAVE_DIR=backend/models
 LOG_DIR=backend/logs
 
 # API Configuration
-CORS_ORIGINS=http://localhost:3000
+CORS_ORIGINS=http://localhost:5173,http://localhost:3000
 
-# API Keys (Required)
-FINNHUB_API_KEY=your_finnhub_key_here
+# API Keys (Required for real-time data)
+FINNHUB_API_KEY=your_finnhub_api_key_here
 UPSTOX_CLIENT_ID=your_upstox_client_id_here
 UPSTOX_CLIENT_SECRET=your_upstox_secret_here
-UPSTOX_REDIRECT_URI=http://localhost:3000
+UPSTOX_REDIRECT_URI=http://localhost:5173
+
+# Optional: Cache settings
+CACHE_DIR=backend/_cache
+CACHE_EXPIRY_HOURS=24
+```
+
+### API Keys Setup
+
+**Finnhub** (https://finnhub.io): Free account → Get API key (60 calls/min)  
+**Upstox** (https://upstox.com/developer): Developer account → Create app → Get Client ID & Secret → Run OAuth (expires daily, auto-refresh enabled)
+
+```bash
+python backend/scripts/generate_new_token.py       # Generate Upstox token
+python backend/scripts/test_upstox_realtime.py     # Test Upstox data
 ```
 
 ### Model Configuration
 
-Models can be configured through their constructors:
+Models configured in `backend/algorithms/optimised/<model_name>/model.py`. Example: Random Forest (n_estimators=200, max_depth=30), Decision Tree (max_depth=20), ANN (128→64→32→1 with Dropout 0.3).
 
-```python
-# LSTM Configuration
-lstm_model = LSTMWrapper(
-    lookback=60,
-    lstm_units=(128, 64, 32),
-    dropout_rate=0.2,
-    learning_rate=0.001,
-    patience=20
-)
+## 📋 Data Requirements
 
-# Random Forest Configuration
-rf_model = RandomForestWrapper(
-    n_estimators=[200, 500],
-    max_depth=[10, 20, 30],
-    random_state=42
-)
-```
+### ISIN Codes
 
-## Data Requirements
+**Indian Stocks**: Require ISINs (12-character code, format: INExxxxxxxx, e.g., INE009A01021) for Upstox API
+- ✅ **100% coverage**: All 500 stocks in `permanent/ind_stocks/index_ind_stocks.csv`
+- ✅ **Live verified**: Random sample of 25 stocks tested with live Upstox API (100% success)
+- ✅ **Format validated**: All ISINs are 12 characters starting with "INE"
+- Used for: Real-time price fetching via Upstox API
+- Verification: Run `python backend/scripts/verify_indian_isins.py --count 25`
 
-The system expects stock data in CSV format with the following important considerations:
-
-### ISIN Requirements
-
-**Indian Stocks (MANDATORY):**
-- **ISINs are required** for Upstox API to work correctly
-- All 500 Indian stocks have ISINs populated (100% coverage)
-- ISINs are stored in:
-  - `permanent/ind_stocks/index_ind_stocks.csv` (permanent index)
-  - `data/index_ind_stocks_dynamic.csv` (dynamic index)
-- ISIN format: 12-character alphanumeric code (e.g., `INE009A01021` for Infosys)
-- Without correct ISINs, Upstox will return "wrong ISIN number" errors
-
-**US Stocks (NOT Required):**
-- Finnhub API uses ticker symbols, not ISINs
-- ISINs are optional for US stocks
-- System works perfectly without ISINs for US stocks
+**US Stocks**: Do NOT have ISINs
+- ❌ No ISIN column in `permanent/us_stocks/index_us_stocks.csv`
+- Use ticker symbols only (e.g., AAPL, MSFT, GOOGL)
+- Identified by exchange (NYSE/NASDAQ)
+- ISINs not required for Finnhub API
 
 ### Data Sources
 
-**Real-time Fetching:**
-- **US Stocks**: Finnhub API → Permanent directory (fallback)
-- **Indian Stocks**: Upstox API → Permanent directory (fallback)
-- **Note**: yfinance has been removed from real-time fetching (only used for historical data)
+**Real-time**: Finnhub (US) + Upstox (India) → Permanent storage fallback  
+**Historical**: yfinance (2020-2025, 5yr) for both markets  
+**Permanent Storage**: `permanent/` directory with 1000+ stocks (500 US + 500 Indian)
 
-**Historical Data:**
-- Both US and Indian stocks use yfinance for historical data fetching
-- Period: 2020-01-01 to 2024-12-31 (5 years)
+## 🧠 Model Architecture
 
-## Model Architecture
+9 algorithms: Linear Regression (❌), Random Forest (✅ R²=0.994), Decision Tree (✅ R²=0.85), KNN (⚠️), SVM (⚠️), ANN (❌), CNN (❌), ARIMA (❌), Autoencoder (❌).
 
-### Available Algorithms (9 total)
-1. **Linear Regression** - Standard linear regression with feature scaling
-2. **Random Forest** - Ensemble of decision trees with hyperparameter tuning
-3. **Decision Tree** - Single decision tree with interpretable rules
-4. **K-Nearest Neighbors** - Instance-based learning with distance-based prediction
-5. **Support Vector Regression** - SVM for regression with multiple kernels
-6. **Artificial Neural Network** - Multi-layer perceptron with dropout
-7. **1D Convolutional Neural Network** - Time series CNN with sequence modeling
-8. **ARIMA** - AutoRegressive Integrated Moving Average for time series
-9. **Autoencoders** - Feature extraction + prediction
+**50+ Technical Indicators** (OHLC only): Moving Averages (SMA 5,10,20,50,200, EMA 12,26), Momentum (RSI 14, MACD 12,26,9, Price momentum 1,5,10d), Volatility (Bollinger Bands 20,2σ, ATR 14, Rolling std 5,10,20d), Price Patterns (High/Low, Open/Close ratios), Lagged (1,2,3,5,10d prices), Rolling Stats (Min/Max/Std 5,10,20d), Time features (day/month/quarter).
 
-### Technical Indicators (Volume Excluded)
-- **Moving Averages**: SMA (5,10,20,50,200), EMA (12,26)
-- **Momentum**: RSI (14), MACD (12,26,9), Price momentum (1,5,10 day)
-- **Volatility**: Bollinger Bands, ATR, Rolling standard deviation
-- **Price Patterns**: High/Low ratios, Open/Close ratios, Price position
-- **Lagged Features**: 1,2,3,5,10 day price lags
-- **Rolling Statistics**: Min/Max/Std over 5,10,20 day windows
+**Training Pipeline**: Load 1000+ stocks → Generate 50+ indicators (`StockIndicators`) → Preprocess → Batch (11 batches, 913 stocks, 1M+ rows) → Validate → Save to `backend/models/`
 
-### Ensemble System
-- Weighted averaging based on model performance
-- Confidence calculation from prediction variance
-- Multi-horizon forecasting support
-- Individual model predictions available
-
-## Feature Engineering
-
-The system automatically generates technical indicators from OHLC data only (volume excluded):
-
-- **Moving Averages**: SMA(5,10,20,50,200), EMA(12,26)
-- **Momentum Indicators**: RSI(14), MACD(12,26,9), Price momentum
-- **Volatility**: Bollinger Bands(20,2σ), ATR(14), Rolling volatility
-- **Price Patterns**: High/Low ratios, Open/Close ratios, Price position
-- **Lagged Features**: 1,2,3,5,10 day price lags
-- **Rolling Statistics**: Min/Max/Std over 5,10,20 day windows
-- **Time-based Features**: Day of week, month, quarter
-
-## Testing
-
-Run the test suite:
+## 🧪 Testing
 
 ```bash
-# Run all tests
-pytest
-
-# Run specific test files
-pytest tests/test_api.py
-pytest tests/test_models.py
-
-# Run with coverage
-pytest --cov=algorithms --cov=main
+pytest                                  # All tests
+pytest tests/unit/                      # Unit tests (algorithms, data, currency, indicators)
+pytest tests/integration/               # Integration tests (API, training, data flow)
+pytest --cov=algorithms --cov=main      # With coverage
+python tests/manual/test_finnhub.py     # Manual interactive tests
 ```
 
-## Logging
+## 📝 Logging
 
-Logs are written to `backend/logs/` directory:
+Logs in `backend/logs/`: `app.log`, `training.log`, `prediction.log`, `error.log`, `api.log`. Enable debug: Set `FLASK_DEBUG=True` and `LOG_LEVEL=DEBUG` in `.env`.
 
-- Application logs
-- Model training logs
-- Prediction logs
-- Error logs
+## ⚡ Performance
 
-## Performance Considerations
+API: <100ms | Prediction: <1s (RF/DT) | Training: 5-60min (RF:5min, ANN:60min) | Memory: 2-8GB peak | Data load: 10-30s (1000+ stocks) | Model size: 1-50MB
 
-- **Memory Usage**: LSTM models require significant memory
-- **Training Time**: Initial training can take several minutes
-- **Prediction Speed**: Ensemble predictions are fast (< 1 second)
-- **Data Storage**: Models are saved to disk for persistence
+**Tips**: Batch processing, enable caching, permanent storage fallback, limit stocks for testing (`--max-stocks` flag)
 
-## Troubleshooting
+## 🔧 Troubleshooting
 
-### Common Issues
+**Import Errors**: `pip install -r requirements.txt` | Verify: `python -c "import flask, pandas, numpy, sklearn, tensorflow"`
 
-1. **Import Errors**: Ensure all dependencies are installed
-2. **Memory Issues**: Reduce batch size or model complexity
-3. **Data Issues**: Check CSV format and data quality
-4. **Model Loading**: Ensure model files are not corrupted
+**API Keys**: Check `.env` file | Test Finnhub: `curl "https://finnhub.io/api/v1/quote?symbol=AAPL&token=YOUR_KEY"` | Test Upstox: `python backend/scripts/test_upstox_realtime.py`
 
-### Debug Mode
+**Memory**: Reduce batch_size in `backend/training/train_full_dataset.py`
 
-Enable debug logging:
+**Models**: Check `backend/models/` | Retrain: `python backend/training/train_full_dataset.py --model <name>`
 
-```python
-import logging
-logging.basicConfig(level=logging.DEBUG)
-```
+**Debug**: Set `FLASK_DEBUG=True` and `LOG_LEVEL=DEBUG` in `.env` or environment
 
-## Contributing
+## 📖 Additional Resources
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
+See [Main README](../README.md) for overview | [Documentation Hub](../documentation/README.md) for all guides | [Upstox Integration](../documentation/UPSTOX_INTEGRATION.md) for Indian market setup
 
-## License
+## ⚠️ Important Notes
 
-This project is licensed under the MIT License.
+- **Model Reliability**: Only Random Forest & Decision Tree reliable (2/9 models)
+- **API Limits**: Finnhub 60 calls/min (free tier), Upstox tokens expire daily
+- **Educational Use**: For learning and research only, verify data before financial decisions
 
-## Support
-
-For issues and questions:
-- Create an issue on GitHub
-- Check the [documentation](../documentation/README.md)
-- Review the test cases for examples
-- See [API Usage Guide](../documentation/API_USAGE.md) for detailed examples
+---
+**Version**: 0.1.0 | **Status**: Development (2/9 models working) | **Updated**: Oct 21, 2025

@@ -1,65 +1,31 @@
-# Documentation
+# Documentation Hub
 
-Technical documentation for the Stock Price Prediction System.
+Navigation for Stock Price Prediction System documentation.
 
-## 📚 Available Documentation
+## 📚 Available Guides
 
-### **Core Documentation**
-- **[Main README](../README.md)** - Project overview and quick start
-- **[Backend README](../backend/README.md)** - Backend API documentation
+- **[Main README](../README.md)** - Project overview, quick start, system status
+- **[Backend API](../backend/README.md)** - API endpoints, training system, configuration
+- **[Upstox Integration](UPSTOX_INTEGRATION.md)** - Indian stock market API setup
+- **[Currency Conversion](CURRENCY_CONVERSION.md)** - USD/INR conversion implementation
+- **[Model Training](MODEL_TRAINING.md)** - ML training system documentation
 
-### **API & Integration Guides**
-- **[Backend README](../backend/README.md)** - Complete API documentation with usage examples
-- **[Upstox Integration](UPSTOX_INTEGRATION.md)** - Complete Indian stock market integration guide
+## 🔍 Quick Commands
 
-### **Technical Implementation**
-- **[Currency Conversion](CURRENCY_CONVERSION.md)** - Currency conversion implementation and troubleshooting
-
-## 🔧 System Status
-
-### **Model Training Status**
-Check current model status with:
 ```bash
-python status.py           # Table format
-python status.py --json    # JSON format
-python status.py --simple  # Simple format
+python status.py                                          # Check model training status
+python main.py                                            # Start backend server
+cd frontend && npm run dev                                # Start frontend
+python backend/scripts/verify_indian_isins.py --count 25  # Verify Indian stock ISINs
 ```
 
-### **Current Model Performance**
-- **✅ Working**: Random Forest (R²=0.994), Decision Tree (R²=0.85)
-- **⚠️ Poor**: SVM (R²=-26.2), KNN (R²=-27.9), ANN (R²=-9.7M)
-- **❌ Failed**: Linear Regression, CNN, ARIMA, Autoencoder
+## 📊 Data Information
 
-### **System Components**
-- **Data Fetching**: ✅ Working (US via Finnhub, Indian via Upstox)
-- **Frontend**: ✅ Working (React + TypeScript)
-- **Backend API**: ✅ Working (Flask)
-- **ML Predictions**: ⚠️ Unreliable (model performance issues)
+**Indian Stocks**: All 500 stocks include verified ISINs (12-char format: INExxxxxxxx)
+- ✅ 100% verified with live Upstox API
+- Required for real-time price fetching
 
-## 🔑 ISIN Requirements (Critical)
+**US Stocks**: Use ticker symbols only (NO ISINs)
+- Finnhub API doesn't require ISINs
 
-### Indian Stocks - ISINs MANDATORY
-**ISINs are absolutely required** for Upstox API integration:
-- ✅ All 500 Indian stocks have ISINs (100% coverage)
-- ✅ ISINs stored in both permanent and dynamic indexes
-- ⚠️ Without ISINs, Upstox returns "wrong ISIN number" errors
-- 📍 ISIN format: 12-character alphanumeric (e.g., `INE009A01021` for Infosys)
-
-**Index Files:**
-- `permanent/ind_stocks/index_ind_stocks.csv` - Permanent index with ISINs
-- `data/index_ind_stocks_dynamic.csv` - Dynamic index with ISINs
-
-**How ISINs were populated:**
-- Downloaded from Upstox instruments file (`complete.csv.gz`)
-- Extracted ISINs from `instrument_key` column for `NSE_EQ` exchange
-- Achieved 100% coverage for all 500 Indian stocks
-
-### US Stocks - ISINs NOT Required
-- Finnhub API uses ticker symbols (not ISINs)
-- ISINs are optional for US stocks
-- System works perfectly without ISINs
-
-### Real-time Data Fetching
-**US Stocks:** Finnhub API → Permanent directory (fallback)  
-**Indian Stocks:** Upstox API → Permanent directory (fallback)  
-**Note:** yfinance removed from real-time fetching (only used for historical data)
+See individual guides above for detailed information.
