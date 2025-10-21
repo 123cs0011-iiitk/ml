@@ -86,9 +86,9 @@ temp/
 # TernJS port file
 .tern-port
 
-# Permanent Directories
-/permanent/
+# Excluded Directories
 /inspirations/
+/backend/models/
 
 # Data directory - ignore everything except dynamic index files
 /data/*
