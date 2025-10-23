@@ -17,8 +17,8 @@ from sklearn.preprocessing import StandardScaler
 
 # Add parent directories to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
-from model_interface import ModelInterface
-from stock_indicators import StockIndicators
+from ...model_interface import ModelInterface
+from ...stock_indicators import StockIndicators
 
 
 class LinearRegressionModel(ModelInterface):
@@ -29,12 +29,12 @@ class LinearRegressionModel(ModelInterface):
     future stock prices. Volume is excluded from all calculations.
     """
     
-    def __init__(self, use_sgd: bool = True, **kwargs):
+    def __init__(self, use_sgd: bool = False, **kwargs):
         super().__init__('Linear Regression', **kwargs)
         self.model = None
         self.scaler = None
         self.feature_columns = None
-        self.use_sgd = use_sgd  # Use SGD for incremental learning (enabled by default for batch training)
+        self.use_sgd = use_sgd  # Use SGD for efficient training on large datasets
         
     def _create_technical_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """Calculate technical indicators from OHLC data (no volume)."""
@@ -46,11 +46,15 @@ class LinearRegressionModel(ModelInterface):
         
         Args:
             X: Feature matrix (n_samples, n_features)
-            y: Target vector (n_samples,) - stock prices
+            y: Target vector (n_samples,) - stock prices (percentage change format)
             
         Returns:
             self: Returns self for method chaining
         """
+        print(f"[DEBUG] LinearRegression.fit() called with X.shape={X.shape}, y.shape={y.shape}")
+        print(f"[DEBUG] X min={X.min():.2f}, max={X.max():.2f}, mean={X.mean():.2f}")
+        print(f"[DEBUG] y min={y.min():.2f}, max={y.max():.2f}, mean={y.mean():.2f}")
+        
         self.validate_input(X, y)
         
         # Initialize model (SGD for incremental learning, LinearRegression for batch)
@@ -65,15 +69,18 @@ class LinearRegressionModel(ModelInterface):
         else:
             self.model = LinearRegression()
         
+        # Linear Regression NEEDS StandardScaler for numerical stability
+        # Feature values range from -16000 to +16000 while target is -50 to +50
+        # We save the scaler and use it during predictions
         self.scaler = StandardScaler()
         
-        # Scale features
+        # Scale features for training
         X_scaled = self.scaler.fit_transform(X)
         
-        # Train model
+        # Train model on scaled features
         self.model.fit(X_scaled, y)
         
-        # Calculate training metrics
+        # Calculate training metrics (using scaled features)
         y_pred = self.model.predict(X_scaled)
         mse = mean_squared_error(y, y_pred)
         rmse = np.sqrt(mse)
@@ -95,17 +102,17 @@ class LinearRegressionModel(ModelInterface):
             X: Features to predict on (n_samples, n_features)
             
         Returns:
-            predictions: Predicted stock prices (n_samples,)
+            predictions: Predicted percentage changes (n_samples,)
         """
         if not self.is_trained:
             raise ValueError("Model not trained")
         
         self.validate_input(X)
         
-        # Scale features
+        # Scale features using the SAME scaler from training
         X_scaled = self.scaler.transform(X)
         
-        # Make predictions
+        # Make predictions on scaled features
         predictions = self.model.predict(X_scaled)
         
         return predictions
@@ -120,7 +127,7 @@ class LinearRegressionModel(ModelInterface):
         
         Args:
             X: Feature matrix (n_samples, n_features)
-            y: Target vector (n_samples,) - stock prices
+            y: Target vector (n_samples,) - percentage changes
             
         Returns:
             self: Returns self for method chaining
@@ -131,12 +138,13 @@ class LinearRegressionModel(ModelInterface):
         self.validate_input(X, y)
         
         # Scale features (fit scaler on first batch, transform on subsequent)
-        if not hasattr(self.scaler, 'mean_'):
+        if self.scaler is None or not hasattr(self.scaler, 'mean_'):
+            self.scaler = StandardScaler()
             X_scaled = self.scaler.fit_transform(X)
         else:
             X_scaled = self.scaler.transform(X)
         
-        # Incrementally train model
+        # Incrementally train model on scaled features
         self.model.partial_fit(X_scaled, y)
         
         # Update training status
@@ -154,6 +162,9 @@ class LinearRegressionModel(ModelInterface):
         if not self.is_trained:
             raise ValueError("Model not trained")
         
+        print(f"[DEBUG] LinearRegression.save() called with path={path}")
+        print(f"[DEBUG] Training metrics: {self.training_metrics}")
+        
         joblib.dump({
             'model': self.model,
             'scaler': self.scaler,
@@ -161,6 +172,8 @@ class LinearRegressionModel(ModelInterface):
             'params': self.model_params,
             'feature_columns': self.feature_columns
         }, path)
+        
+        print(f"[DEBUG] Model saved successfully")
     
     def load(self, path: str) -> 'ModelInterface':
         """

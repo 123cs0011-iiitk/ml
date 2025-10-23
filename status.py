@@ -74,11 +74,17 @@ def print_status_table(summary):
     for name, details in summary['models'].items():
         model_details = details['details']
         
-        trained = model_details.get('trained', False)
+        # Support both old and new format
+        status = model_details.get('status', 'pending')
+        trained = (status == 'completed') or model_details.get('trained', False)
         stocks_trained = model_details.get('stocks_trained', 0)
-        r2_score = model_details.get('r2_score')
-        trained_date = model_details.get('trained_date', '')
-        error = model_details.get('error', '')
+        
+        # Try to get R² from validation_metrics first, then fall back to r2_score
+        validation_metrics = model_details.get('validation_metrics', {})
+        r2_score = validation_metrics.get('avg_r2_score') if validation_metrics else model_details.get('r2_score')
+        
+        trained_date = model_details.get('last_updated', model_details.get('trained_date', ''))
+        error = model_details.get('error_message', model_details.get('error', ''))
         
         trained_str = "Yes" if trained else "No"
         r2_str = format_r2_score(r2_score)

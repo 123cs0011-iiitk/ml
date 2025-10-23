@@ -109,6 +109,7 @@ class PredictionConfig:
             'date',
             'horizon', 
             'predicted_price',
+            'current_price',  # Base price used for prediction
             'confidence',  # Overall confidence score (0-100)
             'confidence_low',
             'confidence_high',
@@ -127,18 +128,10 @@ class PredictionConfig:
         self.MAX_WORKERS = 4  # For parallel processing
         self.CHUNK_SIZE = 10  # Process stocks in chunks
         
-        # Batch training configuration
-        self.USE_BATCH_TRAINING = True
-        self.STOCK_BATCH_SIZE = 1  # Number of stocks per batch (each stock as one batch)
-        self.ROW_BATCH_SIZE = 50000  # Rows per mini-batch for training
-        self.BATCH_OVERLAP_PERCENT = 0.0  # Overlap between batches (0-100)
-        self.SUBSAMPLE_PERCENT = 50  # For non-incremental models (%)
-        self.ENABLE_INCREMENTAL_TRAINING = True  # Use partial_fit when available
-        
         # Display settings
         self.UPDATE_INTERVAL = 20  # Update every 20 seconds
         self.ENABLE_EMOJIS = True  # Try emojis (auto-fallback if terminal breaks)
-        self.SHOW_SAMPLE_STOCKS = 8  # Show first N stocks in batch summaries
+        self.SHOW_SAMPLE_STOCKS = 8  # Show first N stocks in progress summaries
         
         # Validation settings
         self.MIN_PRICE = 0.01  # Minimum valid price

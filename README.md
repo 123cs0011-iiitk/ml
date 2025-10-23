@@ -1,14 +1,15 @@
 # Stock Price Prediction System
 
-A comprehensive full-stack web application for real-time stock price analysis and prediction using 9 machine learning algorithms, supporting both US and Indian markets with live data fetching, historical analysis, and interactive visualization.
+A comprehensive full-stack web application for real-time stock price analysis and prediction using 7 machine learning algorithms, supporting both US and Indian markets with live data fetching, historical analysis, and interactive visualization.
 
 ## ✨ Key Features
 
-- **9 ML Algorithms**: Linear Regression, Random Forest, Decision Tree, KNN, SVM, ANN, CNN, ARIMA, Autoencoders
+- **7 ML Algorithms**: Linear Regression, Random Forest, Decision Tree, SVM (basic models) + KNN, ARIMA, Autoencoder (advanced models)
 - **Real-time Data**: US stocks via Finnhub API, Indian stocks via Upstox API with permanent storage fallback
 - **Modern Dashboard**: React 18 + TypeScript + Tailwind CSS with interactive Recharts for 5-year historical analysis
 - **1000+ Stocks**: 500 US + 500 Indian stocks with OHLC data and 50+ technical indicators (SMA, EMA, RSI, MACD, Bollinger Bands, ATR)
 - **Currency Support**: Real-time USD/INR conversion via forex-python
+- **Smart Training**: Percentage-based predictions with proper price conversion and confidence scoring
 
 ## 🛠️ Technology Stack
 
@@ -58,7 +59,7 @@ npm run dev
 
 **✅ Working**: Data fetching, Historical (5yr), Search (1000+ stocks), Currency, Dashboard, 50+ indicators
 
-**ML Models** (Oct 22/2025): 🔄 All 9 models ready for training | 0/9 trained | Models: Linear Reg, Random Forest, Decision Tree, KNN, SVM, ANN, CNN, ARIMA, Autoencoder
+**ML Models** (Oct 23/2025): ✅ 7 production models ready | Training system reorganized into basic_models/ and advanced_models/ | Models: Linear Regression, Random Forest, Decision Tree, SVM, KNN, ARIMA, Autoencoder | All models use percentage change predictions for accuracy
 
 **Docs**: [Backend API](backend/README.md) | [Documentation Hub](documentation/README.md) | [Upstox Setup](documentation/UPSTOX_INTEGRATION.md)
 

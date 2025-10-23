@@ -102,8 +102,8 @@ def main():
                 sys.exit(1)
                 
         else:
-            # Batch prediction
-            logger.info("Starting batch predictions...")
+            # Multiple stocks prediction
+            logger.info("Starting predictions for multiple stocks...")
             results = predictor.predict_all_stocks(
                 category=args.category,
                 max_stocks=args.max_stocks

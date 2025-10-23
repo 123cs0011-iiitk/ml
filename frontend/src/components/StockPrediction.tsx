@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { TrendingUp, TrendingDown, Brain, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { TrendingUp, TrendingDown, Brain, AlertTriangle, ChevronDown, ChevronRight, Database, Clock } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
@@ -9,22 +9,6 @@ import { Button } from './ui/button';
 import { PredictionResult } from '../services/stockService';
 import { formatPrice, Currency } from '../utils/currency';
 
-// Static dummy data for testing purposes
-const DUMMY_PREDICTION: PredictionResult = {
-  predictedPrice: 52800.00,
-  confidence: 73.5,
-  model: 'KNN',
-  timeframe: '5 years',
-  priceRange: [50160.00, 55440.00],
-  timeFrameDays: 1825,
-  modelInfo: {
-    model: 'K-Nearest Neighbors'
-  },
-  dataPointsUsed: 1250,
-  lastUpdated: '2025-10-18T20:00:00Z',
-  currency: 'USD'
-};
-
 interface StockPredictionProps {
   prediction: PredictionResult | null;
   currentPrice?: number;
@@ -32,16 +16,20 @@ interface StockPredictionProps {
   symbol: string;
   error: string;
   currency: Currency;
+  selectedHorizon?: string;
+  selectedModel?: string;
   onHorizonChange?: (horizon: string) => void;
   onModelChange?: (model: string) => void;
+  dataTimestamp?: string;
+  dataSource?: string;
 }
 
 const HORIZON_OPTIONS = [
-  { key: '1d', label: '1D' },
-  { key: '1w', label: '1W' },
-  { key: '1m', label: '1M' },
-  { key: '1y', label: '1Y' },
-  { key: '5y', label: '5Y' },
+  { key: '1D', label: '1D' },
+  { key: '1W', label: '1W' },
+  { key: '1M', label: '1M' },
+  { key: '1Y', label: '1Y' },
+  { key: '5Y', label: '5Y' },
 ];
 
 const MODEL_OPTIONS = {
@@ -52,10 +40,8 @@ const MODEL_OPTIONS = {
     { key: 'svm', label: 'Support Vector Machine' },
   ],
   advanced: [
-    { key: 'ann', label: 'Artificial Neural Network' },
     { key: 'arima', label: 'AutoRegressive Integrated Moving Average' },
     { key: 'autoencoders', label: 'Autoencoders' },
-    { key: 'cnn', label: 'Convolutional Neural Network' },
     { key: 'knn', label: 'K-Nearest Neighbors' },
   ]
 };
@@ -67,13 +53,26 @@ export function StockPrediction({
   symbol, 
   error,
   currency,
+  selectedHorizon: propSelectedHorizon = '1D',
+  selectedModel: propSelectedModel = 'linear_regression',
   onHorizonChange,
-  onModelChange
+  onModelChange,
+  dataTimestamp,
+  dataSource
 }: StockPredictionProps) {
-  const [selectedHorizon, setSelectedHorizon] = useState('5y');
-  const [selectedModel, setSelectedModel] = useState<string>('knn');
+  const [selectedHorizon, setSelectedHorizon] = useState(propSelectedHorizon);
+  const [selectedModel, setSelectedModel] = useState<string>(propSelectedModel);
   const [showBasic, setShowBasic] = useState(true);
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Sync with parent props
+  useEffect(() => {
+    setSelectedHorizon(propSelectedHorizon);
+  }, [propSelectedHorizon]);
+
+  useEffect(() => {
+    setSelectedModel(propSelectedModel);
+  }, [propSelectedModel]);
 
   const handleHorizonChange = (horizon: string) => {
     setSelectedHorizon(horizon);
@@ -89,45 +88,40 @@ export function StockPrediction({
     }
   };
   
-  // Use dummy data for testing - log error to console for debugging
-  if (error) {
-    console.warn('Prediction error (using dummy data):', error);
-  }
-
-  // Always use dummy data for testing purposes
-  const displayPrediction = DUMMY_PREDICTION;
-  
-  // Debug logging
-  console.log('StockPrediction component rendering with dummy data:', displayPrediction);
-  const isPositiveChange = displayPrediction.predictedPrice > (currentPrice || 0);
-  const change = (currentPrice && displayPrediction.predictedPrice) ? displayPrediction.predictedPrice - currentPrice : 0;
-  const changePercent = (currentPrice && change !== 0) ? ((change / currentPrice) * 100) : 0;
+  // Calculate prediction values if available
+  const displayPrediction = prediction;
+  // Always use the currentPrice prop (same source as Stock Info Card)
+  // This ensures both cards are synchronized on the same price data
+  const predictionCurrentPrice = currentPrice || 0;
+  const isPositiveChange = displayPrediction ? displayPrediction.predictedPrice > predictionCurrentPrice : false;
+  const change = displayPrediction?.predictedPrice ? displayPrediction.predictedPrice - predictionCurrentPrice : 0;
+  const changePercent = (predictionCurrentPrice && change !== 0) ? ((change / predictionCurrentPrice) * 100) : 0;
 
   const getConfidenceColor = (confidence: number | undefined | null) => {
     if (!confidence || isNaN(confidence)) return 'text-muted-foreground';
-    if (confidence >= 70) return 'text-green-600';
-    if (confidence >= 50) return 'text-yellow-600';
+    if (confidence >= 61) return 'text-green-600';
+    if (confidence >= 31) return 'text-yellow-600';
     return 'text-red-600';
   };
 
   const getConfidenceBadgeVariant = (confidence: number | undefined | null): "default" | "secondary" | "destructive" | "outline" => {
     if (!confidence || isNaN(confidence)) return 'outline';
-    if (confidence >= 70) return 'default';
-    if (confidence >= 50) return 'secondary';
+    if (confidence >= 61) return 'default';
+    if (confidence >= 31) return 'secondary';
     return 'destructive';
   };
 
   const getProgressBarColor = (confidence: number | undefined | null) => {
     if (!confidence || isNaN(confidence)) return 'bg-gray-400';
-    if (confidence >= 70) return 'bg-green-600';
-    if (confidence >= 50) return 'bg-orange-500';
+    if (confidence >= 61) return 'bg-green-600';
+    if (confidence >= 31) return 'bg-orange-500';
     return 'bg-red-500';
   };
 
   const getProgressBarStyle = (confidence: number | undefined | null) => {
     if (!confidence || isNaN(confidence)) return { backgroundColor: '#9ca3af' };
-    if (confidence >= 70) return { backgroundColor: '#16a34a' }; // green-600
-    if (confidence >= 50) return { backgroundColor: '#f97316' }; // orange-500
+    if (confidence >= 61) return { backgroundColor: '#16a34a' }; // green-600
+    if (confidence >= 31) return { backgroundColor: '#f97316' }; // orange-500
     return { backgroundColor: '#ef4444' }; // red-500
   };
 
@@ -155,65 +149,102 @@ export function StockPrediction({
       </CardHeader>
       
       <CardContent className="space-y-6">
-        {/* Prediction Alert */}
-        <Alert className="prediction-alert">
-          <AlertTriangle className="prediction-alert-icon" />
-          <AlertDescription className="prediction-alert-text">
-            This prediction is based on historical data analysis using machine learning. 
-            Market conditions can change rapidly and predictions may not reflect future performance.
-          </AlertDescription>
-        </Alert>
+        {loading ? (
+          // Show loading skeleton
+          <div className="space-y-3">
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-16 w-full" />
+          </div>
+        ) : error ? (
+          // Show error message
+          <Alert className="prediction-alert">
+            <AlertTriangle className="prediction-alert-icon" />
+            <AlertDescription className="prediction-alert-text">{error}</AlertDescription>
+          </Alert>
+        ) : !displayPrediction || !symbol || !currentPrice ? (
+          // Show placeholder when no stock is selected OR when waiting for live price
+          <div className="text-center py-8">
+            <p className="text-muted-foreground text-xl">
+              {!symbol ? 'Select a stock to see price predictions' : 'Loading live price data...'}
+            </p>
+          </div>
+        ) : (
+          // Show actual prediction (only when we have live price)
+          <>
+            {/* Prediction Alert */}
+            <Alert className="prediction-alert">
+              <AlertTriangle className="prediction-alert-icon" />
+              <AlertDescription className="prediction-alert-text">
+                This prediction is based on historical data analysis using machine learning. 
+                Market conditions can change rapidly and predictions may not reflect future performance.
+              </AlertDescription>
+            </Alert>
 
-        {/* Main Prediction */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="prediction-metadata-label text-muted-foreground">Predicted Price</span>
-            <div className="flex items-center gap-2">
-              {isPositiveChange ? (
-                <TrendingUp className="prediction-icon text-green-600" />
-              ) : (
-                <TrendingDown className="prediction-icon text-red-600" />
+            {/* Main Prediction */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="prediction-metadata-label text-muted-foreground">Predicted Price</span>
+                <div className="flex items-center gap-2">
+                  {isPositiveChange ? (
+                    <TrendingUp className="prediction-icon text-green-600" />
+                  ) : (
+                    <TrendingDown className="prediction-icon text-red-600" />
+                  )}
+                  <Badge variant={getConfidenceBadgeVariant(displayPrediction.confidence)} className="prediction-confidence-badge">
+                    {displayPrediction.confidence ? displayPrediction.confidence.toFixed(1) : '0.0'}% confidence
+                  </Badge>
+                </div>
+              </div>
+              
+              <div className="prediction-price-main">
+                {formatPrice(displayPrediction.predictedPrice, currency)}
+              </div>
+              
+              {currentPrice && (
+                <div className={`prediction-change-info ${
+                  isPositiveChange ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {isPositiveChange ? '+' : ''}{formatPrice(change, currency)} ({changePercent.toFixed(2)}%)
+                </div>
               )}
-              <Badge variant={getConfidenceBadgeVariant(displayPrediction.confidence)} className="prediction-confidence-badge">
-                {displayPrediction.confidence ? displayPrediction.confidence.toFixed(1) : '0.0'}% confidence
-              </Badge>
+
+              {/* Price data source indicator */}
+              <div className="prediction-metadata-label text-muted-foreground mt-2 flex items-center gap-2 text-sm">
+                <Database className="h-3 w-3" />
+                <span>
+                  {displayPrediction?.dataSource === 'upstox' ? 'Using live price data (Upstox)' :
+                   displayPrediction?.dataSource === 'finnhub' ? 'Using live price data (finnhub)' :
+                   displayPrediction?.dataSource === 'permanent' ? 'Using historical price data' :
+                   dataSource === 'upstox' ? 'Using live price data (Upstox)' :
+                   dataSource === 'finnhub' ? 'Using live price data (finnhub)' :
+                   dataSource === 'permanent' ? 'Using historical price data' :
+                   'Using live price data'}
+                </span>
+                <Clock className="h-3 w-3 ml-2" />
+                <span>{dataTimestamp ? new Date(dataTimestamp).toLocaleTimeString() : new Date().toLocaleTimeString()}</span>
+              </div>
             </div>
-          </div>
-          
-          <div className="prediction-price-main">
-            {formatPrice(displayPrediction.predictedPrice, currency)}
-          </div>
-          
-          {currentPrice && (
-            <div className={`prediction-change-info ${
-              isPositiveChange ? 'text-green-600' : 'text-red-600'
-            }`}>
-              {isPositiveChange ? '+' : ''}{formatPrice(change, currency)} ({changePercent.toFixed(2)}%)
+
+            {/* Confidence Indicator */}
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="prediction-metadata-label text-muted-foreground">Prediction Confidence</span>
+                <span className={`prediction-metadata-value ${getConfidenceColor(displayPrediction.confidence)}`}>
+                  {displayPrediction.confidence ? displayPrediction.confidence.toFixed(1) : '0.0'}%
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2" style={{ backgroundColor: '#e5e7eb' }}>
+                <div 
+                  className={`h-2 rounded-full transition-all duration-300 ${getProgressBarColor(displayPrediction.confidence)}`}
+                  style={{ 
+                    width: `${displayPrediction.confidence || 0}%`,
+                    ...getProgressBarStyle(displayPrediction.confidence)
+                  }}
+                />
+              </div>
             </div>
-          )}
-        </div>
-
-        {/* Confidence Indicator */}
-        <div className="space-y-3">
-          <div className="flex justify-between items-center">
-            <span className="prediction-metadata-label text-muted-foreground">Prediction Confidence</span>
-            <span className={`prediction-metadata-value ${getConfidenceColor(displayPrediction.confidence)}`}>
-              {displayPrediction.confidence ? displayPrediction.confidence.toFixed(1) : '0.0'}%
-            </span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2" style={{ backgroundColor: '#e5e7eb' }}>
-            <div 
-              className={`h-2 rounded-full transition-all duration-300 ${getProgressBarColor(displayPrediction.confidence)}`}
-              style={{ 
-                width: `${displayPrediction.confidence || 0}%`,
-                ...getProgressBarStyle(displayPrediction.confidence)
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Additional Metrics - Removed Price Range section */}
-
+          </>
+        )}
       </CardContent>
       
       {/* Model Selection */}
@@ -261,23 +292,9 @@ export function StockPrediction({
             </button>
             {showAdvanced && (
               <div className="space-y-2">
-                {/* First row - 3 buttons */}
+                {/* Single row - all 3 advanced models */}
                 <div className="flex flex-wrap gap-6">
-                  {MODEL_OPTIONS.advanced.slice(0, 3).map(model => (
-                    <Button
-                      key={model.key}
-                      variant={selectedModel === model.key ? 'default' : 'outline'}
-                      size="default"
-                      onClick={() => handleModelToggle(model.key)}
-                      className="text-lg model-toggle-button"
-                    >
-                      {model.label}
-                    </Button>
-                  ))}
-                </div>
-                {/* Second row - 2 buttons */}
-                <div className="flex flex-wrap gap-6">
-                  {MODEL_OPTIONS.advanced.slice(3).map(model => (
+                  {MODEL_OPTIONS.advanced.map(model => (
                     <Button
                       key={model.key}
                       variant={selectedModel === model.key ? 'default' : 'outline'}

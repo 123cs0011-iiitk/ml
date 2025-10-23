@@ -300,6 +300,12 @@ class StockIndicators:
         """
         Prepare data for machine learning training.
         
+        DEPRECATED: This method returns raw prices in y, which is not used by the training pipeline.
+        For model training, use DataLoader.prepare_training_data() which returns percentage changes.
+        
+        This method is kept for backward compatibility and potential future use in
+        prediction pipelines that need raw prices.
+        
         Args:
             df: DataFrame with technical indicators (OHLC data)
             target_column: Column to use as target variable

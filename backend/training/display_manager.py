@@ -2,7 +2,7 @@
 """
 Display Manager for Training Progress
 
-Handles all display formatting with emoji support, stage tracking, and batch-level progress.
+Handles all display formatting with emoji support and progress tracking.
 """
 
 import sys
@@ -24,17 +24,23 @@ class DisplayManager:
         'validation_final': {'name': 'Validation', 'emoji': '✅', 'description': 'Testing model accuracy'}
     }
     
-    def __init__(self, model_name: str, update_interval: int = 20, enable_emojis: bool = True):
+    def __init__(self, model_name: str, update_interval: int = 20, enable_emojis: bool = None):
         """
         Initialize display manager.
         
         Args:
             model_name: Name of the model being trained
             update_interval: Update interval in seconds
-            enable_emojis: Whether to try using emojis (auto-fallback if errors)
+            enable_emojis: Whether to try using emojis (auto-fallback if errors, None=auto-detect)
         """
         self.model_name = model_name.upper().replace('_', ' ')
         self.update_interval = update_interval
+        
+        # Auto-detect emoji support: disable on Windows by default
+        if enable_emojis is None:
+            import platform
+            enable_emojis = platform.system() != 'Windows'
+        
         self.enable_emojis = enable_emojis
         self.emojis_working = enable_emojis
         
@@ -42,16 +48,18 @@ class DisplayManager:
         if self.enable_emojis:
             self._test_emoji_support()
         
-        # Separators
-        self.separator_double = '═' * 80
-        self.separator_single = '─' * 80
+        # Separators (use ASCII-safe characters)
+        self.separator_double = '=' * 80
+        self.separator_single = '-' * 80
         
     def _test_emoji_support(self):
         """Test if terminal supports emojis and disable if not."""
         try:
             # Try to encode some common emojis
             test_emojis = '🎯📊🔧✓✅⏳'
-            test_emojis.encode(sys.stdout.encoding or 'utf-8')
+            # Get the stdout encoding, default to ascii on Windows
+            encoding = sys.stdout.encoding or 'ascii'
+            test_emojis.encode(encoding)
             self.emojis_working = True
         except (UnicodeEncodeError, AttributeError, TypeError):
             self.emojis_working = False
@@ -91,6 +99,23 @@ class DisplayManager:
             hours = seconds / 3600
             return f"{hours:.1f} hr"
     
+    def show_training_progress(self, elapsed_time: float, stage: str = "Training"):
+        """
+        Show periodic training progress update.
+        
+        Args:
+            elapsed_time: Time elapsed in seconds
+            stage: Current stage of training (default: "Training")
+        """
+        emoji_progress = '⚙️' if self.emojis_working else '[PROGRESS]'
+        time_str = self.format_time(elapsed_time)
+        
+        # Create a simple progress indicator (rotating dots)
+        dot_count = int(elapsed_time / 10) % 4
+        dots = '.' * dot_count
+        
+        self._safe_print(f"{emoji_progress} {stage}... [Elapsed: {time_str}] - Model fitting in progress{dots}")
+    
     def show_training_start(self, total_stocks: int, expected_duration_min: int):
         """Show training start message."""
         emoji_start = '🚀' if self.emojis_working else '>>>'
@@ -114,118 +139,8 @@ class DisplayManager:
         self._safe_print(f"")
         self._safe_print(f"{emoji_model} MODEL INFO:")
         self._safe_print(f"   Model: {self.model_name}")
-        self._safe_print(f"   Progress tracking: Batch-level updates")
+        self._safe_print(f"   Progress tracking: Real-time updates during training")
         self._safe_print(f"{self.separator_double}\n")
-    
-    def show_batch_progress(self, batch_info: Dict[str, Any]):
-        """
-        Show batch-level progress update.
-        
-        Args:
-            batch_info: Dictionary with:
-                - batch_num: Current batch number (0-indexed)
-                - total_batches: Total number of batches
-                - stocks_processed: Number of stocks processed so far
-                - total_stocks: Total stocks to process
-                - current_stage: Current stage key
-                - us_stock_count: Number of US stocks in batch
-                - ind_stock_count: Number of Indian stocks in batch
-                - sample_stocks: List of sample stock symbols
-                - elapsed_time: Elapsed time in seconds
-                - estimated_remaining: Estimated remaining time in seconds
-        """
-        batch_num = batch_info.get('batch_num', 0) + 1  # Convert to 1-indexed
-        total_batches = batch_info.get('total_batches', 1)
-        stocks_processed = batch_info.get('stocks_processed', 0)
-        total_stocks = batch_info.get('total_stocks', 1000)
-        current_stage = batch_info.get('current_stage', 'loading')
-        us_count = batch_info.get('us_stock_count', 0)
-        ind_count = batch_info.get('ind_stock_count', 0)
-        sample_stocks = batch_info.get('sample_stocks', [])
-        elapsed = batch_info.get('elapsed_time', 0)
-        remaining = batch_info.get('estimated_remaining', 0)
-        
-        # Calculate percentages
-        batch_percent = (batch_num / total_batches) * 100
-        stock_percent = (stocks_processed / total_stocks) * 100 if total_stocks > 0 else 0
-        
-        # Get stage info
-        stage_info = self.STAGES.get(current_stage, self.STAGES['loading'])
-        stage_emoji = self._get_emoji(current_stage)
-        stage_name = stage_info['name']
-        stage_desc = stage_info['description']
-        
-        # Emojis
-        emoji_batch = '📊' if self.emojis_working else '[BATCH]'
-        emoji_stock = '📈' if self.emojis_working else '[STOCK]'
-        emoji_us = '🇺🇸' if self.emojis_working else '[US]'
-        emoji_ind = '🇮🇳' if self.emojis_working else '[IND]'
-        emoji_time = '⏱️' if self.emojis_working else '[TIME]'
-        emoji_target = '🎯' if self.emojis_working else '[ETA]'
-        emoji_location = '📍' if self.emojis_working else '>'
-        emoji_list = '📝' if self.emojis_working else '-'
-        emoji_gear = '⚙️' if self.emojis_working else '[>]'
-        
-        # Format sample stocks (first 8)
-        sample_display = ', '.join(sample_stocks[:8])
-        if len(sample_stocks) > 8:
-            sample_display += '...'
-        
-        # Calculate rate
-        rate = stocks_processed / (elapsed / 60) if elapsed > 0 else 0
-        
-        # Estimated completion time
-        if remaining > 0:
-            completion_time = time.time() + remaining
-            completion_str = time.strftime("%H:%M:%S", time.localtime(completion_time))
-        else:
-            completion_str = "Calculating..."
-        
-        # Build and print display
-        self._safe_print(f"\n{self.separator_double}")
-        self._safe_print(f"{stage_emoji} {self.model_name} - TRAINING IN PROGRESS")
-        self._safe_print(f"{self.separator_single}")
-        
-        # Progress bars
-        batch_bar = self.create_progress_bar(batch_percent)
-        self._safe_print(f"{emoji_batch} Batch Progress:   {batch_bar} {batch_percent:.1f}% ({batch_num}/{total_batches} batches)")
-        
-        stock_bar = self.create_progress_bar(stock_percent)
-        self._safe_print(f"{emoji_stock} Stock Progress:   {stock_bar} {stock_percent:.1f}% ({stocks_processed:,}/{total_stocks:,} stocks)")
-        
-        self._safe_print(f"")
-        self._safe_print(f"Current Stage: {stage_name} {stage_emoji}")
-        self._safe_print(f"Current Batch: Batch {batch_num}/{total_batches}")
-        
-        if us_count > 0 or ind_count > 0:
-            self._safe_print(f"  {emoji_location} Composition: {us_count} US stocks {emoji_us} | {ind_count} Indian stocks {emoji_ind}")
-        
-        if sample_display:
-            self._safe_print(f"  {emoji_list} Sample Stocks: {sample_display}")
-        
-        self._safe_print(f"  {emoji_gear}  Processing: {stage_desc}")
-        
-        self._safe_print(f"")
-        self._safe_print(f"{emoji_time}  Elapsed: {self.format_time(elapsed)} | Remaining: ~{self.format_time(remaining)} | Rate: {rate:.1f} stocks/min")
-        self._safe_print(f"{emoji_target} Expected Completion: {completion_str}")
-        self._safe_print(f"{self.separator_double}\n")
-    
-    def show_stage_transition(self, batch_num: int, total_batches: int, 
-                             stage_name: str, stocks_in_batch: int = 0):
-        """Show a quick stage transition notification."""
-        emoji_check = '✓' if self.emojis_working else '[OK]'
-        emoji_next = '→' if self.emojis_working else '>>'
-        
-        batch_display = f"Batch {batch_num}/{total_batches}"
-        
-        if 'completed' in stage_name.lower() or 'finished' in stage_name.lower():
-            msg = f"{emoji_check} {batch_display} completed - {stage_name}"
-            if stocks_in_batch > 0:
-                msg += f" ({stocks_in_batch} stocks processed)"
-        else:
-            msg = f"{emoji_next} {batch_display} starting - {stage_name}..."
-        
-        self._safe_print(msg)
     
     def show_training_complete(self, summary: Dict[str, Any]):
         """
@@ -284,15 +199,12 @@ class DisplayManager:
         self._safe_print(f"Model saved successfully {emoji_check}")
         self._safe_print(f"{self.separator_double}\n")
     
-    def show_error(self, error_message: str, batch_num: Optional[int] = None):
+    def show_error(self, error_message: str):
         """Show error message."""
         emoji_error = '❌' if self.emojis_working else '[ERROR]'
         
         self._safe_print(f"\n{self.separator_single}")
-        if batch_num is not None:
-            self._safe_print(f"{emoji_error} Error in Batch {batch_num}: {error_message}")
-        else:
-            self._safe_print(f"{emoji_error} Error: {error_message}")
+        self._safe_print(f"{emoji_error} Error: {error_message}")
         self._safe_print(f"{self.separator_single}\n")
 
 
@@ -306,24 +218,6 @@ if __name__ == "__main__":
     
     print("\n\nTesting training start display...")
     dm.show_training_start(total_stocks=1000, expected_duration_min=25)
-    
-    print("\n\nTesting batch progress display...")
-    batch_info = {
-        'batch_num': 5,
-        'total_batches': 10,
-        'stocks_processed': 350,
-        'total_stocks': 1000,
-        'current_stage': 'feature_engineering',
-        'us_stock_count': 85,
-        'ind_stock_count': 15,
-        'sample_stocks': ['AAPL', 'MSFT', 'GOOGL', 'TSLA', 'AMZN', 'RELIANCE', 'TCS', 'INFY', 'WIPRO'],
-        'elapsed_time': 930,  # 15.5 minutes
-        'estimated_remaining': 612  # 10.2 minutes
-    }
-    dm.show_batch_progress(batch_info)
-    
-    print("\n\nTesting stage transition...")
-    dm.show_stage_transition(5, 10, "Data loading finished", 100)
     
     print("\n\nTesting completion summary...")
     summary = {

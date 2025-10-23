@@ -15,6 +15,11 @@ import warnings
 
 from .config import config
 
+# Add shared module to path to find currency_converter
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'shared'))
+from currency_converter import currency_converter
+
 # Suppress warnings for cleaner output
 warnings.filterwarnings('ignore')
 
@@ -32,6 +37,7 @@ class DataLoader:
     def __init__(self):
         self.config = config
         self.cache = {}  # Simple cache for loaded data
+        self.currency_converter = currency_converter
         
     def load_stock_data(self, symbol: str, category: str) -> Optional[pd.DataFrame]:
         """
@@ -44,23 +50,48 @@ class DataLoader:
         Returns:
             DataFrame with historical data from data/past/ directory only
         """
-        cache_key = f"{symbol}_{category}"
+        cache_key = f"{symbol}_{category}_normalized_v1"
         if cache_key in self.cache:
-            logger.debug(f"Using cached data for {symbol}")
+            logger.debug(f"Using cached NORMALIZED data for {symbol}")
             return self.cache[cache_key]
         
         try:
+            logger.info(f"[DEBUG] load_stock_data called for symbol: {symbol}, category: {category}")
+            
             # Load ONLY historical data for training
             historical_data = self._load_historical_data(symbol, category)
             
-            if historical_data is not None and len(historical_data) > 0:
-                # Cache the result
-                self.cache[cache_key] = historical_data
-                logger.info(f"Loaded {len(historical_data)} historical data points for {symbol}")
-                return historical_data
-            else:
+            if historical_data is None or len(historical_data) == 0:
                 logger.warning(f"No historical data found for {symbol}")
                 return None
+
+            # NORMALIZE CURRENCY BEFORE CACHING
+            if category == 'ind_stocks':
+                logger.info(f"[DEBUG] Passed 'ind_stocks' check for {symbol}.")
+                logger.info(f"[DEBUG] Attempting to fetch exchange rate...")
+                
+                rate = self.currency_converter.get_live_exchange_rate()
+                
+                logger.info(f"[DEBUG] Exchange rate fetched: {rate}")
+                
+                if rate is None or rate <= 0:
+                    logger.error(f"Failed to get valid exchange rate for {symbol}. Skipping stock.")
+                    return None
+                
+                logger.info(f"Normalizing INR to USD for {symbol}...")
+                price_cols = ['open', 'high', 'low', 'close']
+                for col in price_cols:
+                    if col in historical_data.columns:
+                        historical_data[col] = historical_data[col] / rate
+                
+                logger.info(f"Normalization complete for {symbol} using rate {rate:.4f}")
+            else:
+                logger.info(f"[DEBUG] Skipped 'ind_stocks' check for {symbol} (category was: {category})")
+
+            # Cache the result
+            self.cache[cache_key] = historical_data
+            logger.info(f"Loaded and processed {len(historical_data)} data points for {symbol}")
+            return historical_data
                 
         except Exception as e:
             logger.error(f"Error loading data for {symbol}: {str(e)}")
@@ -93,6 +124,22 @@ class DataLoader:
             # Append current price if provided
             if current_price:
                 logger.info(f"Appending current live price for {symbol}")
+
+                # NORMALIZE LIVE PRICE FOR INDIAN STOCKS
+                if category == 'ind_stocks':
+                    rate = self.currency_converter.get_live_exchange_rate()
+                    if rate is None or rate <= 0:
+                        logger.error(f"Failed to get exchange rate for {symbol} live price. Skipping append.")
+                        return df
+                    
+                    current_price['close'] = current_price['close'] / rate
+                    if 'open' in current_price:
+                        current_price['open'] = current_price.get('open', current_price['close']) / rate
+                    if 'high' in current_price:
+                        current_price['high'] = current_price.get('high', current_price['close']) / rate
+                    if 'low' in current_price:
+                        current_price['low'] = current_price.get('low', current_price['close']) / rate
+                    logger.info(f"Normalized live price for {symbol} using rate {rate:.4f}")
                 
                 # Create new row with current price
                 new_row = pd.DataFrame([{
@@ -327,10 +374,11 @@ class DataLoader:
         Returns:
             DataFrame with standardized feature set
         """
-        # Define the expected feature set (37 features total)
+        # Define the expected feature set (38 features total)
         expected_features = [
             'price_change', 'price_change_abs', 'volatility', 'rsi',
-            'hl_ratio', 'oc_ratio', 'price_position', 'day_of_week', 'month', 'quarter'
+            'hl_ratio', 'oc_ratio', 'price_position', 'day_of_week', 'month', 'quarter',
+            'market_type'
         ]
         
         # Add moving averages
@@ -375,19 +423,24 @@ class DataLoader:
         except:
             return pd.Series([50] * len(prices), index=prices.index)
     
-    def prepare_training_data(self, df: pd.DataFrame, target_column: str = 'close') -> Tuple[np.ndarray, np.ndarray]:
+    def prepare_training_data(self, df: pd.DataFrame, target_column: str = 'close', for_prediction: bool = False) -> Tuple[np.ndarray, np.ndarray]:
         """
         Prepare data for machine learning training.
         
         Args:
             df: DataFrame with features
             target_column: Column to use as target variable
+            for_prediction: If True, requires less data (only enough for features)
             
         Returns:
             Tuple of (X, y) arrays for training
         """
-        if df is None or len(df) < self.config.MIN_TRAINING_DAYS:
-            logger.warning(f"Insufficient data for training: {len(df) if df is not None else 0} days")
+        # For prediction with pre-trained models, we only need enough data to create features
+        # For training new models, we need MIN_TRAINING_DAYS
+        min_required_days = self.config.LOOKBACK_DAYS + 30 if for_prediction else self.config.MIN_TRAINING_DAYS
+        
+        if df is None or len(df) < min_required_days:
+            logger.warning(f"Insufficient data: {len(df) if df is not None else 0} days (need {min_required_days})")
             return np.array([]), np.array([])
         
         try:

@@ -27,6 +27,7 @@ export interface PricePoint {
 
 export interface PredictionResult {
   predictedPrice: number;
+  currentPrice?: number;  // Current price in same currency as prediction (USD)
   confidence: number;
   model: string;
   timeframe: string;
@@ -41,6 +42,8 @@ export interface PredictionResult {
   dataPointsUsed?: number;
   lastUpdated?: string;
   currency?: string;
+  dataSource?: string;  // 'upstox', 'permanent', etc.
+  sourceReliable?: boolean;  // true if real-time, false if historical
 }
 
 // Live price response from backend
@@ -49,6 +52,7 @@ export interface LivePriceResponse {
   price: number;
   timestamp: string;
   source: string;
+  source_reliable?: boolean;  // true if real-time, false if historical
   company_name: string;
   currency: string;
   exchange_rate?: number;
@@ -230,28 +234,33 @@ export const stockService = {
     try {
       const livePrice = await stockService.getLivePrice(symbol);
 
-      // Calculate change and change percent from open and current price
+      // IMPORTANT: Convert all prices to USD FIRST (models are trained on USD-normalized data)
+      const priceInUSD = livePrice.currency === 'INR' ? (livePrice.price_usd || livePrice.price) : livePrice.price;
+      const openInUSD = livePrice.currency === 'INR' && livePrice.open ? (livePrice.open / (livePrice.exchange_rate || 1)) : livePrice.open;
+      const highInUSD = livePrice.currency === 'INR' && livePrice.high ? (livePrice.high / (livePrice.exchange_rate || 1)) : livePrice.high;
+      const lowInUSD = livePrice.currency === 'INR' && livePrice.low ? (livePrice.low / (livePrice.exchange_rate || 1)) : livePrice.low;
+
+      // Calculate change and change percent AFTER USD conversion
       let change = 0;
       let changePercent = 0;
       
-      if (livePrice.open && livePrice.open > 0) {
-        change = livePrice.price - livePrice.open;
-        changePercent = (change / livePrice.open) * 100;
+      if (openInUSD && openInUSD > 0) {
+        change = priceInUSD - openInUSD;
+        changePercent = (change / openInUSD) * 100;
       }
-
-      // Convert live price to StockData format using actual data
+      
       const stockData: StockData = {
         symbol: livePrice.symbol,
         name: livePrice.company_name,
-        price: livePrice.price,
+        price: priceInUSD,  // Always in USD for model compatibility
         change: change,
         changePercent: changePercent,
         volume: livePrice.volume || 0,
         marketCap: livePrice.market_cap || 'N/A',
         lastUpdated: livePrice.timestamp,
-        open: livePrice.open,
-        high: livePrice.high,
-        low: livePrice.low
+        open: openInUSD,
+        high: highInUSD,
+        low: lowInUSD
       };
 
       return stockData;
@@ -354,18 +363,6 @@ export const stockService = {
       }
       throw new Error(`Unable to fetch historical data for ${symbol}. Please try again later.`);
     }
-  },
-
-  // Get stock prediction (placeholder - would need ML backend)
-  getPrediction: async (symbol: string): Promise<PredictionResult> => {
-    // For now, return a placeholder prediction
-    console.warn(`Prediction for ${symbol} not implemented yet`);
-    return {
-      predictedPrice: 0,
-      confidence: 0,
-      model: 'Not Available',
-      timeframe: 'N/A'
-    };
   },
 
   // Search stocks with backend integration
@@ -476,7 +473,7 @@ export const stockService = {
   },
 
   // Get ML prediction for a stock
-  getPrediction: async (symbol: string, horizon: string = '1d', model?: string): Promise<PredictionResult> => {
+  getPrediction: async (symbol: string, horizon: string = '1d', model?: string, currentPrice?: number): Promise<PredictionResult> => {
     try {
       const params = new URLSearchParams({
         symbol,
@@ -486,11 +483,16 @@ export const stockService = {
       if (model && model !== 'all') {
         params.append('model', model);
       }
+      
+      // Pass live current price to backend to avoid duplicate fetching
+      if (currentPrice) {
+        params.append('current_price', currentPrice.toString());
+      }
 
       const url = `${BACKEND_BASE_URL}/api/predict?${params.toString()}`;
       console.log(`🌐 Making prediction request to: ${url}`);
       
-      const response = await fetchWithTimeout(url, 30000); // 30 second timeout for ML predictions
+      const response = await fetchWithTimeout(url, {}, 30000); // 30 second timeout for ML predictions
       console.log(`📡 Prediction response status: ${response.status}`);
 
       if (!response.ok) {
@@ -504,6 +506,7 @@ export const stockService = {
       // Convert backend response to frontend format
       const prediction: PredictionResult = {
         predictedPrice: result.predicted_price,
+        currentPrice: result.current_price,  // Current price in USD (same currency as predicted_price)
         confidence: result.confidence,
         model: result.model_info?.model || 'Ensemble',
         timeframe: horizon,
