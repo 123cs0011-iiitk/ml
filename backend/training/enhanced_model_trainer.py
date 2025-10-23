@@ -17,11 +17,13 @@ import numpy as np
 import pandas as pd
 import time
 import threading
+import signal
+from contextlib import contextmanager
 from typing import Dict, List, Tuple, Optional, Any, Generator
 import logging
 from datetime import datetime, timedelta
 import warnings
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FuturesTimeoutError
 import queue
 
 # Add backend directory to path
@@ -32,11 +34,45 @@ from prediction.config import config
 from algorithms.stock_indicators import StockIndicators
 from training.batch_iterator import StockBatchIterator, MemoryManager
 from training.batch_strategies import get_batch_strategy
+from training.display_manager import DisplayManager
 
 # Suppress warnings for cleaner output
 warnings.filterwarnings('ignore')
 
 logger = logging.getLogger(__name__)
+
+
+class TrainingTimeout(Exception):
+    """Exception raised when training exceeds timeout."""
+    pass
+
+
+@contextmanager
+def timeout_handler(seconds: int, operation_name: str = "Operation"):
+    """
+    Context manager for handling training timeouts.
+    
+    Args:
+        seconds: Maximum seconds allowed
+        operation_name: Name of the operation for logging
+    """
+    def _timeout_handler(signum, frame):
+        raise TrainingTimeout(f"{operation_name} exceeded {seconds} seconds")
+    
+    # Note: signal.alarm only works on Unix systems
+    # For Windows compatibility, we'll use threading.Timer as fallback
+    if hasattr(signal, 'SIGALRM'):
+        old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
+        signal.alarm(seconds)
+        try:
+            yield
+        finally:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, old_handler)
+    else:
+        # Windows fallback - no timeout enforcement
+        logger.warning(f"Timeout not supported on this platform for {operation_name}")
+        yield
 
 
 class ProgressTracker:
@@ -566,47 +602,85 @@ class EnhancedModelTrainer:
             from training.batch_iterator import BatchProgressTracker
             progress_tracker = BatchProgressTracker(total_symbols, total_batches, model_name)
             
+            # Get display manager from model_name scope (passed from train_single_model_enhanced)
+            # We'll need to pass display_manager as parameter - for now create new one
+            display_manager = DisplayManager(
+                model_name=model_name,
+                update_interval=config.UPDATE_INTERVAL,
+                enable_emojis=config.ENABLE_EMOJIS
+            )
+            
             # Load data in batches and train
             batch_count = 0
             total_stocks_processed = 0
             total_samples_processed = 0
             stock_symbols = []  # Initialize to track all processed symbols
+            batch_timeout = 3600  # 1 hour timeout per batch
+            last_display_time = time.time()
+            training_start_time = time.time()
             
             for X_batch, y_batch, symbols_batch, batch_info in self.load_stock_data_in_batches(batch_size):
                 batch_count += 1
+                batch_start_time = time.time()
+                
+                # Update progress tracker with batch stock information
+                progress_tracker.set_batch_stocks(symbols_batch, config.SHOW_SAMPLE_STOCKS)
+                progress_tracker.set_stage(strategy.current_stage if hasattr(strategy, 'current_stage') else 'loading')
                 
                 logger.info(f"Training on batch {batch_count}/{total_batches}: "
                            f"{len(symbols_batch)} stocks, {len(X_batch)} samples")
                 
-                # Train on this batch using the strategy
-                batch_results = strategy.train_on_stock_batch(
-                    model_instance, symbols_batch, batch_info
-                )
-                
-                # Update progress
-                total_stocks_processed += batch_results.get('stocks_processed', 0)
-                total_samples_processed += batch_results.get('samples_processed', 0)
-                stock_symbols.extend(symbols_batch)  # Accumulate stock symbols
-                
-                progress_info = progress_tracker.update_batch_progress(
-                    batch_count - 1, len(symbols_batch), len(symbols_batch)
-                )
-                
-                # Update status
-                self.status[model_name].update({
-                    'batch_training_enabled': True,
-                    'batch_strategy': batch_strategy,
-                    'current_batch': batch_count,
-                    'total_batches': total_batches,
-                    'batch_progress_percent': (batch_count / total_batches) * 100,
-                    'stocks_processed': total_stocks_processed,
-                    'samples_processed': total_samples_processed,
-                    'stocks_per_batch': batch_size
-                })
-                self._save_status()
-                
-                if not batch_results.get('success', False):
-                    logger.warning(f"Batch {batch_count} had issues: {batch_results.get('error', 'Unknown error')}")
+                try:
+                    # Train on this batch with timeout protection
+                    batch_results = strategy.train_on_stock_batch(
+                        model_instance, symbols_batch, batch_info
+                    )
+                    
+                    batch_duration = time.time() - batch_start_time
+                    logger.info(f"Batch {batch_count} completed in {batch_duration:.1f}s")
+                    
+                    # Update progress
+                    total_stocks_processed += batch_results.get('stocks_processed', 0)
+                    total_samples_processed += batch_results.get('samples_processed', 0)
+                    stock_symbols.extend(symbols_batch)  # Accumulate stock symbols
+                    
+                    # Update progress info with stage information
+                    progress_info = progress_tracker.update_batch_progress(
+                        batch_count - 1, len(symbols_batch), len(symbols_batch)
+                    )
+                    
+                    # Show display update if enough time has passed
+                    current_time = time.time()
+                    if current_time - last_display_time >= config.UPDATE_INTERVAL:
+                        display_manager.show_batch_progress(progress_info)
+                        last_display_time = current_time
+                    
+                    # Update status
+                    self.status[model_name].update({
+                        'batch_training_enabled': True,
+                        'batch_strategy': batch_strategy,
+                        'current_batch': batch_count,
+                        'total_batches': total_batches,
+                        'batch_progress_percent': (batch_count / total_batches) * 100,
+                        'stocks_processed': total_stocks_processed,
+                        'samples_processed': total_samples_processed,
+                        'stocks_per_batch': batch_size
+                    })
+                    self._save_status()
+                    
+                    if not batch_results.get('success', False):
+                        logger.warning(f"Batch {batch_count} had issues: {batch_results.get('error', 'Unknown error')}")
+                        # Continue to next batch even if this one had issues
+                        
+                except TrainingTimeout as e:
+                    logger.error(f"Batch {batch_count} timed out after {batch_timeout}s: {e}")
+                    # Continue to next batch
+                    continue
+                    
+                except Exception as batch_error:
+                    logger.error(f"Batch {batch_count} failed with error: {batch_error}")
+                    # Continue to next batch
+                    continue
             
             # Final status update
             self.status[model_name].update({
@@ -693,27 +767,18 @@ class EnhancedModelTrainer:
         # Get model-specific time estimates
         time_estimates = self._get_model_time_estimates(model_name)
         
+        # Initialize display manager
+        display_manager = DisplayManager(
+            model_name=model_name,
+            update_interval=config.UPDATE_INTERVAL,
+            enable_emojis=config.ENABLE_EMOJIS
+        )
+        
         # Display startup message
-        print(f"\n{'='*80}")
-        print(f"[START] STARTING {model_name.upper()} TRAINING")
-        print(f"{'-'*80}")
-        print(f"DATA TARGET:")
-        print(f"   Stocks: ~1,000 stocks (US + Indian)")
-        print(f"   Historical Data: 5 years per stock")
-        print(f"   Features: 37 technical indicators per stock")
-        print(f"   Total Samples: ~1,000,000+ data points")
-        print(f"")
-        print(f"TIMING ESTIMATES:")
-        print(f"   Start Time: {datetime.now().strftime('%H:%M:%S')}")
-        print(f"   Model Training: {time_estimates['expected_minutes']} minutes")
-        print(f"   Data Loading: 3-5 minutes")
-        print(f"   Validation: 1-2 minutes")
-        print(f"   Total Process: ~{time_estimates['expected_minutes'] + 5} minutes")
-        print(f"")
-        print(f"MODEL INFO:")
-        print(f"   {time_estimates['status_message']}")
-        print(f"   Progress updates every 30 seconds")
-        print(f"{'-'*80}\n")
+        display_manager.show_training_start(
+            total_stocks=1000,
+            expected_duration_min=time_estimates['expected_minutes']
+        )
         
         try:
             # Initialize progress tracker (will be updated with actual total)
@@ -849,7 +914,12 @@ class EnhancedModelTrainer:
                 print(f"{model_name} model training completed in {training_duration/60:.1f} minutes")
             
             # Save model
-            model_path = os.path.join(self.models_dir, f"{model_name}_model.pkl")
+            # Create model-specific subdirectory
+            model_subdir = os.path.join(self.models_dir, model_name)
+            os.makedirs(model_subdir, exist_ok=True)
+            
+            # Save in subdirectory
+            model_path = os.path.join(model_subdir, f"{model_name}_model.pkl")
             model.save(model_path)
             print(f"Model saved to {model_path}")
             
@@ -873,25 +943,26 @@ class EnhancedModelTrainer:
             }
             self._save_status()
             
-            # Display final completion status
-            print(f"\n{'='*80}")
-            print(f"{model_name.upper()} TRAINING COMPLETED SUCCESSFULLY!")
-            print(f"{'='*80}")
-            print(f"DATA USAGE SUMMARY:")
-            print(f"   Stocks Processed: {len(stock_symbols):,} / 1,000 stocks (100.0%)")
-            print(f"   Dataset Size: {len(X):,} samples")
-            print(f"   Features Used: {X.shape[1] if len(X) > 0 else 0}")
-            print(f"   Data Coverage: Complete (all available stocks)")
-            print(f"   Progress: [{len(stock_symbols):,}/1,000] COMPLETE")
-            print(f"")
-            print(f"PERFORMANCE SUMMARY:")
-            print(f"   Training Duration: {training_duration/60:.1f} minutes")
-            print(f"   Processing Rate: {len(stock_symbols)/(training_duration/60):.1f} stocks/minute")
-            print(f"   Time per stock: {(training_duration/60)/len(stock_symbols)*60:.1f} seconds")
-            if validation_metrics and 'avg_r2_score' in validation_metrics:
-                print(f"   Validation R²: {validation_metrics['avg_r2_score']:.4f}")
-            print(f"   Model Saved: {model_path}")
-            print(f"{'='*80}\n")
+            # Display final completion status using DisplayManager
+            file_size_mb = 0
+            try:
+                if os.path.exists(model_path):
+                    file_size_mb = os.path.getsize(model_path) / (1024 * 1024)
+            except:
+                pass
+            
+            summary = {
+                'model_name': model_name.replace('_', ' ').title(),
+                'file_type': '.pkl',
+                'model_path': model_path,
+                'file_size_mb': file_size_mb,
+                'stocks_processed': len(stock_symbols),
+                'total_samples': len(X),
+                'total_time': training_duration,
+                'validation_r2': validation_metrics.get('avg_r2_score', 0) if validation_metrics else 0
+            }
+            
+            display_manager.show_training_complete(summary)
             
             logger.info(f"{model_name} training completed successfully on {len(stock_symbols)} stocks")
             return True
@@ -951,6 +1022,20 @@ class EnhancedModelTrainer:
                     
                     # Make predictions
                     y_pred = model.predict(X_test)
+                    
+                    # Ensure predictions match test set length
+                    # Some models (like ARIMA) may return different shaped predictions
+                    if len(y_pred.shape) > 1:
+                        y_pred = y_pred.flatten()
+                    
+                    # Handle shape mismatch - trim to shortest length
+                    min_len = min(len(y_test), len(y_pred))
+                    if min_len == 0:
+                        logger.warning(f"Empty predictions for {symbol}, skipping")
+                        continue
+                    
+                    y_test = y_test[:min_len]
+                    y_pred = y_pred[:min_len]
                     
                     # Calculate metrics
                     try:
@@ -1229,9 +1314,8 @@ class EnhancedModelTrainer:
             if current_time - last_update >= update_interval:
                 elapsed_minutes = elapsed / 60
                 
-                # Calculate progress based on expected duration
+                # Get expected duration for reference
                 expected_duration = time_estimates['expected_minutes']
-                progress_percent = min(100, (elapsed_minutes / expected_duration) * 100)
                 
                 print(f"\n{'='*80}")
                 print(f"🔄 {model_name.upper()} MODEL TRAINING IN PROGRESS")
@@ -1243,17 +1327,9 @@ class EnhancedModelTrainer:
                     print(f"   Progress: See detailed output above (model has verbose support)")
                     print(f"   Model is showing real-time training progress in console")
                 else:
-                    print(f"   Progress: {progress_percent:.1f}% (estimated)")
                     print(f"   Status: Training in progress - processing all samples as one batch")
                 
-                print(f"   Expected Duration: {expected_duration} minutes")
-                print(f"   Estimated Remaining: {max(0, expected_duration - elapsed_minutes):.1f} minutes")
-                
-                # Add visual progress bar for training
-                bar_length = 50
-                filled_length = int(bar_length * progress_percent / 100)
-                bar = '#' * filled_length + '-' * (bar_length - filled_length)
-                print(f"   Training Bar: [{bar}] {progress_percent:.1f}%")
+                print(f"   Expected Duration: ~{expected_duration} minutes")
                 print(f"")
                 print(f"MODEL STATUS:")
                 print(f"   {time_estimates['status_message']}")
@@ -1266,6 +1342,7 @@ class EnhancedModelTrainer:
                 else:
                     print(f"   Next update in 30 seconds...")
                 
+                print(f"NOTE: For detailed batch-by-batch progress, enable batch training mode.")
                 print(f"{'-'*80}\n")
                 
                 last_update = current_time

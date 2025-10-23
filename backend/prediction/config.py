@@ -25,18 +25,18 @@ class PredictionConfig:
         }
         
         # Model weights for ensemble predictions (updated based on current performance)
-        # Only models with R² > 0.8 are included in ensemble
+        # Only models with R² > 0.8 are included in ensemble until all models are retrained
         self.MODEL_WEIGHTS = {
-            'random_forest': 0.70,      # R² = 0.994 (excellent performance)
-            'decision_tree': 0.20,      # R² = 0.85 (good performance)
-            'linear_regression': 0.10,  # R² = 0.894 (good performance)
-            # Models with poor performance are excluded from ensemble
-            'svm': 0.0,                 # R² = -26.2 (failed)
-            'knn': 0.0,                 # R² = -27.9 (failed)
-            'ann': 0.0,                 # R² = -9,757,687 (catastrophic)
-            'cnn': 0.0,                 # Memory allocation failure
-            'arima': 0.0,               # No validation metrics
-            'autoencoder': 0.0          # R² = -136,355 (failed)
+            'random_forest': 0.40,      # R² = 0.994 (excellent performance)
+            'decision_tree': 0.30,      # R² = 0.85 (good performance)
+            'linear_regression': 0.30,  # Expected R² > 0.85 after retraining
+            # Models excluded from ensemble until retraining completes
+            'svm': 0.0,                 # Will be included after fixing and retraining
+            'knn': 0.0,                 # Will be included after fixing and retraining
+            'ann': 0.0,                 # Will be included after fixing and retraining
+            'cnn': 0.0,                 # Will be included after fixing and retraining
+            'arima': 0.0,               # Will be included after fixing and retraining
+            'autoencoder': 0.0          # Will be included after fixing and retraining
         }
         
         # Data configuration
@@ -109,6 +109,7 @@ class PredictionConfig:
             'date',
             'horizon', 
             'predicted_price',
+            'confidence',  # Overall confidence score (0-100)
             'confidence_low',
             'confidence_high',
             'algorithm_used',
@@ -133,6 +134,11 @@ class PredictionConfig:
         self.BATCH_OVERLAP_PERCENT = 0.0  # Overlap between batches (0-100)
         self.SUBSAMPLE_PERCENT = 50  # For non-incremental models (%)
         self.ENABLE_INCREMENTAL_TRAINING = True  # Use partial_fit when available
+        
+        # Display settings
+        self.UPDATE_INTERVAL = 20  # Update every 20 seconds
+        self.ENABLE_EMOJIS = True  # Try emojis (auto-fallback if terminal breaks)
+        self.SHOW_SAMPLE_STOCKS = 8  # Show first N stocks in batch summaries
         
         # Validation settings
         self.MIN_PRICE = 0.01  # Minimum valid price

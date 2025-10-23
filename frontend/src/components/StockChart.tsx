@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Skeleton } from './ui/skeleton';
 import { Alert, AlertDescription } from './ui/alert';
-import { BarChart3 } from 'lucide-react';
+import { LineChart as LineChartIcon } from 'lucide-react';
 import { PricePoint } from '../services/stockService';
 import { convertPrice, formatPrice, formatPriceDirect, Currency } from '../utils/currency';
 
@@ -61,7 +61,7 @@ export function StockChart({
         <CardHeader>
           <CardTitle className="card-title-scaled card-title-with-icon flex items-center justify-between">
             <div className="flex items-center gap-5">
-              <BarChart3 className="card-icon-scaled" />
+              <LineChartIcon className="card-icon-scaled" />
               <span>Price Chart - {symbol}</span>
             </div>
             <div className="flex gap-1">
@@ -84,7 +84,7 @@ export function StockChart({
         <CardHeader>
           <CardTitle className="card-title-scaled card-title-with-icon flex items-center justify-between">
             <div className="flex items-center gap-5">
-              <BarChart3 className="card-icon-scaled" />
+              <LineChartIcon className="card-icon-scaled" />
               <span>Price Chart - {symbol}</span>
             </div>
             <div className="flex gap-1">
@@ -116,7 +116,7 @@ export function StockChart({
         <CardHeader>
           <CardTitle className="card-title-scaled card-title-with-icon flex items-center justify-between">
             <div className="flex items-center gap-5">
-              <BarChart3 className="card-icon-scaled" />
+              <LineChartIcon className="card-icon-scaled" />
               <span>Price Chart - {symbol}</span>
             </div>
             <div className="flex gap-1">
@@ -151,7 +151,7 @@ export function StockChart({
       <CardHeader>
         <CardTitle className="card-title-scaled card-title-with-icon flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <BarChart3 className="card-icon-scaled" />
+            <LineChartIcon className="card-icon-scaled" />
             <span>Price Chart - {symbol}</span>
           </div>
           <div className="flex gap-1">

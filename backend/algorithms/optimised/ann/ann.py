@@ -34,9 +34,9 @@ class ANNModel(ModelInterface):
     future stock prices. Volume is excluded from all calculations.
     """
     
-    def __init__(self, hidden_layers: List[int] = [64, 32, 16], 
-                 activation: str = 'relu', dropout_rate: float = 0.5,
-                 learning_rate: float = 0.001, optimizer: str = 'adam',
+    def __init__(self, hidden_layers: List[int] = [128, 64, 32], 
+                 activation: str = 'relu', dropout_rate: float = 0.2,
+                 learning_rate: float = 0.0005, optimizer: str = 'adam',
                  batch_size: int = 32, epochs: int = 100, **kwargs):
         super().__init__('Artificial Neural Network', **kwargs)
         self.model = None
@@ -68,28 +68,28 @@ class ANNModel(ModelInterface):
         """
         model = Sequential()
         
-        # Input layer
+        # Input layer with lighter regularization
         model.add(Dense(self.hidden_layers[0], activation=self.activation, 
                        input_shape=(input_dim,),
-                       kernel_regularizer=l1_l2(l1=0.01, l2=0.01)))
-        model.add(BatchNormalization())
+                       kernel_regularizer=l1_l2(l1=0.0001, l2=0.001)))
         model.add(Dropout(self.dropout_rate))
+        model.add(BatchNormalization())
         
-        # Hidden layers
+        # Hidden layers with lighter regularization
         for units in self.hidden_layers[1:]:
             model.add(Dense(units, activation=self.activation,
-                           kernel_regularizer=l1_l2(l1=0.001, l2=0.001)))
-            model.add(BatchNormalization())
+                           kernel_regularizer=l1_l2(l1=0.0001, l2=0.001)))
             model.add(Dropout(self.dropout_rate))
+            model.add(BatchNormalization())
         
         # Output layer
         model.add(Dense(1, activation='linear'))
         
-        # Compile model
+        # Compile model with gradient clipping
         if self.optimizer == 'adam':
-            opt = Adam(learning_rate=self.learning_rate)
+            opt = Adam(learning_rate=self.learning_rate, clipvalue=1.0)
         else:
-            opt = SGD(learning_rate=self.learning_rate, momentum=0.9)
+            opt = SGD(learning_rate=self.learning_rate, momentum=0.9, clipvalue=1.0)
         
         model.compile(
             optimizer=opt,
@@ -119,10 +119,10 @@ class ANNModel(ModelInterface):
         # Build model
         self.model = self._build_model(X_scaled.shape[1])
         
-        # Callbacks
+        # Callbacks with increased patience to prevent premature stopping
         callbacks = [
-            EarlyStopping(monitor='val_loss', patience=20, restore_best_weights=True),
-            ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=10, min_lr=1e-7)
+            EarlyStopping(monitor='val_loss', patience=30, restore_best_weights=True),
+            ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=15, min_lr=1e-7)
         ]
         
         # Train model

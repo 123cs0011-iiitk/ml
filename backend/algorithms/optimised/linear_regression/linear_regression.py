@@ -29,12 +29,12 @@ class LinearRegressionModel(ModelInterface):
     future stock prices. Volume is excluded from all calculations.
     """
     
-    def __init__(self, use_sgd: bool = False, **kwargs):
+    def __init__(self, use_sgd: bool = True, **kwargs):
         super().__init__('Linear Regression', **kwargs)
         self.model = None
         self.scaler = None
         self.feature_columns = None
-        self.use_sgd = use_sgd  # Use SGD for incremental learning
+        self.use_sgd = use_sgd  # Use SGD for incremental learning (enabled by default for batch training)
         
     def _create_technical_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """Calculate technical indicators from OHLC data (no volume)."""

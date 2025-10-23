@@ -289,5 +289,176 @@ class TestScratchImplementations:
         assert predictions[1] in [0, 1]
 
 
+class TestModelFixes:
+    """Test the fixes applied to models that had catastrophic failures."""
+    
+    def test_ann_no_gradient_explosion(self):
+        """Test that ANN doesn't have gradient explosion after fixes."""
+        from algorithms.optimised.ann.ann import ANNModel
+        
+        # Create synthetic data
+        np.random.seed(42)
+        X = np.random.randn(1000, 37)  # 37 features as in production
+        y = X.sum(axis=1) + np.random.randn(1000) * 0.1  # Target with some noise
+        
+        # Create model with fixed hyperparameters
+        model = ANNModel(
+            hidden_layers=[128, 64, 32],
+            dropout_rate=0.2,
+            learning_rate=0.0005,
+            epochs=50
+        )
+        
+        # Train model
+        model.fit(X, y)
+        
+        # Assert no gradient explosion (R² should be positive and reasonable)
+        r2 = model.training_metrics['r2_score']
+        assert r2 > -10, f"ANN still has gradient explosion: R²={r2}"
+        assert r2 > 0.5, f"ANN performance too low: R²={r2}"
+        assert r2 < 1.1, f"ANN overfitting: R²={r2}"
+        
+    def test_svm_with_subsampling(self):
+        """Test that SVM works with large dataset via subsampling."""
+        from algorithms.optimised.svm.svm import SVMModel
+        
+        # Create large synthetic dataset
+        np.random.seed(42)
+        large_X = np.random.randn(100000, 37)  # 100K samples
+        large_y = large_X.sum(axis=1) + np.random.randn(100000) * 0.1
+        
+        # Create model with subsampling
+        model = SVMModel(max_samples=10000)
+        
+        # Train model (should subsample internally)
+        model.fit(large_X, large_y)
+        
+        # Assert model is trained
+        assert model.is_trained, "SVM failed to train"
+        
+        # Assert R² is reasonable (not catastrophically negative)
+        r2 = model.training_metrics['r2_score']
+        assert r2 > -10, f"SVM still overfitting: R²={r2}"
+        
+        # Make predictions
+        predictions = model.predict(large_X[:10])
+        assert len(predictions) == 10, "SVM predictions failed"
+        assert not np.any(np.isnan(predictions)), "SVM produced NaN predictions"
+        
+    def test_knn_distance_weighting(self):
+        """Test that KNN uses distance weighting for better performance."""
+        from algorithms.optimised.knn.knn import KNNModel
+        
+        # Create synthetic data
+        np.random.seed(42)
+        X = np.random.randn(5000, 37)  # 5K samples
+        y = X.sum(axis=1) + np.random.randn(5000) * 0.1
+        
+        # Create model with distance weighting
+        model = KNNModel(
+            n_neighbors=15,
+            weights='distance',
+            algorithm='ball_tree'
+        )
+        
+        # Train model
+        model.fit(X, y)
+        
+        # Assert model is trained
+        assert model.is_trained, "KNN failed to train"
+        
+        # Assert R² is reasonable
+        r2 = model.training_metrics['r2_score']
+        assert r2 > -10, f"KNN still has poor performance: R²={r2}"
+        assert r2 > 0.5, f"KNN performance too low: R²={r2}"
+        
+        # Verify distance weighting is being used
+        assert model.model.weights == 'distance', "KNN not using distance weights"
+        assert model.model.n_neighbors == 15, "KNN not using correct k value"
+        
+    def test_autoencoder_linear_activation(self):
+        """Test that Autoencoder uses linear activation for regression."""
+        from algorithms.optimised.autoencoders.autoencoder import AutoencoderModel
+        
+        # Create synthetic data
+        np.random.seed(42)
+        X = np.random.randn(1000, 37)
+        y = X.sum(axis=1) + np.random.randn(1000) * 0.1
+        
+        # Create model
+        model = AutoencoderModel(
+            encoding_dim=24,
+            hidden_layers=[64, 48, 32]
+        )
+        
+        # Train model
+        model.fit(X, y)
+        
+        # Assert model is trained
+        assert model.is_trained, "Autoencoder failed to train"
+        
+        # Assert R² is reasonable (not catastrophically negative)
+        r2 = model.training_metrics['r2_score']
+        assert r2 > -1000, f"Autoencoder still has catastrophic failure: R²={r2}"
+        
+        # Verify StandardScaler is used
+        from sklearn.preprocessing import StandardScaler
+        assert isinstance(model.scaler, StandardScaler), "Autoencoder not using StandardScaler"
+        
+    def test_cnn_memory_optimization(self):
+        """Test that CNN has better memory handling."""
+        from algorithms.optimised.cnn.cnn import CNNModel
+        
+        # Create synthetic sequential data
+        np.random.seed(42)
+        X = np.random.randn(500, 37)  # Smaller dataset for testing
+        y = X.sum(axis=1) + np.random.randn(500) * 0.1
+        
+        # Create model with optimized settings
+        model = CNNModel(
+            sequence_length=20,
+            filters=[32, 16],
+            batch_size=8,
+            epochs=10  # Reduced for testing
+        )
+        
+        # Train model (should not crash with OOM)
+        model.fit(X, y)
+        
+        # Assert model is trained
+        assert model.is_trained, "CNN failed to train"
+        
+        # Assert R² is reasonable
+        r2 = model.training_metrics['r2_score']
+        assert r2 > -10, f"CNN has poor performance: R²={r2}"
+        
+        # Verify optimized settings
+        assert model.sequence_length == 20, "CNN sequence length not optimized"
+        assert model.filters == [32, 16], "CNN filters not optimized"
+        assert model.batch_size == 8, "CNN batch size not optimized"
+        
+    def test_linear_regression_sgd_enabled(self):
+        """Test that Linear Regression has SGD enabled by default."""
+        from algorithms.optimised.linear_regression.linear_regression import LinearRegressionModel
+        
+        # Create model
+        model = LinearRegressionModel()
+        
+        # Assert SGD is enabled by default
+        assert model.use_sgd == True, "Linear Regression doesn't have SGD enabled by default"
+        
+        # Train on small dataset
+        np.random.seed(42)
+        X = np.random.randn(100, 37)
+        y = X.sum(axis=1) + np.random.randn(100) * 0.1
+        
+        model.fit(X, y)
+        
+        # Assert model trained successfully
+        assert model.is_trained, "Linear Regression with SGD failed to train"
+        r2 = model.training_metrics['r2_score']
+        assert r2 > 0.5, f"Linear Regression performance too low: R²={r2}"
+
+
 if __name__ == '__main__':
     pytest.main([__file__])

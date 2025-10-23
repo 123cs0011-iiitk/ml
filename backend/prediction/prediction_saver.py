@@ -91,7 +91,7 @@ class PredictionSaver:
                     df[column] = datetime.now().isoformat()
                 elif column == 'currency':
                     df[column] = 'USD'  # Default, will be updated based on category
-                elif column in ['confidence_low', 'confidence_high', 'model_accuracy']:
+                elif column in ['confidence', 'confidence_low', 'confidence_high', 'model_accuracy']:
                     df[column] = 0.0
                 elif column == 'data_points_used':
                     df[column] = 0
@@ -302,6 +302,7 @@ class PredictionSaver:
     def create_prediction_dict(self, 
                              horizon: str, 
                              predicted_price: float,
+                             confidence: float = 50.0,
                              confidence_low: float = None,
                              confidence_high: float = None,
                              algorithm_used: str = '',
@@ -314,6 +315,7 @@ class PredictionSaver:
         Args:
             horizon: Time horizon (1D, 1W, 1M, 1Y, 5Y)
             predicted_price: Predicted price
+            confidence: Confidence score (0-100)
             confidence_low: Lower confidence bound
             confidence_high: Upper confidence bound
             algorithm_used: Algorithm(s) used for prediction
@@ -337,6 +339,7 @@ class PredictionSaver:
             'date': prediction_date.strftime('%Y-%m-%d'),
             'horizon': horizon,
             'predicted_price': round(predicted_price, 2),
+            'confidence': round(confidence, 1),
             'confidence_low': round(confidence_low, 2),
             'confidence_high': round(confidence_high, 2),
             'algorithm_used': algorithm_used,

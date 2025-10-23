@@ -1,7 +1,6 @@
 # MODEL_TRAINING.md
 
----
-# 1 Models
+# Models
 
 - ANN
 - ARIMA
@@ -14,250 +13,249 @@
 - SVM
 
 ---
-# 2 Features Summary
+# Model Storage Structure
 
-- Open Price
-- Close Price
-- High Price
-- Low Price
-- Adjusted Close Price
-- Moving Averages (5-day, 10-day, 20-day, etc.)
-- Exponential Moving Averages (EMA)
-- Relative Strength Index (RSI)
-- Bollinger Bands (Upper, Middle, Lower)
-- MACD (Moving Average Convergence Divergence)
-- Stochastic Oscillator
-- Momentum
-- Rate of Change (ROC)
-- Daily Price Change
-- Daily Price Percentage Change
-- Cumulative Returns
-- Log Returns
-- Price Differences
-- Standard Deviation (Rolling)
-- Variance (Rolling)
-- Min/Max Price in Rolling Window
-- Trend Indicators
-- Volatility Indicators
-- Any other derived price-based indicators
+```
+backend/models/
+├── linear_regression/
+│   └── linear_regression_model.pkl
+├── random_forest/
+│   └── random_forest_model.pkl
+├── decision_tree/
+│   └── decision_tree_model.pkl
+├── svm/
+│   └── svm_model.pkl
+├── knn/
+│   └── knn_model.pkl
+├── ann/
+│   ├── ann_model.pkl        # scikit-learn metadata/wrapper
+│   └── ann_model_model.h5   # Keras deep learning weights
+│   # (ANN may have additional logs/config if needed)
+├── cnn/
+│   ├── cnn_model.pkl        # joblib wrapper/metadata
+│   ├── cnn_model_main.h5    # Keras model (main)
+│   ├── cnn_model_encoder.h5 # (optional) encoder, if present
+│   └── cnn_model_extra.h5   # (optional) other .h5 files (aux models)
+├── arima/
+│   └── arima_model.pkl
+├── autoencoder/
+│   ├── autoencoder_model.pkl_autoencoder.h5   # full autoencoder (Keras/Tensorflow)
+│   ├── autoencoder_model.pkl_encoder.h5       # encoder part
+│   └── autoencoder_model.pkl_metadata.pkl     # pickle: scaler, regressor, config
+│   # All 3 files are needed to reconstruct the autoencoder
+└── model_status.json        # Global status, tracks all model updates
 
----
-# 3 Features Detail
+```
 
-#### 1-2. Basic Price Features (2 features)
-1. `price_change` - Percentage change in closing price
-2. `price_change_abs` - Absolute value of price change
-
-#### 3-12. Moving Averages (MA) (10 features)
-3. `ma_5` - 5-day moving average
-4. `ma_5_ratio` - Close price / MA_5
-5. `ma_10` - 10-day moving average
-6. `ma_10_ratio` - Close price / MA_10
-7. `ma_20` - 20-day moving average
-8. `ma_20_ratio` - Close price / MA_20
-9. `ma_50` - 50-day moving average
-10. `ma_50_ratio` - Close price / MA_50
-11. `ma_200` - 200-day moving average
-12. `ma_200_ratio` - Close price / MA_200
-
-#### 13. Volatility (1 feature)
-13. `volatility` - Rolling standard deviation of price changes
-
-#### 14. Momentum Indicator (1 feature)
-14. `rsi` - Relative Strength Index (14-period)   
-
-#### 15-16. Intraday Price Ratios (2 features)
-15. `hl_ratio` - High / Low ratio
-16. `oc_ratio` - Open / Close ratio
-
-#### 17. Price Position (1 feature)
-17. `price_position` - Position within day's high-low range
-
-#### 18-22. Lagged Price Features (5 features)
-18. `close_lag_1` - Close price 1 day ago
-19. `close_lag_2` - Close price 2 days ago
-20. `close_lag_3` - Close price 3 days ago
-21. `close_lag_5` - Close price 5 days ago
-22. `close_lag_10` - Close price 10 days ago
-
-#### 23-31. Rolling Statistics (9 features)
-23. `close_std_5` - 5-day rolling standard deviation
-24. `close_std_10` - 10-day rolling standard deviation
-25. `close_std_20` - 20-day rolling standard deviation
-26. `close_min_5` - 5-day rolling minimum
-27. `close_min_10` - 10-day rolling minimum
-28. `close_min_20` - 20-day rolling minimum
-29. `close_max_5` - 5-day rolling maximum
-30. `close_max_10` - 10-day rolling maximum
-31. `close_max_20` - 20-day rolling maximum
-
-#### 32-34. Time-Based Features (3 features)
-32. `day_of_week` - Day of the week (0-6)
-33. `month` - Month of the year (1-12)
-34. `quarter` - Quarter of the year (1-4)
-
-#### 35-37. Raw OHLC Data (3 features)
-35. `open` - Opening price
-36. `high` - High price
-37. `low` - Low price
-
->[!summary]
-> Measures the speed and magnitude of recent price changes to identify overbought or oversold conditions (0-100); a momentum oscillator 
->Formula: RSI = 100 - (100 / (1 + RS)), where RS = Average Gain over 14 periods / Average Loss over 14 periods
----
-# Feature Calculation Process
-
-1. Load OHLC data (Open, High, Low, Close)
-2. Calculate moving averages (5, 10, 20, 50, 200 days)
-3. Calculate technical indicators (RSI, volatility)
-4. Generate lagged features (1, 2, 3, 5, 10 days back) for close prices
-5. Compute rolling statistics (5, 10, 20 day windows)
-6. Add time-based features (day, month, quarter)
-7. Normalize and clean data (handle NaN, infinity values)
-8. Create feature matrix X and target vector y
-
-### Notes
-
-- Features are standardized across all models for consistency
-- NaN values from rolling calculations are handled appropriately
-- All infinity values are replaced with median or bounded values
-- Data is scaled using StandardScaler for sensitive models (SVM, KNN, ANN, CNN)
-
-
-
-**Note:** Volume-based features are completely excluded from ML models because volume data is unavailable or unreliable for all stocks. The volume column exists in raw CSV files for data structure compatibility but is set to NaN during prediction and never used in any feature calculations or model training.
-
-### Training Data Source
-
-- **Training Source**: ONLY `data/past/{category}/individual_files/` (5 years historical data)
-- **Target Variable**: `close` (next day's closing price)
-- **Stock Coverage**: ~1,000 stocks (500 Indian + 500 US)
-- **Total Samples**: ~1,200,000 data points
-- **Consistency**: All stocks trained on same 5-year time period (2020-2025)
-- **Note**: `data/latest/` is NOT used for training to ensure consistency
-
-### Prediction Data Flow
-
-When making predictions with trained models:
-1. User selects stock and time horizon (1D/1W/1M/1Y/5Y)
-2. System fetches current live price from data source/API
-3. Historical data loaded from `data/past/{category}/individual_files/`
-4. Current price appended to historical data
-5. 37 features calculated from combined data (historical + current)
-6. Trained model generates prediction for selected horizon
-7. Prediction returned with confidence intervals
-
-### Volume Data Handling
-
-**Storage vs Usage:**
-- Volume column **exists** in raw CSV files (`data/past/`, `data/latest/`) for data structure compatibility
-- Volume is **never used** in ML feature calculations, model training, or predictions
-- During prediction, volume is set to `np.nan` (not 0 or any numeric value)
-- Tests use data without volume to match production reality
-
-**Implementation Details:**
-- `backend/prediction/data_loader.py:356` - Volume excluded from training columns
-- `backend/prediction/data_loader.py:396` - Volume in exclude list for features
-- `backend/prediction/data_loader.py:104` - Volume set to `np.nan` when appending live prices
-- `backend/prediction/data_loader.py:504` - Volume removed from data quality validation
-- `backend/tests/test_models.py:64` - Test data has no volume column
-- All algorithm files explicitly state "Volume is excluded from all calculations"
-
-**Summary:** Volume is purely symbolic in the codebase - it exists in data files but is completely ignored by all ML operations.
+**Summary:**  
+- Each model saves in its own folder under `backend/models/`.
+- `.pkl`: classical ML metadata; `.h5`: deep learning weights.
+- ANN, CNN, Autoencoder use both `.pkl` (metadata) and `.h5` (weights).
+- Autoencoder uses 3 files: `autoencoder.h5`, `encoder.h5`, `metadata.pkl`.
+- `model_status.json` tracks model/training status.
 
 
 ---
-# 4 Training Dataset Size Estimation
+# Training Data Math
 
+**Time Period**
+- Start: 01-01-2020
+- End: 31-12-2024
+- Calendar Days: 1,825 days
+- Trading Days: ~1,260 days (252/year × 5)
+- Actual Rows: ~1,200/stock (holidays/weekends excluded)
+
+**Stock Coverage**
+- US Stocks: 501
+- Indian Stocks: 500
+- **Total: 1,001 stocks**
+
+**Per Stock**
+- Rows: ~1,200
+- Features: 37
+- Data Points: 1,200 × 37 = **44,400 numbers**
+
+**Full Dataset**
+- Total Rows: 1,001 × 1,200 = **1,201,200 rows**
+- Total Features: 1,201,200 × 37 = **44,444,400 data points**
+- Target Values: 1,201,200 close prices
+
+**Memory Calculation**
+- Float64: 8 bytes/number
+- X (features): 44.4M × 8 = **355 MB**
+- y (targets): 1.2M × 8 = **10 MB**
+- With overhead (2x): **~730 MB minimum**
+- Per batch (100 stocks): **~73 MB**
+
+**Training Split**
+- Train: 80% (~960,960 rows)
+- Validation: 20% (~240,240 rows)
 
 ---
-# 3. Directory Structure
+# Training Resources
+
+| Model | Time | Size | Memory |
+|-------|------|------|--------|
+| Linear Regression | 5-10 min | 3 MB | 2-3 GB |
+| Decision Tree | 5-10 min | 150 MB | 3-4 GB |
+| Random Forest | 10-15 min | 9.5 GB | 6-8 GB |
+| KNN | 15-25 min | 10 MB | 4-5 GB |
+| SVM | 20-30 min | 10 MB | 4-6 GB |
+| ANN | 30-45 min | 256 KB | 4-6 GB |
+| Autoencoder | 40-60 min | 1 MB | 4-6 GB |
+| CNN | 45-75 min | 5 MB | 5-7 GB |
+| ARIMA | 90-180 min | 170 MB | 3-5 GB |
+
+**Minimum**: 8 GB RAM, 12 GB disk, 4 cores  
+**Recommended**: 16 GB RAM, 20 GB disk, 8 cores, SSD
+
+**Training Order**: Linear → Decision Tree → Random Forest → KNN → SVM → ANN → Autoencoder → CNN → ARIMA  
+**Total Time**: 4-6 hours sequential
+
+---
+# Features (37 Total)
+
+**Price (2)**: `price_change`, `price_change_abs`
+
+**Moving Averages (10)**: `ma_5`, `ma_5_ratio`, `ma_10`, `ma_10_ratio`, `ma_20`, `ma_20_ratio`, `ma_50`, `ma_50_ratio`, `ma_200`, `ma_200_ratio`
+
+**Volatility (1)**: `volatility`
+
+**Momentum (1)**: `rsi` (14-period)
+
+**Intraday Ratios (2)**: `hl_ratio`, `oc_ratio`
+
+**Position (1)**: `price_position`
+
+**Lagged (5)**: `close_lag_1`, `close_lag_2`, `close_lag_3`, `close_lag_5`, `close_lag_10`
+
+**Rolling Stats (9)**: `close_std_5/10/20`, `close_min_5/10/20`, `close_max_5/10/20`
+
+**Time (3)**: `day_of_week`, `month`, `quarter`
+
+**Raw OHLC (3)**: `open`, `high`, `low`
+
+---
+# Training Data
+
+**Source**: `permanent/{us_stocks|ind_stocks}/individual_files/`  
+**Period**: 5 years (2020-2025)  
+**Stocks**: ~1,000 (501 US + 500 Indian)  
+**Samples**: ~1.2M data points  
+**Target**: Next day's closing price
+
+**Volume**: Exists in files but **NOT USED** in calculations
+
+---
+# Batch Strategies
+
+| Model | Strategy | Method |
+|-------|----------|--------|
+| Linear Regression | Incremental | `partial_fit()` per batch |
+| Decision Tree | Accumulate | Load all, train once |
+| Random Forest | Accumulate | Load all, train once |
+| SVM | Subsample | Train on 50% sample |
+| KNN | Subsample | Train on 50% sample |
+| ANN | Keras Batch | Mini-batch (32 samples) |
+| CNN | Keras Batch | Mini-batch (8 samples) |
+| ARIMA | Subsample | Train on sample |
+| Autoencoder | Keras Batch | Mini-batch (32 samples) |
+
+**Default**: 100 stocks/batch, 50K rows/sub-batch
+
+---
+# Directory Structure
+
 ```
 data/
-├── past/                           # Historical stock data (training data)
-│   ├── ind_stocks/
-│   │   └── individual_files/       # 500 Indian stocks (2020-2024)
-│   └── us_stocks/
-│       └── individual_files/       # 501 US stocks (2020-2024)
-│
-├── latest/                         # Most recent real-time data
-│   ├── ind_stocks/
-│   │   └── individual_files/      
-│   └── us_stocks/
-│       └── individual_files/      
-│
-├── future/                         # ML-generated predictions
-│   ├── ind_stocks/
-│   │   └── individual_files/      
-│   └── us_stocks/
-│       └── individual_files/      
-│
-├── index_ind_stocks_dynamic.csv   # Index of all Indian stocks
-└── index_us_stocks_dynamic.csv    # Index of all US stocks
+├── past/                              # Training data
+│   ├── ind_stocks/individual_files/   # 500 stocks
+│   └── us_stocks/individual_files/    # 501 stocks
+├── latest/                            # Real-time data
+│   ├── ind_stocks/individual_files/
+│   └── us_stocks/individual_files/
+├── future/                            # ML predictions
+│   ├── ind_stocks/individual_files/
+│   └── us_stocks/individual_files/
+├── index_ind_stocks_dynamic.csv
+└── index_us_stocks_dynamic.csv
 ```
 
-# 4 Index Files Structure 
+---
+# Commands
 
-Indian Stocks Index (`index_ind_stocks_dynamic.csv`)
-symbol,company_name,sector,market_cap,headquarters,exchange,currency,isin
-```csv
-ABBOTINDIA,Abbott India,Healthcare,,India,NSE,INR,INE358A01014
-ABCAPITAL,Aditya Birla Capital,Financial Services,,India,NSE,INR,INE674K01013
-ABFRL,Aditya Birla Fashion and Retail,Consumer Services,,India,NSE,INR,INE647O01011
-ABLBL,Aditya Birla Lifestyle Brands,Consumer Services,,India,NSE,INR,INE14LE01019
+**Train Model**
+```bash
+python backend/training/train_full_dataset.py --model MODEL_NAME
 ```
 
-US Stocks Index (`index_us_stocks_dynamic.csv`)
-symbol,company_name,sector,market_cap,headquarters,exchange,currency
-```csv
-AAPL,Apple,Technology,,"Cupertino, California",NASDAQ,USD
-ABBV,AbbVie,Healthcare,,"North Chicago, Illinois",NYSE,USD
-ABNB,Airbnb,Consumer Discretionary,,"San Francisco, California",NYSE,USD
+**Force Retrain**
+```bash
+python backend/training/train_full_dataset.py --model MODEL_NAME --force-retrain
 ```
 
-# 5 Individual Files Structure
+**Check Status**
+```bash
+python status.py
+```
 
-date,open,high,low,close,volume,adjusted_close,currency
+**Custom Batch**
+```bash
+python backend/training/train_full_dataset.py \
+    --model MODEL_NAME \
+    --stock-batch-size 50 \
+    --subsample-percent 30
+```
 
-Latest Prices Files
+---
+# Troubleshooting
 
-Indian Latest Prices (`latest/ind_stocks/latest_prices.csv`)
-symbol,price,timestamp,source,company_name,currency
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| ANN: R² < -1000 | Gradient explosion | `--force-retrain` (fixed) |
+| SVM: R² < 0 | Too much data | `--force-retrain` (subsampling) |
+| KNN: R² < 0 | k=5 too small | `--force-retrain` (k=15) |
+| Autoencoder: R² < -100K | Sigmoid output | `--force-retrain` (linear) |
+| CNN: Out of Memory | Batch too large | `--force-retrain` (batch=8) |
+| Linear Reg: Stuck | SGD disabled | `--force-retrain` (enabled) |
+| ARIMA: Too Slow | No timeout | Reduced search space |
 
-US Latest Prices (`latest/us_stocks/latest_prices.csv`)
-symbol,price,timestamp,source,company_name,currency,sector,market_cap,headquarters,exchange
+**Out of Memory**: Reduce batch size in `backend/prediction/config.py`
+```python
+self.STOCK_BATCH_SIZE = 50
+```
 
-Column Descriptions
+**Training Hangs**: Auto-timeout 1 hour/batch
 
-Stock Data Columns
-- `date`: Trading date with timezone
-- `open`: Opening price
-- `high`: Highest price of the day
-- `low`: Lowest price of the day
-- `close`: Closing price
-- `volume`: Trading volume
-- `adjusted_close`: Adjusted closing price (for splits/dividends)
-- `currency`: Currency (INR/USD)
+---
+# Expected Performance
 
-Index File Columns
-- `symbol`: Stock symbol
-- `company_name`: Full company name
-- `sector`: Business sector
-- `market_cap`: Market capitalization
-- `headquarters`: Company headquarters location
-- `exchange`: Stock exchange
-- `currency`: Trading currency
-- `isin`: International Securities Identification Number
+| Model | Target R² |
+|-------|-----------|
+| Linear Regression | > 0.85 |
+| Random Forest | > 0.90 |
+| Decision Tree | > 0.80 |
+| SVM | > 0.80 |
+| KNN | > 0.75 |
+| ANN | > 0.75 |
+| CNN | > 0.75 |
+| ARIMA | > 0.70 |
+| Autoencoder | > 0.75 |
 
-Latest Prices Columns
-- `symbol`: Stock symbol
-- `price`: Current price
-- `timestamp`: Price timestamp
-- `source`: Data source (Upstox/Finnhub)
-- `company_name`: Company name
-- `currency`: Currency
-- `sector`: Business sector (US only)
-- `market_cap`: Market capitalization (US only)
-- `headquarters`: Location (US only)
-- `exchange`: Exchange (US only)
+---
+# Verification
 
+```bash
+# Check status
+python status.py
+
+# Start backend
+cd backend && python main.py
+
+# Start frontend
+cd frontend && npm run dev
+
+# Test all horizons: 1D/1W/1M/1Y/5Y
+```
+
+---

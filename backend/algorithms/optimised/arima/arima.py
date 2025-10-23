@@ -36,7 +36,7 @@ class ARIMAModel(ModelInterface):
     
     def __init__(self, order: Tuple[int, int, int] = (2, 1, 1),
                  seasonal_order: Tuple[int, int, int, int] = (0, 0, 0, 0),
-                 auto_arima: bool = True, **kwargs):
+                 auto_arima: bool = True, max_search_time: int = 300, **kwargs):
         super().__init__('ARIMA', **kwargs)
         self.model = None
         self.fitted_model = None
@@ -46,6 +46,7 @@ class ARIMAModel(ModelInterface):
         self.order = order
         self.seasonal_order = seasonal_order
         self.auto_arima = auto_arima
+        self.max_search_time = max_search_time  # Maximum time for hyperparameter search (seconds)
         
     def _create_technical_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """Calculate technical indicators from OHLC data (no volume)."""
@@ -64,26 +65,36 @@ class ARIMAModel(ModelInterface):
         result = adfuller(series.dropna())
         return result[1] < 0.05  # p-value < 0.05 means stationary
     
-    def _find_optimal_order(self, series: pd.Series, max_p: int = 5, 
-                           max_d: int = 2, max_q: int = 5) -> Tuple[int, int, int]:
+    def _find_optimal_order(self, series: pd.Series, max_p: int = 3, 
+                           max_d: int = 2, max_q: int = 3) -> Tuple[int, int, int]:
         """
-        Find optimal ARIMA order using AIC.
+        Find optimal ARIMA order using AIC with timeout.
+        Reduced search space for efficiency (max_p=3, max_q=3 instead of 5).
         
         Args:
             series: Time series data
-            max_p: Maximum p value
+            max_p: Maximum p value (reduced to 3)
             max_d: Maximum d value  
-            max_q: Maximum q value
+            max_q: Maximum q value (reduced to 3)
             
         Returns:
             Optimal (p, d, q) order
         """
+        import time
+        start_time = time.time()
         best_aic = np.inf
         best_order = (1, 1, 1)
         
         for p in range(max_p + 1):
             for d in range(max_d + 1):
                 for q in range(max_q + 1):
+                    # Check timeout
+                    if time.time() - start_time > self.max_search_time:
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.warning(f"ARIMA parameter search timed out after {self.max_search_time}s, using best found: {best_order}")
+                        return best_order
+                    
                     try:
                         model = ARIMA(series, order=(p, d, q))
                         fitted = model.fit()

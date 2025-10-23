@@ -11,22 +11,27 @@ function Progress({
   indicatorClassName,
   ...props
 }: React.ComponentProps<typeof ProgressPrimitive.Root> & { indicatorClassName?: string }) {
+  // Ensure value is between 0 and 100
+  const progressValue = Math.min(100, Math.max(0, value || 0));
+  
   return (
     <ProgressPrimitive.Root
       data-slot="progress"
+      value={progressValue}
       className={cn(
-        "bg-primary/20 relative h-2 w-full overflow-hidden rounded-full",
+        "relative w-full overflow-hidden rounded-full bg-gray-200",
         className,
       )}
+      style={{ height: '8px' }}
       {...props}
     >
       <ProgressPrimitive.Indicator
         data-slot="progress-indicator"
         className={cn(
-          "h-full w-full flex-1 transition-all",
+          "h-full transition-all duration-300 ease-in-out",
           indicatorClassName || "bg-primary"
         )}
-        style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
+        style={{ width: `${progressValue}%` }}
       />
     </ProgressPrimitive.Root>
   );
