@@ -27,62 +27,8 @@ from .data_loader import DataLoader
 from .prediction_saver import PredictionSaver
 from .confidence_calculator import confidence_calculator
 
-# Import all algorithms from optimised directory (with fallback handling)
-try:
-    from algorithms.optimised.linear_regression.linear_regression import LinearRegressionModel
-except ImportError as e:
-    logger.warning(f"Could not import LinearRegressionModel: {e}")
-    LinearRegressionModel = None
-
-try:
-    from algorithms.optimised.random_forest.random_forest import RandomForestModel
-except ImportError as e:
-    logger.warning(f"Could not import RandomForestModel: {e}")
-    RandomForestModel = None
-
-try:
-    from algorithms.optimised.knn.knn import KNNModel
-except ImportError as e:
-    logger.warning(f"Could not import KNNModel: {e}")
-    KNNModel = None
-
-try:
-    from algorithms.optimised.svm.svm import SVMModel
-except ImportError as e:
-    logger.warning(f"Could not import SVMModel: {e}")
-    SVMModel = None
-
-try:
-    from algorithms.optimised.decision_tree.decision_tree import DecisionTreeModel
-except ImportError as e:
-    logger.warning(f"Could not import DecisionTreeModel: {e}")
-    DecisionTreeModel = None
-
-try:
-    from algorithms.optimised.ann.ann import ANNModel
-except ImportError as e:
-    logger.warning(f"Could not import ANNModel: {e}")
-    ANNModel = None
-
-try:
-    from algorithms.optimised.cnn.cnn import CNNModel
-except ImportError as e:
-    logger.warning(f"Could not import CNNModel: {e}")
-    CNNModel = None
-
-try:
-    from algorithms.optimised.arima.arima import ARIMAModel
-except ImportError as e:
-    logger.warning(f"Could not import ARIMAModel: {e}")
-    ARIMAModel = None
-
-try:
-    from algorithms.optimised.autoencoders.autoencoder import AutoencoderModel
-except ImportError as e:
-    logger.warning(f"Could not import AutoencoderModel: {e}")
-    AutoencoderModel = None
-
-# Clustering and dimensionality reduction models removed - not used for direct price prediction
+# LAZY MODEL LOADING: Models are imported only when _load_model_class() is called
+# This prevents loading TensorFlow and other heavy dependencies at module import time
 
 
 class StockPredictor:
@@ -104,25 +50,56 @@ class StockPredictor:
         # Track model performance
         self.model_performance = {}
         
+    def _load_model_class(self, model_name: str):
+        """Lazy load model class only when needed."""
+        try:
+            if model_name == 'linear_regression':
+                from algorithms.optimised.linear_regression.linear_regression import LinearRegressionModel
+                return LinearRegressionModel
+            elif model_name == 'random_forest':
+                from algorithms.optimised.random_forest.random_forest import RandomForestModel
+                return RandomForestModel
+            elif model_name == 'decision_tree':
+                from algorithms.optimised.decision_tree.decision_tree import DecisionTreeModel
+                return DecisionTreeModel
+            elif model_name == 'svm':
+                from algorithms.optimised.svm.svm import SVMModel
+                return SVMModel
+            elif model_name == 'knn':
+                from algorithms.optimised.knn.knn import KNNModel
+                return KNNModel
+            elif model_name == 'arima':
+                from algorithms.optimised.arima.arima import ARIMAModel
+                return ARIMAModel
+            elif model_name == 'autoencoder':
+                from algorithms.optimised.autoencoders.autoencoder import AutoencoderModel
+                return AutoencoderModel
+            else:
+                logger.warning(f"Unknown model: {model_name}")
+                return None
+        except ImportError as e:
+            logger.warning(f"Could not import {model_name}: {e}")
+            return None
+    
     def _initialize_models(self) -> Dict[str, Any]:
         """Load pre-trained models from disk."""
         models = {}
         models_dir = os.path.join(os.path.dirname(__file__), '..', 'models')
         
-        # Model configurations
-        model_configs = {
-            'linear_regression': LinearRegressionModel,
-            'random_forest': RandomForestModel,
-            'svm': SVMModel,
-            'knn': KNNModel,
-            'decision_tree': DecisionTreeModel,
-            'ann': ANNModel,
-            'cnn': CNNModel,
-            'arima': ARIMAModel,
-            'autoencoder': AutoencoderModel
-        }
+        # Model list (classes loaded lazily)
+        model_names = [
+            'linear_regression',
+            'random_forest',
+            'svm',
+            'knn',
+            'decision_tree',
+            'arima',
+            'autoencoder'
+        ]
         
-        for model_name, model_class in model_configs.items():
+        for model_name in model_names:
+            # Lazy load model class
+            model_class = self._load_model_class(model_name)
             if model_class is None:
                 logger.warning(f"Model class not available: {model_name}")
                 continue
@@ -136,14 +113,182 @@ class StockPredictor:
                     # Load pre-trained model
                     model = model_class().load(model_path)
                     models[model_name] = model
-                    logger.info(f"✅ Loaded pre-trained {model_name}")
+                    logger.info(f"Loaded pre-trained {model_name}")
                 except Exception as e:
-                    logger.error(f"❌ Error loading {model_name}: {e}")
+                    logger.error(f"Error loading {model_name}: {e}")
             else:
-                logger.warning(f"⚠️ Pre-trained model not found: {model_path}")
+                logger.warning(f"Pre-trained model not found: {model_path}")
         
         logger.info(f"Loaded {len(models)} pre-trained models: {list(models.keys())}")
         return models
+    
+    
+    def predict_single_stock_with_models(
+        self, 
+        symbol: str, 
+        category: str,
+        horizon: str,
+        current_price: float,
+        model_filter: Optional[List[str]] = None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Generate prediction for a single stock using specific models.
+        
+        Args:
+            symbol: Stock symbol
+            category: Stock category ('us_stocks' or 'ind_stocks')
+            horizon: Time horizon ('1d', '1w', '1m', '1y', '5y')
+            current_price: Current stock price
+            model_filter: List of model names to use (None = use all available)
+            
+        Returns:
+            Dictionary with prediction results or None if failed
+        """
+        try:
+            logger.info(f"Generating prediction for {symbol} ({category}) - horizon: {horizon}")
+            
+            # Load and prepare data
+            logger.info(f"[PREDICT] Step 1: Loading stock data for {symbol}...")
+            df = self.data_loader.load_stock_data(symbol, category)
+            if df is None:
+                logger.error(f"[PREDICT] FAILED at Step 1: No data available for {symbol}")
+                return None
+            logger.info(f"[PREDICT] Step 1 SUCCESS: Loaded {len(df)} rows for {symbol}")
+            
+            # Validate data quality
+            logger.info(f"[PREDICT] Step 2: Validating data quality for {symbol}...")
+            if not self.data_loader.validate_data_quality(df, symbol):
+                logger.error(f"[PREDICT] FAILED at Step 2: Data quality issues for {symbol}")
+                return None
+            logger.info(f"[PREDICT] Step 2 SUCCESS: Data quality validated")
+            
+            # Create features
+            logger.info(f"[PREDICT] Step 3: Creating features for {symbol}...")
+            df_with_features = self.data_loader.create_features(df)
+            if df_with_features is None or len(df_with_features) == 0:
+                logger.error(f"[PREDICT] FAILED at Step 3: Could not create features for {symbol}")
+                return None
+            logger.info(f"[PREDICT] Step 3 SUCCESS: Created features, {len(df_with_features)} rows")
+            
+            # Prepare training data (for prediction with pre-trained models, we need less data)
+            logger.info(f"[PREDICT] Step 4: Preparing training data for {symbol}...")
+            X, y = self.data_loader.prepare_training_data(df_with_features, for_prediction=True)
+            if len(X) == 0 or len(y) == 0:
+                logger.error(f"[PREDICT] FAILED at Step 4: Insufficient training data for {symbol}")
+                return None
+            logger.info(f"[PREDICT] Step 4 SUCCESS: Prepared {len(X)} training samples")
+            
+            # Filter models if specified
+            models_to_use = self.models
+            if model_filter:
+                models_to_use = {k: v for k, v in self.models.items() if k in model_filter}
+                if not models_to_use:
+                    logger.error(f"None of the requested models are available: {model_filter}")
+                    return None
+            
+            # Generate prediction for the horizon
+            horizon_days = self.config.TIME_HORIZONS.get(horizon, 1)
+            
+            # Collect predictions from each model
+            model_predictions = []
+            for model_name, model in models_to_use.items():
+                try:
+                    # Get model weight
+                    weight = self.config.MODEL_WEIGHTS.get(model_name, 0.0)
+                    if weight == 0:
+                        continue
+                    
+                    # Make prediction (returns percentage change)
+                    if horizon_days == 1:
+                        # Direct next-day prediction
+                        prediction_pct = model.predict(X[-1:].reshape(1, -1))[0]
+                    else:
+                        # Extrapolate for longer horizons
+                        prediction_pct = self._extrapolate_prediction(
+                            model, X, y, horizon_days, current_price
+                        )
+                    
+                    # Convert percentage to price
+                    predicted_price = current_price * (1 + prediction_pct / 100)
+                    
+                    model_predictions.append({
+                        'model': model_name,
+                        'prediction': predicted_price,
+                        'weight': weight,
+                        'percentage_change': prediction_pct
+                    })
+                    
+                    logger.info(f"  {model_name}: {predicted_price:.2f} ({prediction_pct:+.2f}%)")
+                    
+                except Exception as e:
+                    logger.warning(f"  {model_name} prediction failed: {e}")
+                    continue
+            
+            if not model_predictions:
+                logger.warning(f"No models produced valid predictions for {symbol}")
+                return None
+            
+            # Calculate weighted ensemble prediction
+            total_weight = sum(p['weight'] for p in model_predictions)
+            if total_weight == 0:
+                # Equal weights
+                total_weight = len(model_predictions)
+                for p in model_predictions:
+                    p['weight'] = 1.0
+            
+            ensemble_prediction = sum(
+                p['prediction'] * (p['weight'] / total_weight)
+                for p in model_predictions
+            )
+            
+            # Calculate confidence
+            if len(model_predictions) == 1:
+                # Single model confidence
+                model_pred = model_predictions[0]
+                # Use the actual R² score from training metrics
+                model_r2 = models_to_use[model_pred['model']].training_metrics.get('r2_score', 0.5)
+                confidence = confidence_calculator.calculate_single_model_confidence(
+                    model_accuracy=model_r2,
+                    historical_prices=df['close'].values if 'close' in df.columns else np.array([current_price]),
+                    time_horizon_days=horizon_days,
+                    model_name=model_pred['model']
+                )
+            else:
+                # Ensemble confidence
+                # Use actual R² scores from each model's training metrics
+                model_accuracies = {
+                    p['model']: models_to_use[p['model']].training_metrics.get('r2_score', 0.5)
+                    for p in model_predictions
+                }
+                model_price_predictions = {p['model']: p['prediction'] for p in model_predictions}
+                confidence = confidence_calculator.calculate_ensemble_confidence(
+                    model_accuracies=model_accuracies,
+                    model_predictions=model_price_predictions,
+                    historical_prices=df['close'].values if 'close' in df.columns else np.array([current_price]),
+                    time_horizon_days=horizon_days
+                )
+            
+            # Build result
+            result = {
+                'symbol': symbol,
+                'predicted_price': ensemble_prediction,
+                'current_price': current_price,
+                'confidence': confidence,
+                'time_frame_days': horizon_days,
+                'model_info': {
+                    'model': 'Ensemble' if len(model_predictions) > 1 else model_predictions[0]['model'],
+                    'members': [p['model'] for p in model_predictions],
+                    'weights': {p['model']: p['weight'] / total_weight for p in model_predictions}
+                },
+                'data_points_used': len(X),
+                'last_updated': datetime.utcnow().isoformat() + 'Z'
+            }
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Prediction failed for {symbol}: {e}", exc_info=True)
+            return None
     
     
     def predict_stock(self, symbol: str, category: str) -> bool:
@@ -256,24 +401,31 @@ class StockPredictor:
                 try:
                     logger.debug(f"Using pre-trained {model_name} for {symbol} {horizon}")
                     
-                    # Get prediction (for next day, then extrapolate for longer horizons)
+                    # Get prediction (model predicts PERCENTAGE CHANGE, not raw price)
                     if horizon == '1D':
-                        # Direct prediction for next day
-                        prediction = model.predict(X[-1:].reshape(1, -1))[0]
+                        # Direct prediction for next day (percentage change)
+                        prediction_pct = model.predict(X[-1:].reshape(1, -1))[0]
                     else:
                         # For longer horizons, use iterative prediction or trend extrapolation
-                        prediction = self._extrapolate_prediction(
+                        prediction_pct = self._extrapolate_prediction(
                             model, X, y, horizon_days, current_price
                         )
                     
-                    # Calculate model accuracy (on training data)
-                    y_pred_train = model.predict(X)
-                    accuracy = self._calculate_accuracy(y, y_pred_train)
+                    # Convert percentage change to actual price
+                    # Formula: predicted_price = current_price * (1 + prediction_percentage/100)
+                    predicted_price = current_price * (1 + prediction_pct / 100)
                     
-                    model_predictions[model_name] = prediction
+                    # Debug logging
+                    logger.info(f"[DEBUG] {model_name} for {symbol} {horizon}: current_price={current_price:.2f}, prediction_pct={prediction_pct:.4f}%, predicted_price={predicted_price:.2f}")
+                    
+                    # Use the R² score from training (already calculated and stored during model training)
+                    # This is more efficient and accurate than recalculating on the fly
+                    accuracy = model.training_metrics.get('r2_score', 0.5)
+                    
+                    model_predictions[model_name] = predicted_price
                     model_accuracies[model_name] = accuracy
                     
-                    logger.debug(f"{model_name} prediction for {symbol} {horizon}: {prediction:.2f} (accuracy: {accuracy:.4f})")
+                    logger.debug(f"{model_name} prediction for {symbol} {horizon}: ${predicted_price:.2f} ({prediction_pct:+.2f}%, accuracy: {accuracy:.4f})")
                     
                 except Exception as e:
                     logger.warning(f"Error with {model_name} for {symbol} {horizon}: {str(e)}")
@@ -305,6 +457,7 @@ class StockPredictor:
             prediction_dict = self.prediction_saver.create_prediction_dict(
                 horizon=horizon,
                 predicted_price=ensemble_prediction,
+                current_price=current_price,
                 confidence=ensemble_confidence,
                 confidence_low=confidence_low,
                 confidence_high=confidence_high,
@@ -329,6 +482,7 @@ class StockPredictor:
                 individual_pred = self.prediction_saver.create_prediction_dict(
                     horizon=horizon,
                     predicted_price=pred,
+                    current_price=current_price,
                     confidence=single_model_confidence,
                     confidence_low=pred * 0.95,  # 5% range
                     confidence_high=pred * 1.05,
@@ -350,45 +504,51 @@ class StockPredictor:
         """
         Extrapolate prediction for longer time horizons.
         
+        NOTE: y contains PERCENTAGE CHANGES (not prices)
+        
         Args:
             model: Trained model
             X: Feature matrix
-            y: Target vector
+            y: Target vector (PERCENTAGE CHANGES)
             horizon_days: Number of days to predict ahead
-            current_price: Current stock price
+            current_price: Current stock price (not used - we return percentage)
             
         Returns:
-            Extrapolated prediction
+            Extrapolated prediction as PERCENTAGE CHANGE
         """
         try:
-            # Simple approach: use trend from recent data
-            recent_prices = y[-30:]  # Last 30 days
-            if len(recent_prices) < 2:
-                return current_price
+            # y contains percentage changes, not prices
+            recent_pct_changes = y[-30:]  # Last 30 days of percentage changes
+            if len(recent_pct_changes) < 2:
+                return 0.0  # Return 0% change
             
-            # Calculate trend
-            trend = (recent_prices[-1] - recent_prices[0]) / len(recent_prices)
+            # Calculate average daily percentage change
+            avg_daily_pct_change = np.mean(recent_pct_changes)
             
-            # Extrapolate based on trend
-            trend_prediction = current_price + (trend * horizon_days)
+            # Extrapolate: compound the average daily change over the horizon
+            # For simplicity, we'll multiply by horizon_days (linear approximation)
+            # This gives us the total expected percentage change
+            trend_pct = avg_daily_pct_change * min(horizon_days, 30)  # Cap at 30 days for stability
             
-            # Also get model's next-day prediction
-            next_day_pred = model.predict(X[-1:].reshape(1, -1))[0]
+            # Also get model's next-day prediction (percentage change)
+            next_day_pct_pred = model.predict(X[-1:].reshape(1, -1))[0]
             
             # Combine trend and model prediction
-            # Weight decreases with horizon length
+            # For longer horizons, trust the trend more; for shorter, trust the model more
             trend_weight = min(0.7, horizon_days / 365)  # More weight to trend for longer horizons
             model_weight = 1 - trend_weight
             
-            final_prediction = (trend_weight * trend_prediction + 
-                              model_weight * next_day_pred)
+            # Both are percentage changes, so we can combine them
+            final_pct_prediction = (trend_weight * trend_pct + 
+                                   model_weight * next_day_pct_pred)
             
-            return final_prediction
+            # Return percentage change (NOT price)
+            return final_pct_prediction
             
         except Exception as e:
             logger.warning(f"Error in extrapolation: {str(e)}")
-            # Fallback to current price
-            return current_price
+            # Fallback to 0% change
+            return 0.0
     
     def _create_ensemble_prediction(self, model_predictions: Dict[str, float], 
                                    model_accuracies: Dict[str, float]) -> float:

@@ -124,43 +124,36 @@ export function StockInfo({ data, loading, error, currency, onCurrencyChange, li
 
   const isPositiveChange = (data.change || 0) >= 0;
 
-  // Determine the actual price to display and whether it's already converted
-  const getDisplayPriceInfo = () => {
-    if (livePriceData) {
-      // Use converted prices from backend if available
-      if (currency === 'INR' && livePriceData.price_inr) {
-        return { price: livePriceData.price_inr, isConverted: true };
-      } else if (currency === 'USD' && livePriceData.price_usd) {
-        return { price: livePriceData.price_usd, isConverted: true };
-      }
-      
-      // Check if original currency matches target currency
-      if (livePriceData.currency === currency) {
-        return { price: data.price, isConverted: true };
-      }
-      
-      // Fallback to original price with conversion
-      return { price: data.price, isConverted: false };
+  // Determine the actual price to display
+  // IMPORTANT: data.price is ALWAYS in USD (normalized in stockService.ts)
+  const getDisplayPrice = () => {
+    // If displaying in USD, use price directly
+    if (currency === 'USD') {
+      return data.price;
     }
-    return { price: data.price, isConverted: false };
+    
+    // If displaying in INR, convert USD to INR
+    const rate = livePriceData?.exchange_rate || getExchangeRate();
+    return convertPrice(data.price, 'USD', 'INR', rate);
   };
 
-  const { price: displayPrice, isConverted } = getDisplayPriceInfo();
+  const displayPrice = getDisplayPrice();
 
   // Helper function to format price values consistently
   const formatFieldPrice = (value: number | undefined | null) => {
     if (value === undefined || value === null) return null;
     
-    // Determine the source currency (currency of the stock data)
-    const sourceCurrency: Currency = livePriceData?.currency as Currency || 'USD';
+    // IMPORTANT: data.price, data.open, etc. are ALWAYS in USD (normalized in stockService.ts)
+    // regardless of the original backend currency
+    const sourceCurrency: Currency = 'USD';
     
     // Check if conversion is needed
     if (sourceCurrency === currency) {
-      // No conversion needed - source and target currencies match
+      // No conversion needed - already in USD and user wants USD
       return formatPriceDirect(value, currency);
     }
     
-    // Conversion needed - use convertPrice to handle the conversion properly
+    // Convert USD to INR for display
     const rate = livePriceData?.exchange_rate || getExchangeRate();
     const converted = convertPrice(value, sourceCurrency, currency, rate);
     
@@ -190,11 +183,7 @@ export function StockInfo({ data, loading, error, currency, onCurrencyChange, li
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <div className="stock-price-main">{
-            isConverted 
-              ? formatPriceDirect(displayPrice, currency)
-              : formatPrice(displayPrice, currency, livePriceData?.exchange_rate)
-          }</div>
+          <div className="stock-price-main">{formatPriceDirect(displayPrice, currency)}</div>
           <div className="flex items-center gap-2 mt-1">
             {isPositiveChange ? (
               <TrendingUp className="stock-change-icon text-green-600" />

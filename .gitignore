@@ -19,6 +19,9 @@ build/
 # IDE and editor files
 .vscode/
 .idea/
+.cursor/
+.cursorignore
+.cursorrules
 *.swp
 *.swo
 *~
@@ -88,7 +91,14 @@ temp/
 
 # Excluded Directories
 /inspirations/
-/backend/models/
+
+# Models - ignore all model directories except linear_regression
+/backend/models/arima/
+/backend/models/autoencoder/
+/backend/models/decision_tree/
+/backend/models/knn/
+/backend/models/random_forest/
+/backend/models/svm/
 
 # Data directory - ignore everything except dynamic index files and past data
 /data/*
@@ -101,12 +111,24 @@ temp/
 IMPLEMENTATION.md
 
 
-# Backend specific
-backend/__pycache__/
-backend/*.pyc
+# Python specific
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Virtual environments
+venv/
+env/
+ENV/
 backend/venv/
+
+# Environment variables
 backend/.env
 
 # Upstox token cache files
 backend/_cache/
 backend/**/upstox_tokens.json
+
+# Personal/temporary notes (not tracked)
+ignore.md

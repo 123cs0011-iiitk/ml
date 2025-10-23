@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 
 # Add parent directories to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
-from model_interface import ModelInterface
-from stock_indicators import StockIndicators
+from ...model_interface import ModelInterface
+from ...stock_indicators import StockIndicators
 
 
 class SVMModel(ModelInterface):
@@ -106,12 +106,15 @@ class SVMModel(ModelInterface):
         r2 = r2_score(y, y_pred)
         mae = mean_absolute_error(y, y_pred)
         
+        # Get support vectors count (only available for SVR, not LinearSVR)
+        n_support_vectors = len(self.model.support_) if hasattr(self.model, 'support_') else 0
+        
         self.set_training_metrics({
             'mse': mse,
             'rmse': rmse,
             'r2_score': r2,
             'mae': mae,
-            'n_support_vectors': len(self.model.support_)
+            'n_support_vectors': n_support_vectors
         })
         
         return self
@@ -144,10 +147,14 @@ class SVMModel(ModelInterface):
         Get support vectors from the trained model.
         
         Returns:
-            Array of support vectors
+            Array of support vectors (None if using LinearSVR)
         """
         if not self.is_trained:
             raise ValueError("Model not trained")
+        
+        if not hasattr(self.model, 'support_vectors_'):
+            logger.warning("LinearSVR does not have support vectors attribute")
+            return None
         
         return self.model.support_vectors_
     
@@ -156,10 +163,14 @@ class SVMModel(ModelInterface):
         Get dual coefficients from the trained model.
         
         Returns:
-            Array of dual coefficients
+            Array of dual coefficients (None if using LinearSVR)
         """
         if not self.is_trained:
             raise ValueError("Model not trained")
+        
+        if not hasattr(self.model, 'dual_coef_'):
+            logger.warning("LinearSVR does not have dual coefficients attribute")
+            return None
         
         return self.model.dual_coef_
     
@@ -260,6 +271,9 @@ class SVMModel(ModelInterface):
         r2 = r2_score(y, y_pred)
         mae = mean_absolute_error(y, y_pred)
         
+        # Get support vectors count (only available for SVR, not LinearSVR)
+        n_support_vectors = len(self.model.support_) if hasattr(self.model, 'support_') else 0
+        
         self.set_training_metrics({
             'mse': mse,
             'rmse': rmse,
@@ -267,7 +281,7 @@ class SVMModel(ModelInterface):
             'mae': mae,
             'best_params': grid_search.best_params_,
             'cv_score': -grid_search.best_score_,
-            'n_support_vectors': len(self.model.support_)
+            'n_support_vectors': n_support_vectors
         })
         
         return self

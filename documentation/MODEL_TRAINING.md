@@ -85,7 +85,7 @@ backend/models/
 - X (features): 44.4M × 8 = **355 MB**
 - y (targets): 1.2M × 8 = **10 MB**
 - With overhead (2x): **~730 MB minimum**
-- Per batch (100 stocks): **~73 MB**
+- Actual peak during training: **2-8 GB** (depending on model)
 
 **Training Split**
 - Train: 80% (~960,960 rows)
@@ -147,21 +147,14 @@ backend/models/
 **Volume**: Exists in files but **NOT USED** in calculations
 
 ---
-# Batch Strategies
+# Training Approach
 
-| Model | Strategy | Method |
-|-------|----------|--------|
-| Linear Regression | Incremental | `partial_fit()` per batch |
-| Decision Tree | Accumulate | Load all, train once |
-| Random Forest | Accumulate | Load all, train once |
-| SVM | Subsample | Train on 50% sample |
-| KNN | Subsample | Train on 50% sample |
-| ANN | Keras Batch | Mini-batch (32 samples) |
-| CNN | Keras Batch | Mini-batch (8 samples) |
-| ARIMA | Subsample | Train on sample |
-| Autoencoder | Keras Batch | Mini-batch (32 samples) |
+**All models use single-pass training:**
+- Load complete dataset (~1000 stocks, 5 years) into memory
+- Train each model with a single `model.fit(X, y)` call
+- Progress tracking during data loading phase
 
-**Default**: 100 stocks/batch, 50K rows/sub-batch
+This approach ensures optimal model performance and simplifies the training process.
 
 ---
 # Directory Structure
@@ -199,12 +192,9 @@ python backend/training/train_full_dataset.py --model MODEL_NAME --force-retrain
 python status.py
 ```
 
-**Custom Batch**
+**Validate Only**
 ```bash
-python backend/training/train_full_dataset.py \
-    --model MODEL_NAME \
-    --stock-batch-size 50 \
-    --subsample-percent 30
+python backend/training/train_full_dataset.py --validate-only
 ```
 
 ---
@@ -216,16 +206,19 @@ python backend/training/train_full_dataset.py \
 | SVM: R² < 0 | Too much data | `--force-retrain` (subsampling) |
 | KNN: R² < 0 | k=5 too small | `--force-retrain` (k=15) |
 | Autoencoder: R² < -100K | Sigmoid output | `--force-retrain` (linear) |
-| CNN: Out of Memory | Batch too large | `--force-retrain` (batch=8) |
+| CNN: Out of Memory | Insufficient RAM | Close applications, ensure 16GB RAM |
 | Linear Reg: Stuck | SGD disabled | `--force-retrain` (enabled) |
-| ARIMA: Too Slow | No timeout | Reduced search space |
+| ARIMA: Too Slow | Large search space | Reduced parameter search space |
 
-**Out of Memory**: Reduce batch size in `backend/prediction/config.py`
-```python
-self.STOCK_BATCH_SIZE = 50
-```
+**Out of Memory**: 
+- Close other applications
+- Ensure 16GB RAM available
+- Train models one at a time
 
-**Training Hangs**: Auto-timeout 1 hour/batch
+**Training Hangs**: 
+- Check logs in `backend/logs/training.log`
+- Verify data quality
+- Use `--force-retrain` to retry
 
 ---
 # Expected Performance

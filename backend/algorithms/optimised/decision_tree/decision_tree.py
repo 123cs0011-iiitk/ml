@@ -18,8 +18,8 @@ from sklearn.preprocessing import StandardScaler
 
 # Add parent directories to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
-from model_interface import ModelInterface
-from stock_indicators import StockIndicators
+from ...model_interface import ModelInterface
+from ...stock_indicators import StockIndicators
 
 
 class DecisionTreeModel(ModelInterface):
@@ -116,10 +116,7 @@ class DecisionTreeModel(ModelInterface):
         # Train model with progress updates
         print(f"[TRAINING] Starting decision tree training on {len(X_clean)} samples...")
         print(f"[TRAINING] Features: {X_clean.shape[1]}, Samples: {X_clean.shape[0]:,}")
-        
-        # Estimate processing batches (decision trees process data in chunks)
-        estimated_batches = max(1, len(X_clean) // 50000)  # ~50k samples per batch
-        print(f"[TRAINING] Estimated processing batches: {estimated_batches}")
+        print(f"[TRAINING] Training on full dataset...")
         
         # Train the model
         import time
@@ -127,7 +124,6 @@ class DecisionTreeModel(ModelInterface):
         self.model.fit(X_scaled, y_clean)
         training_time = time.time() - start_time
         print(f"[COMPLETED] Decision tree training completed in {training_time:.1f} seconds")
-        print(f"[COMPLETED] Processed {estimated_batches} batches of data")
         
         # Calculate training metrics
         y_pred = self.model.predict(X_scaled)

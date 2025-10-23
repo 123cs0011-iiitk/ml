@@ -196,14 +196,16 @@ def exchange_code_for_tokens(client_id, client_secret, code, redirect_uri):
             token_data = response.json()
             
             access_token = token_data.get('access_token')
-            refresh_token = token_data.get('refresh_token')
+            refresh_token = token_data.get('refresh_token', '')  # Upstox v2 doesn't provide refresh tokens
             expires_in = token_data.get('expires_in', 3600)
             
-            if access_token and refresh_token:
-                print("✓ Successfully obtained tokens")
+            if access_token:
+                print("✓ Successfully obtained access token")
+                if not refresh_token:
+                    print("  (Note: Upstox v2 uses JWT tokens without refresh tokens)")
                 return access_token, refresh_token, expires_in
             else:
-                print(f"✗ Missing tokens in response: {token_data}")
+                print(f"✗ Missing access_token in response: {token_data}")
                 return None
         else:
             print(f"✗ Token exchange failed: HTTP {response.status_code}")

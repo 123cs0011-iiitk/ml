@@ -18,8 +18,8 @@ from sklearn.preprocessing import StandardScaler
 
 # Add parent directories to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
-from model_interface import ModelInterface
-from stock_indicators import StockIndicators
+from ...model_interface import ModelInterface
+from ...stock_indicators import StockIndicators
 
 
 class RandomForestModel(ModelInterface):

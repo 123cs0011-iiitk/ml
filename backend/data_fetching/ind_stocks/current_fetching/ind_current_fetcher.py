@@ -199,6 +199,9 @@ class IndianCurrentFetcher:
         # Get valid token (will refresh if needed)
         access_token = self.token_manager.get_valid_token()
         if not access_token:
+            # Log token status for debugging
+            token_info = self.token_manager.get_token_info()
+            print(f"⚠ Upstox token status: {token_info}")
             raise ValueError("Upstox access token not available. Run OAuth setup script.")
         
         max_retries = 2
@@ -521,11 +524,10 @@ class IndianCurrentFetcher:
             Dictionary with stock data or None if not found
         """
         try:
-            # Look for individual file in permanent directory (relative from current working directory)
-            permanent_file = os.path.join(
-                '..', 'permanent', 'ind_stocks', 'individual_files', f'{symbol}.csv'
+            # Use absolute path from config (fixes relative path issues)
+            permanent_file = self.config.get_permanent_path(
+                'ind_stocks', 'individual_files', f'{symbol}.csv'
             )
-            permanent_file = os.path.normpath(permanent_file)
             
             if os.path.exists(permanent_file):
                 df = pd.read_csv(permanent_file)
@@ -546,6 +548,7 @@ class IndianCurrentFetcher:
                         'company_name': symbol,
                         'currency': self.currency,
                         'source': 'permanent',
+                        'source_reliable': False,  # Historical data, not real-time
                         'timestamp': get_current_timestamp(),
                         'sector': metadata['sector'],
                         'market_cap': metadata['market_cap'],
@@ -625,6 +628,7 @@ class IndianCurrentFetcher:
                     'price': price,
                     'timestamp': timestamp,
                     'source': api_name,
+                    'source_reliable': api_name == 'upstox',  # Indicate if real-time
                     'company_name': company_name,
                     'currency': self.currency,
                     'sector': metadata['sector'],
@@ -684,6 +688,7 @@ class IndianCurrentFetcher:
         
         # All APIs failed, try to get data from permanent directory as last resort
         print(f"All APIs failed for {symbol}, trying permanent directory fallback...")
+        permanent_file = None
         try:
             permanent_data = self.fetch_from_permanent_directory(symbol)
             if permanent_data:
@@ -691,9 +696,18 @@ class IndianCurrentFetcher:
                 return permanent_data
         except Exception as e:
             print(f"Permanent directory fallback failed: {e}")
+            permanent_file = self.config.get_permanent_path('ind_stocks', 'individual_files', f'{symbol}.csv')
         
-        # If everything fails
-        error_msg = f"Unable to fetch price for {symbol}. All sources failed. Last error: {str(last_error)}"
+        # If everything fails, provide detailed diagnostic info
+        if permanent_file is None:
+            permanent_file = self.config.get_permanent_path('ind_stocks', 'individual_files', f'{symbol}.csv')
+        
+        error_details = {
+            'upstox_error': str(last_error) if last_error else 'Not attempted',
+            'permanent_path_checked': permanent_file,
+            'permanent_exists': os.path.exists(permanent_file)
+        }
+        error_msg = f"Unable to fetch price for {symbol}. All sources failed. Details: {error_details}"
         print(error_msg)
         raise Exception(error_msg)
     

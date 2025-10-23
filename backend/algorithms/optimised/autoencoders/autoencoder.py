@@ -12,8 +12,8 @@ from typing import Dict, Any, Tuple, List
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
-from model_interface import ModelInterface
-from stock_indicators import StockIndicators
+from ...model_interface import ModelInterface
+from ...stock_indicators import StockIndicators
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import Input, Dense, Dropout, BatchNormalization
 from tensorflow.keras.optimizers import Adam

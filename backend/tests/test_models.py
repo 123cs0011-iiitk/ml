@@ -292,31 +292,32 @@ class TestScratchImplementations:
 class TestModelFixes:
     """Test the fixes applied to models that had catastrophic failures."""
     
-    def test_ann_no_gradient_explosion(self):
-        """Test that ANN doesn't have gradient explosion after fixes."""
-        from algorithms.optimised.ann.ann import ANNModel
-        
-        # Create synthetic data
-        np.random.seed(42)
-        X = np.random.randn(1000, 37)  # 37 features as in production
-        y = X.sum(axis=1) + np.random.randn(1000) * 0.1  # Target with some noise
-        
-        # Create model with fixed hyperparameters
-        model = ANNModel(
-            hidden_layers=[128, 64, 32],
-            dropout_rate=0.2,
-            learning_rate=0.0005,
-            epochs=50
-        )
-        
-        # Train model
-        model.fit(X, y)
-        
-        # Assert no gradient explosion (R² should be positive and reasonable)
-        r2 = model.training_metrics['r2_score']
-        assert r2 > -10, f"ANN still has gradient explosion: R²={r2}"
-        assert r2 > 0.5, f"ANN performance too low: R²={r2}"
-        assert r2 < 1.1, f"ANN overfitting: R²={r2}"
+    # DISABLED: ANN model has been removed from the project
+    # def test_ann_no_gradient_explosion(self):
+    #     """Test that ANN doesn't have gradient explosion after fixes."""
+    #     from algorithms.optimised.ann.ann import ANNModel
+    #     
+    #     # Create synthetic data
+    #     np.random.seed(42)
+    #     X = np.random.randn(1000, 37)  # 37 features as in production
+    #     y = X.sum(axis=1) + np.random.randn(1000) * 0.1  # Target with some noise
+    #     
+    #     # Create model with fixed hyperparameters
+    #     model = ANNModel(
+    #         hidden_layers=[128, 64, 32],
+    #         dropout_rate=0.2,
+    #         learning_rate=0.0005,
+    #         epochs=50
+    #     )
+    #     
+    #     # Train model
+    #     model.fit(X, y)
+    #     
+    #     # Assert no gradient explosion (R² should be positive and reasonable)
+    #     r2 = model.training_metrics['r2_score']
+    #     assert r2 > -10, f"ANN still has gradient explosion: R²={r2}"
+    #     assert r2 > 0.5, f"ANN performance too low: R²={r2}"
+    #     assert r2 < 1.1, f"ANN overfitting: R²={r2}"
         
     def test_svm_with_subsampling(self):
         """Test that SVM works with large dataset via subsampling."""
@@ -405,37 +406,38 @@ class TestModelFixes:
         from sklearn.preprocessing import StandardScaler
         assert isinstance(model.scaler, StandardScaler), "Autoencoder not using StandardScaler"
         
-    def test_cnn_memory_optimization(self):
-        """Test that CNN has better memory handling."""
-        from algorithms.optimised.cnn.cnn import CNNModel
-        
-        # Create synthetic sequential data
-        np.random.seed(42)
-        X = np.random.randn(500, 37)  # Smaller dataset for testing
-        y = X.sum(axis=1) + np.random.randn(500) * 0.1
-        
-        # Create model with optimized settings
-        model = CNNModel(
-            sequence_length=20,
-            filters=[32, 16],
-            batch_size=8,
-            epochs=10  # Reduced for testing
-        )
-        
-        # Train model (should not crash with OOM)
-        model.fit(X, y)
-        
-        # Assert model is trained
-        assert model.is_trained, "CNN failed to train"
-        
-        # Assert R² is reasonable
-        r2 = model.training_metrics['r2_score']
-        assert r2 > -10, f"CNN has poor performance: R²={r2}"
-        
-        # Verify optimized settings
-        assert model.sequence_length == 20, "CNN sequence length not optimized"
-        assert model.filters == [32, 16], "CNN filters not optimized"
-        assert model.batch_size == 8, "CNN batch size not optimized"
+    # DISABLED: CNN model has been removed from the project
+    # def test_cnn_memory_optimization(self):
+    #     """Test that CNN has better memory handling."""
+    #     from algorithms.optimised.cnn.cnn import CNNModel
+    #     
+    #     # Create synthetic sequential data
+    #     np.random.seed(42)
+    #     X = np.random.randn(500, 37)  # Smaller dataset for testing
+    #     y = X.sum(axis=1) + np.random.randn(500) * 0.1
+    #     
+    #     # Create model with optimized settings
+    #     model = CNNModel(
+    #         sequence_length=20,
+    #         filters=[32, 16],
+    #         batch_size=8,
+    #         epochs=10  # Reduced for testing
+    #     )
+    #     
+    #     # Train model (should not crash with OOM)
+    #     model.fit(X, y)
+    #     
+    #     # Assert model is trained
+    #     assert model.is_trained, "CNN failed to train"
+    #     
+    #     # Assert R² is reasonable
+    #     r2 = model.training_metrics['r2_score']
+    #     assert r2 > -10, f"CNN has poor performance: R²={r2}"
+    #     
+    #     # Verify optimized settings
+    #     assert model.sequence_length == 20, "CNN sequence length not optimized"
+    #     assert model.filters == [32, 16], "CNN filters not optimized"
+    #     assert model.batch_size == 8, "CNN batch size not optimized"
         
     def test_linear_regression_sgd_enabled(self):
         """Test that Linear Regression has SGD enabled by default."""

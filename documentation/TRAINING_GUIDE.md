@@ -2,6 +2,15 @@
 
 This guide provides step-by-step instructions for training all 9 ML models, with expected times, testing procedures, and troubleshooting tips.
 
+## Training Approach
+
+**All models use single-pass training:**
+- Load complete dataset (~1000 stocks, 5 years of historical data) into memory
+- Train each model with a single `model.fit(X, y)` call
+- Progress tracking during data loading phase
+
+This approach ensures optimal model performance and simplifies the training process.
+
 ---
 
 ## Prerequisites
@@ -266,13 +275,13 @@ python backend/training/train_full_dataset.py --model cnn
 **What to Expect**:
 - Sequence length: 20 (reduced from 30)
 - Filters: [32, 16] (simplified)
-- Batch size: 8 (memory-optimized)
+- Single-pass training: loads all data, trains with one model.fit() call
 - Memory monitoring active
 - Expected R²: > 0.75
 
 **Success Indicators**:
 - ✅ No memory errors
-- ✅ Training completes all batches
+- ✅ Training completes successfully
 - ✅ Memory optimization messages in logs
 - ✅ R² > 0.75
 
@@ -326,9 +335,9 @@ tail -f backend/logs/training.log
 
 ```
 [MODEL_NAME] Data Loading: 450/1001 stocks (44.9%) - Current: AAPL
-[MODEL_NAME] Training on batch 5/11: 91 stocks, 105,234 samples
-[MODEL_NAME] Batch 5 completed in 142.3s
-[MODEL_NAME] Progress: [450/1001] 44.9% - ETA: 420s
+[MODEL_NAME] Training linear_regression on 452,103 samples from 987 stocks...
+[MODEL_NAME] Training in progress - single-pass training on full dataset...
+[MODEL_NAME] linear_regression model training completed in 4.2 minutes
 ```
 
 ### Memory Monitoring
@@ -460,16 +469,16 @@ Test at least 3-5 stocks to ensure consistency:
 ### Training Hangs
 
 **Solution**:
-1. Wait for timeout (1 hour per batch)
-2. Check memory usage (should be < 80%)
-3. Training will skip problematic batches
+1. Check error logs in `backend/logs/training.log`
+2. Fix data quality issues if needed
+3. Use `--force-retrain` to retry
 4. Check `backend/logs/training.log` for errors
 
 ### Out of Memory
 
 **Solution**:
 1. Close other applications
-2. Reduce batch sizes in `backend/prediction/config.py`
+2. Ensure sufficient RAM (8GB minimum, 16GB recommended)
 3. Train models sequentially (not in parallel)
 
 ### Poor R² Score
@@ -512,11 +521,11 @@ Test at least 3-5 stocks to ensure consistency:
 - Keep logs for troubleshooting
 - Use `--force-retrain` if retrying failed models
 
-### 5. Batch Training
-- Enabled by default
-- Processes stocks in batches of 100
-- Timeout: 1 hour per batch
-- Continues even if some batches fail
+### 5. Single-Pass Training
+- All models use single-pass training
+- Loads complete dataset (~1000 stocks, 5 years) into memory
+- Trains with one model.fit() call per model
+- Progress tracking during data loading phase
 
 ---
 

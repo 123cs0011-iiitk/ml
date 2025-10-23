@@ -17,7 +17,8 @@ export default function App() {
   const [stockInfoData, setStockInfoData] = useState<StockInfoResponse | null>(null);
   const [chartData, setChartData] = useState<PricePoint[]>([]);
   const [prediction, setPrediction] = useState<PredictionResult | null>(null);
-  const [predictionHorizon, setPredictionHorizon] = useState<string>('1d');
+  const [predictionHorizon, setPredictionHorizon] = useState<string>('1D');
+  const [selectedModel, setSelectedModel] = useState<string>('linear_regression');
   const [chartPeriod, setChartPeriod] = useState<'year' | '5year'>('year');
   const [currency, setCurrency] = useState<Currency>('USD');
   const [loading, setLoading] = useState({
@@ -34,18 +35,24 @@ export default function App() {
   // Load stock data when symbol changes
   useEffect(() => {
     if (selectedSymbol) {
-      loadStockData(selectedSymbol);
+      loadStockDataAndPrediction(selectedSymbol);
       loadChartData(selectedSymbol, chartPeriod);
-      loadPrediction(selectedSymbol, predictionHorizon);
     }
   }, [selectedSymbol]);
 
   // Reload prediction when horizon changes
   useEffect(() => {
-    if (selectedSymbol) {
-      loadPrediction(selectedSymbol, predictionHorizon);
+    if (selectedSymbol && stockData?.price) {
+      loadPrediction(selectedSymbol, predictionHorizon, selectedModel, stockData.price);
     }
   }, [predictionHorizon, selectedSymbol]);
+
+  // Reload prediction when model changes
+  useEffect(() => {
+    if (selectedSymbol && stockData?.price) {
+      loadPrediction(selectedSymbol, predictionHorizon, selectedModel, stockData.price);
+    }
+  }, [selectedModel, selectedSymbol, predictionHorizon]);
 
   // Reload chart data when period changes
   useEffect(() => {
@@ -102,11 +109,23 @@ export default function App() {
     }
   };
 
-  const loadPrediction = async (symbol: string, horizon: string = predictionHorizon) => {
+  const loadPrediction = async (
+    symbol: string, 
+    horizon: string = predictionHorizon,
+    model: string = selectedModel,
+    currentPrice?: number,
+    dataSource?: string,
+    sourceReliable?: boolean
+  ) => {
     setLoading(prev => ({ ...prev, prediction: true }));
     setErrors(prev => ({ ...prev, prediction: '' }));
     try {
-      const data = await stockService.getPrediction(symbol, horizon);
+      const data = await stockService.getPrediction(symbol, horizon, model, currentPrice);
+      // Add source information if provided
+      if (dataSource !== undefined) {
+        data.dataSource = dataSource;
+        data.sourceReliable = sourceReliable;
+      }
       setPrediction(data);
     } catch (error) {
       console.error('Failed to load prediction:', error);
@@ -115,6 +134,52 @@ export default function App() {
       setPrediction(null);
     } finally {
       setLoading(prev => ({ ...prev, prediction: false }));
+    }
+  };
+
+  const loadStockDataAndPrediction = async (symbol: string, forceRefresh: boolean = false) => {
+    // Step 1: Load stock data (gets live price)
+    setLoading(prev => ({ ...prev, stock: true }));
+    setErrors(prev => ({ ...prev, stock: '' }));
+    
+    try {
+      // Fetch stock info quickly (metadata)
+      try {
+        const stockInfo = await stockService.getStockInfo(symbol);
+        setStockInfoData(stockInfo);
+      } catch (error) {
+        console.warn('Failed to load stock info:', error);
+      }
+
+      // Fetch live price data
+      const livePrice = await stockService.getLivePrice(symbol, forceRefresh);
+      setLivePriceData(livePrice);
+
+      // Convert to StockData format
+      const data = await stockService.getStockData(symbol);
+      setStockData(data);
+      
+      // Step 2: Now that we have the live price, load prediction with it
+      // KEEP EXISTING FLOW: Pass current_price to avoid duplicate fetch
+      if (data?.price && livePrice) {
+        // Use the price we already fetched - NO duplicate API call
+        // Pass source info so both cards show the same data source
+        await loadPrediction(symbol, predictionHorizon, selectedModel, data.price, livePrice.source, livePrice.source_reliable);
+      } else {
+        // If live price failed, don't fall back to stale data - show error
+        setPrediction(null);
+        setErrors(prev => ({ ...prev, prediction: 'No live price available for prediction' }));
+      }
+    } catch (error) {
+      console.error('Failed to load stock data:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load stock data';
+      setErrors(prev => ({ ...prev, stock: errorMessage, prediction: 'No live price available for prediction' }));
+      setStockData(null);
+      setLivePriceData(null);
+      setStockInfoData(null);
+      setPrediction(null);
+    } finally {
+      setLoading(prev => ({ ...prev, stock: false }));
     }
   };
 
@@ -132,6 +197,10 @@ export default function App() {
 
   const handleHorizonChange = (horizon: string) => {
     setPredictionHorizon(horizon);
+  };
+
+  const handleModelChange = (model: string) => {
+    setSelectedModel(model);
   };
 
   return (
@@ -175,7 +244,7 @@ export default function App() {
               onCurrencyChange={handleCurrencyChange}
               livePriceData={livePriceData}
               stockInfoData={stockInfoData}
-              onRefresh={() => selectedSymbol && loadStockData(selectedSymbol, true)}
+              onRefresh={() => selectedSymbol && loadStockDataAndPrediction(selectedSymbol, true)}
             />
           </div>
 
@@ -198,7 +267,12 @@ export default function App() {
               symbol={selectedSymbol}
               error={errors.prediction}
               currency={currency}
+              selectedHorizon={predictionHorizon}
+              selectedModel={selectedModel}
               onHorizonChange={handleHorizonChange}
+              onModelChange={handleModelChange}
+              dataTimestamp={livePriceData?.timestamp}
+              dataSource={livePriceData?.source}
             />
           </div>
         </div>
@@ -219,11 +293,12 @@ export default function App() {
             </p>
             <div className="text-2xl text-muted-foreground space-y-2">
               <p><strong>Backend:</strong> Powered by Flask with real-time data processing and ML model integration</p>
-              <p><strong>Prediction Models:</strong> Ensemble of 9 ML algorithms (Random Forest, Linear Regression, ANN, etc.)</p>
-              <p><strong>Timeframes:</strong> Weekly, monthly, and yearly historical data analysis</p>
-              <p><strong>Caching:</strong> Smart caching for performance - stock data (5 min), historical data (1 hour), predictions (15 min)</p>
+              <p><strong>Prediction Models:</strong> 7 ML algorithms including Random Forest, Linear Regression, SVM, Decision Tree, KNN, ARIMA, and Autoencoder</p>
+              <p><strong>Model Categories:</strong> 4 Basic Models (supervised learning) + 3 Advanced Models (time series & deep learning)</p>
+              <p><strong>Timeframes:</strong> Supports 1D, 1W, 1M, 1Y, and 5Y prediction horizons</p>
+              <p><strong>Historical Data:</strong> 5-year dataset (2020-2025) with daily granularity for both US and Indian stocks</p>
               <p><strong>Currency Support:</strong> Real-time conversion between USD and INR with live formatting</p>
-              <p><strong>Status:</strong> ML prediction system in BETA - data fetching and charts fully operational</p>
+              <p><strong>Status:</strong> ML prediction system fully operational - All models trained on percentage change data</p>
             </div>
           </CardContent>
         </Card>

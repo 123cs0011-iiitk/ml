@@ -224,10 +224,9 @@ class CurrentFetcher:
             
             permanent_category = permanent_mapping.get(category, 'us_stocks')
             
-            # Check permanent index file first
-            index_path = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-                'permanent', permanent_category, f'index_{permanent_category}.csv'
+            # Check permanent index file first (use absolute path from config)
+            index_path = self.config.get_permanent_path(
+                permanent_category, f'index_{permanent_category}.csv'
             )
             
             if not os.path.exists(index_path):
@@ -250,10 +249,9 @@ class CurrentFetcher:
                             company_name = row['company_name']
                             break
             
-            # Check individual file
-            individual_path = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-                'permanent', permanent_category, 'individual_files', f'{symbol}.csv'
+            # Check individual file (use absolute path from config)
+            individual_path = self.config.get_permanent_path(
+                permanent_category, 'individual_files', f'{symbol}.csv'
             )
             
             if not os.path.exists(individual_path):
@@ -366,6 +364,7 @@ class CurrentFetcher:
                     'price': price,
                     'timestamp': timestamp,
                     'source': api_name,
+                    'source_reliable': api_name == 'finnhub',  # Indicate if real-time
                     'company_name': company_name,
                     'currency': currency,
                     'sector': metadata['sector'],

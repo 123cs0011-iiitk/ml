@@ -28,7 +28,15 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from prediction.data_loader import DataLoader
 from prediction.prediction_saver import PredictionSaver
 from prediction.config import config
-from training.model_trainer import UnifiedModelTrainer
+
+# Import model classes directly
+from algorithms.optimised.linear_regression.linear_regression import LinearRegressionModel
+from algorithms.optimised.random_forest.random_forest import RandomForestModel
+from algorithms.optimised.svm.svm import SVMModel
+from algorithms.optimised.knn.knn import KNNModel
+from algorithms.optimised.decision_tree.decision_tree import DecisionTreeModel
+from algorithms.optimised.arima.arima import ARIMAModel
+from algorithms.optimised.autoencoders.autoencoder import AutoencoderModel
 
 # Setup logging
 def setup_logging():
@@ -53,10 +61,20 @@ def setup_logging():
 class PredictionGenerator:
     """Generates predictions using trained models."""
     
+    # Model class mapping
+    MODEL_CLASSES = {
+        'linear_regression': LinearRegressionModel,
+        'random_forest': RandomForestModel,
+        'svm': SVMModel,
+        'knn': KNNModel,
+        'decision_tree': DecisionTreeModel,
+        'arima': ARIMAModel,
+        'autoencoder': AutoencoderModel
+    }
+    
     def __init__(self):
         self.data_loader = DataLoader()
         self.prediction_saver = PredictionSaver()
-        self.trainer = UnifiedModelTrainer()
         self.models = {}
         self.models_dir = os.path.join(os.path.dirname(__file__), '..', 'models')
         
@@ -65,7 +83,7 @@ class PredictionGenerator:
         logger = logging.getLogger(__name__)
         
         models = {}
-        model_names = [specific_model] if specific_model else self.trainer.model_configs.keys()
+        model_names = [specific_model] if specific_model else self.MODEL_CLASSES.keys()
         
         for model_name in model_names:
             # Load from model-specific subdirectory
@@ -78,9 +96,9 @@ class PredictionGenerator:
             
             try:
                 # Get model class
-                model_class = self.trainer.get_model_class(model_name)
+                model_class = self.MODEL_CLASSES.get(model_name)
                 if model_class is None:
-                    logger.warning(f"Could not import {model_name}")
+                    logger.warning(f"Unknown model: {model_name}")
                     continue
                 
                 # Load model
@@ -209,31 +227,51 @@ class PredictionGenerator:
     
     def _extrapolate_prediction(self, model, X: np.ndarray, y: np.ndarray, 
                                horizon_days: int, current_price: float) -> float:
-        """Extrapolate prediction for longer time horizons."""
+        """
+        Extrapolate prediction for longer time horizons.
+        
+        NOTE: y contains PERCENTAGE CHANGES (not prices)
+        
+        Args:
+            model: Trained model
+            X: Feature matrix
+            y: Target vector (PERCENTAGE CHANGES)
+            horizon_days: Number of days to predict ahead
+            current_price: Current stock price
+            
+        Returns:
+            Extrapolated prediction as ABSOLUTE PRICE
+        """
         try:
-            # Simple approach: use trend from recent data
-            recent_prices = y[-30:]  # Last 30 days
-            if len(recent_prices) < 2:
-                return current_price
+            # y contains percentage changes, not prices
+            recent_pct_changes = y[-30:]  # Last 30 days of percentage changes
+            if len(recent_pct_changes) < 2:
+                return current_price  # Return current price if insufficient data
             
-            # Calculate trend
-            trend = (recent_prices[-1] - recent_prices[0]) / len(recent_prices)
+            # Calculate average daily percentage change
+            avg_daily_pct_change = np.mean(recent_pct_changes)
             
-            # Extrapolate based on trend
-            trend_prediction = current_price + (trend * horizon_days)
+            # Extrapolate: compound the average daily change over the horizon
+            # For simplicity, we'll multiply by horizon_days (linear approximation)
+            # This gives us the total expected percentage change
+            trend_pct = avg_daily_pct_change * min(horizon_days, 30)  # Cap at 30 days for stability
             
-            # Also get model's next-day prediction
-            next_day_pred = model.predict(X[-1:].reshape(1, -1))[0]
+            # Also get model's next-day prediction (percentage change)
+            next_day_pct_pred = model.predict(X[-1:].reshape(1, -1))[0]
             
             # Combine trend and model prediction
-            # Weight decreases with horizon length
+            # For longer horizons, trust the trend more; for shorter, trust the model more
             trend_weight = min(0.7, horizon_days / 365)  # More weight to trend for longer horizons
             model_weight = 1 - trend_weight
             
-            final_prediction = (trend_weight * trend_prediction + 
-                              model_weight * next_day_pred)
+            # Both are percentage changes, so we can combine them
+            final_pct_prediction = (trend_weight * trend_pct + 
+                                   model_weight * next_day_pct_pred)
             
-            return final_prediction
+            # Convert percentage change to absolute price
+            predicted_price = current_price * (1 + final_pct_prediction / 100)
+            
+            return predicted_price
             
         except Exception as e:
             logger = logging.getLogger(__name__)
@@ -412,7 +450,7 @@ def main():
     
     parser.add_argument('--model', 
                        choices=['linear_regression', 'random_forest', 'svm', 'knn', 
-                               'decision_tree', 'ann', 'cnn', 'arima', 'autoencoder'],
+                               'decision_tree', 'arima', 'autoencoder'],
                        help='Use only a specific model')
     
     parser.add_argument('--test', 

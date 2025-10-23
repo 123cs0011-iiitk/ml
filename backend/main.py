@@ -170,12 +170,13 @@ def get_live_price():
         }), 404
         
     except Exception as e:
-        logger.error(f"Error fetching price for {symbol}: {str(e)}")
+        logger.error(f"Live price fetch failed for {symbol}: {str(e)}", exc_info=True)
         return jsonify({
             'success': False,
             'error': 'Failed to fetch price',
-            'message': f'Unable to fetch live price for {symbol}. Please try again later.',
-            'details': str(e)
+            'message': f'Unable to fetch live price for {symbol}.',
+            'details': str(e),
+            'suggestion': 'Check Upstox token status or permanent directory data'
         }), 500
 
 @app.route('/latest_prices', methods=['GET'])
@@ -301,63 +302,106 @@ def get_symbols():
 # ML Prediction endpoints
 @app.route('/api/predict', methods=['GET'])
 def predict_stock_price():
-    """
-    Generate stock price prediction using ML models
-    
-    Query parameters:
-    - symbol: Stock symbol (required)
-    - horizon: Prediction horizon (1d, 1w, 1m, 1y, 5y) - default: 1d
-    - model: Model to use (all, lstm, rf, arima, svr, linear, knn) - default: all
-    """
+    """Generate stock price prediction using pre-trained ML models"""
     try:
         symbol = request.args.get('symbol')
         horizon = request.args.get('horizon', '1d')
-        model = request.args.get('model', 'all')
+        model_name = request.args.get('model', 'ensemble')  # Default to ensemble
         
         if not symbol:
-            return jsonify({
-                'error': 'Symbol parameter is required'
-            }), 400
+            return jsonify({'error': 'Symbol parameter is required'}), 400
         
         # Validate horizon
-        valid_horizons = ['1d', '1w', '1m', '1y', '5y']
+        valid_horizons = ['1D', '1W', '1M', '1Y', '5Y']
         if horizon not in valid_horizons:
+            return jsonify({'error': f'Invalid horizon. Must be one of {valid_horizons}'}), 400
+        
+        # Import and initialize predictor
+        from prediction.predictor import StockPredictor
+        from shared.currency_converter import get_live_exchange_rate
+        
+        predictor = StockPredictor()
+        
+        # Check if requested model is available
+        available_models = list(predictor.models.keys())
+        if model_name != 'ensemble' and model_name not in available_models:
             return jsonify({
-                'error': f'Invalid horizon: {horizon}. Must be one of {valid_horizons}'
-            }), 400
+                'error': f'Model {model_name} not trained yet',
+                'available_models': available_models
+            }), 404
         
-        # Import prediction function
-        from algorithms.utils import predict_for_symbol
+        # Determine stock category
+        category = validate_and_categorize_stock(symbol)
+        if not category:
+            return jsonify({'error': f'Invalid stock symbol: {symbol}'}), 400
         
-        # Determine models to use
-        if model == 'all':
-            model_names = None  # Use all models
+        # Accept current_price from frontend (if provided) to avoid duplicate fetching
+        current_price_param = request.args.get('current_price')
+        
+        if current_price_param:
+            # Use live price passed from frontend
+            current_price = float(current_price_param)
+            logger.info(f"Using live price from frontend for {symbol}: ${current_price:.2f}")
         else:
-            model_map = {
-                'lstm': ['lstm'],
-                'rf': ['random_forest'],
-                'arima': ['arima'],
-                'svr': ['svr'],
-                'linear': ['linear_ridge'],
-                'knn': ['knn']
-            }
-            if model not in model_map:
-                return jsonify({
-                    'error': f'Invalid model: {model}. Must be one of {list(model_map.keys())} or "all"'
-                }), 400
-            model_names = model_map[model]
+            # Fallback: Fetch from latest stored data
+            from prediction.data_loader import DataLoader
+            data_loader = DataLoader()
+            df = data_loader.load_stock_data(symbol, category)
+            if df is None or len(df) == 0:
+                return jsonify({'error': 'Could not load stock data'}), 500
+            
+            current_price = float(df['close'].iloc[-1])
+            logger.info(f"Using latest stored price for {symbol}: ${current_price:.2f} (fallback)")
         
-        # Generate prediction
-        result = predict_for_symbol(symbol, horizon, model_names)
+        # Generate prediction using selected model only (not ensemble)
+        if model_name == 'ensemble':
+            # Use all available models
+            selected_models = None
+        else:
+            # Use only the selected model
+            selected_models = [model_name]
         
-        return jsonify(result)
+        result = predictor.predict_single_stock_with_models(
+            symbol=symbol,
+            category=category,
+            horizon=horizon,
+            current_price=current_price,
+            model_filter=selected_models
+        )
+        
+        if not result:
+            logger.error(f"Prediction returned None for {symbol} ({category})")
+            return jsonify({
+                'error': 'Prediction failed',
+                'message': f'Could not generate prediction for {symbol}. Check if model data exists.',
+                'details': f'Symbol: {symbol}, Category: {category}, Horizon: {horizon}'
+            }), 500
+        
+        # Get exchange rate for currency conversion
+        exchange_rate = get_live_exchange_rate()
+        
+        # Return prediction in USD (model's native currency)
+        response = {
+            'symbol': symbol,
+            'horizon': horizon,
+            'predicted_price': result['predicted_price'],  # In USD
+            'current_price': current_price,  # In USD (normalized)
+            'confidence': result['confidence'],
+            'price_range': result.get('price_range'),
+            'time_frame_days': result.get('time_frame_days'),
+            'model_info': result.get('model_info'),
+            'data_points_used': result.get('data_points_used'),
+            'last_updated': result.get('last_updated'),
+            'currency': 'USD',  # Model currency
+            'exchange_rate': exchange_rate,  # For INR conversion
+            'original_category': category  # 'us_stocks' or 'ind_stocks'
+        }
+        
+        return jsonify(response)
         
     except Exception as e:
-        logger.error(f"Error in prediction: {str(e)}")
-        return jsonify({
-            'error': 'Prediction failed',
-            'message': str(e)
-        }), 500
+        logger.error(f"Error in prediction: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Prediction failed', 'message': str(e)}), 500
 
 
 @app.route('/api/train', methods=['POST'])

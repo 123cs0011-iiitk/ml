@@ -4,7 +4,7 @@ ML backend with 9 algorithms, automated training, RESTful API, and real-time dat
 
 ## 🎯 Core Features
 
-- **9 ML Algorithms**: Linear Regression, Random Forest, Decision Tree, KNN, SVM, ANN, CNN, ARIMA, Autoencoders with automated batch training
+- **9 ML Algorithms**: Linear Regression, Random Forest, Decision Tree, KNN, SVM, ANN, CNN, ARIMA, Autoencoders with automated training
 - **Technical Indicators**: 50+ features from OHLC data (SMA, EMA, MACD, RSI, Bollinger Bands, ATR)
 - **Multi-horizon Forecasting**: 1d/1w/1m/1y/5y predictions via Flask 2.3.3 API with CORS
 - **Real-time Data**: Finnhub (US) + Upstox (India) APIs with permanent storage fallback
@@ -29,7 +29,7 @@ curl "http://localhost:5000/api/predict?symbol=AAPL&horizon=1d"
 
 ## Training System
 
-Unified training system combining data from all 1000+ stocks with batch processing.
+Unified training system combining data from all 1000+ stocks with single-pass training.
 
 ```bash
 python status.py [--json|--simple]                          # Check model status
@@ -38,7 +38,7 @@ python backend/training/train_full_dataset.py --model <name> # Train specific mo
 python backend/training/generate_predictions.py --max-stocks 10 # Generate predictions
 ```
 
-**Process**: Data loading (1000+ stocks) → Feature engineering (50+ indicators) → Batch training (11 batches) → Validation → Save to `backend/models/{model_name}/` subdirectories with status tracking in `model_status.json`
+**Process**: Data loading (1000+ stocks) → Feature engineering (50+ indicators) → Single-pass training → Validation → Save to `backend/models/{model_name}/` subdirectories with status tracking in `model_status.json`
 
 ### Model Status (Oct 22, 2025)
 
@@ -327,7 +327,7 @@ Models configured in `backend/algorithms/optimised/<model_name>/model.py`. Examp
 
 **50+ Technical Indicators** (OHLC only): Moving Averages (SMA 5,10,20,50,200, EMA 12,26), Momentum (RSI 14, MACD 12,26,9, Price momentum 1,5,10d), Volatility (Bollinger Bands 20,2σ, ATR 14, Rolling std 5,10,20d), Price Patterns (High/Low, Open/Close ratios), Lagged (1,2,3,5,10d prices), Rolling Stats (Min/Max/Std 5,10,20d), Time features (day/month/quarter).
 
-**Training Pipeline**: Load 1000+ stocks → Generate 50+ indicators (`StockIndicators`) → Preprocess → Batch (11 batches, 913 stocks, 1M+ rows) → Validate → Save to `backend/models/`
+**Training Pipeline**: Load 1000+ stocks → Generate 50+ indicators (`StockIndicators`) → Preprocess → Train (single-pass, 913 stocks, 1M+ rows) → Validate → Save to `backend/models/`
 
 ## 🧪 Testing
 
@@ -347,7 +347,7 @@ Logs in `backend/logs/`: `app.log`, `training.log`, `prediction.log`, `error.log
 
 API: <100ms | Prediction: <1s (RF/DT) | Training: 5-180min (LR:5-10min, RF:10-15min, DT:5-10min, KNN:15-25min, SVM:20-30min, ANN:30-45min, CNN:45-75min, Autoencoder:40-60min, ARIMA:90-180min) | Memory: 2-8GB peak | Data load: 10-30s (1000+ stocks) | Model size: 1-50MB
 
-**Tips**: Batch processing, enable caching, permanent storage fallback, limit stocks for testing (`--max-stocks` flag)
+**Tips**: Enable caching, permanent storage fallback, limit stocks for testing (`--max-stocks` flag)
 
 ## 🔧 Troubleshooting
 
@@ -355,7 +355,7 @@ API: <100ms | Prediction: <1s (RF/DT) | Training: 5-180min (LR:5-10min, RF:10-15
 
 **API Keys**: Check `.env` file | Test Finnhub: `curl "https://finnhub.io/api/v1/quote?symbol=AAPL&token=YOUR_KEY"` | Test Upstox: `python backend/scripts/test_upstox_realtime.py`
 
-**Memory**: Reduce batch_size in `backend/training/train_full_dataset.py`
+**Memory**: Close other applications, ensure 16GB RAM for optimal training
 
 **Models**: Check `backend/models/` | Retrain: `python backend/training/train_full_dataset.py --model <name>`
 
