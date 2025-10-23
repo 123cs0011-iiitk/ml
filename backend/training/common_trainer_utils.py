@@ -179,6 +179,9 @@ class CommonTrainerMixin:
                     if df is None or len(df) < 50:
                         continue
                     
+                    # Add market_type feature to match training data (38 features)
+                    df['market_type'] = 0 if category == 'us_stocks' else 1
+                    
                     df_with_features = self.data_loader.create_features(df)
                     if df_with_features is None or len(df_with_features) == 0:
                         continue

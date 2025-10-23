@@ -92,10 +92,9 @@ temp/
 # Excluded Directories
 /inspirations/
 
-# Models - ignore all model directories except linear_regression
+# Models - ignore all model directories except linear_regression and decision_tree
 /backend/models/arima/
 /backend/models/autoencoder/
-/backend/models/decision_tree/
 /backend/models/knn/
 /backend/models/random_forest/
 /backend/models/svm/

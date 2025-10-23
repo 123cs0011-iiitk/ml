@@ -23,11 +23,11 @@ class DecisionTreeConfig:
     # Model is not verbose
     VERBOSE = False
     
-    # Hyperparameters
-    MAX_DEPTH = 10
+    # Hyperparameters (reverted to original un-tuned settings)
+    MAX_DEPTH = 10  # Original setting (before tuning)
     MIN_SAMPLES_SPLIT = 10
-    MIN_SAMPLES_LEAF = 5
-    MAX_FEATURES = 'sqrt'
+    MIN_SAMPLES_LEAF = 5  # Original setting
+    MAX_FEATURES = 'sqrt'  # Original setting
     RANDOM_STATE = 42
     
     @classmethod
