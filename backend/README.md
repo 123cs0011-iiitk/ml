@@ -38,25 +38,47 @@ python backend/training/train_full_dataset.py --model <name> # Train specific mo
 python backend/training/generate_predictions.py --max-stocks 10 # Generate predictions
 ```
 
-**Process**: Data loading (1000+ stocks) → Feature engineering (50+ indicators) → Batch training (11 batches) → Validation → Save to `backend/models/` with status tracking in `model_status.json`
+**Process**: Data loading (1000+ stocks) → Feature engineering (50+ indicators) → Batch training (11 batches) → Validation → Save to `backend/models/{model_name}/` subdirectories with status tracking in `model_status.json`
 
-### Model Status (Oct 21, 2025)
+### Model Status (Oct 22, 2025)
 
 Run `python status.py` for real-time status.
 
 | Model | Status | Stocks | R² | Notes |
 |-------|--------|--------|----|----|
-| Random Forest | ✅ | 913 | 0.994 | Production ready |
-| Decision Tree | ✅ | 913 | 0.850 | Production ready |
-| SVM | ⚠️ | 913 | -26.2 | Overfitting |
-| KNN | ⚠️ | 913 | -27.9 | Poor performance |
-| ANN | ❌ | 913 | -9.7M | Catastrophic failure |
-| Linear Reg | ❌ | 0 | N/A | Stuck at batch 9/11 |
-| CNN | ❌ | 0 | N/A | Stuck at batch 10/11 |
-| ARIMA | ❌ | 0 | N/A | Incomplete training |
-| Autoencoder | ❌ | 17 | -136K | Failed training |
+| Linear Regression | 🔄 | 0 | N/A | Ready for training |
+| Random Forest | 🔄 | 0 | N/A | Ready for training |
+| Decision Tree | 🔄 | 0 | N/A | Ready for training |
+| KNN | 🔄 | 0 | N/A | Ready for training |
+| SVM | 🔄 | 0 | N/A | Ready for training |
+| ANN | 🔄 | 0 | N/A | Ready for training |
+| CNN | 🔄 | 0 | N/A | Ready for training |
+| ARIMA | 🔄 | 0 | N/A | Ready for training |
+| Autoencoder | 🔄 | 0 | N/A | Ready for training |
 
-**Summary**: 2/9 working (22%), 3/9 poor (33%), 4/9 failed (44%). Only Random Forest & Decision Tree reliable.
+**Summary**: 0/9 trained, 9/9 ready for training. All models are ready for fresh training with 37 features (no volume). Models will be saved in `backend/models/{model_name}/` subdirectories.
+
+### Training Time & Storage Requirements
+
+| Model | Training Time | Model Size | Memory Peak | Notes |
+|-------|--------------|------------|-------------|-------|
+| Linear Regression | 5-10 min | ~3 MB | 2-3 GB | Fastest, uses SGD |
+| Decision Tree | 5-10 min | ~150 MB | 3-4 GB | Fast, single tree |
+| Random Forest | 10-15 min | ~9.5 GB | 6-8 GB | Largest file, ensemble |
+| KNN | 15-25 min | ~10 MB | 4-5 GB | Stores training data |
+| SVM | 20-30 min | ~10 MB | 4-6 GB | Uses subsampling |
+| Autoencoder | 40-60 min | ~1 MB (x3 files) | 4-6 GB | 3 files (.h5 + metadata) |
+| ANN | 30-45 min | ~130 KB + ~128 KB | 4-6 GB | 2 files (.pkl + .h5) |
+| CNN | 45-75 min | ~5 MB | 5-7 GB | Memory optimized |
+| ARIMA | 90-180 min | ~170 MB | 3-5 GB | Slowest, per-stock models |
+
+**Total Disk Space Required**: ~10-11 GB for all 9 models
+
+**Notes**:
+- Training times based on ~1,000 stocks with 5 years of data
+- Times may vary ±20% based on hardware (CPU, RAM speed)
+- Model sizes are for trained models on full dataset
+- Deep learning models (ANN, CNN, Autoencoder) create multiple files
 
 ## 🧮 Feature Engineering (37 Features)
 
@@ -301,7 +323,7 @@ Models configured in `backend/algorithms/optimised/<model_name>/model.py`. Examp
 
 ## 🧠 Model Architecture
 
-9 algorithms: Linear Regression (❌), Random Forest (✅ R²=0.994), Decision Tree (✅ R²=0.85), KNN (⚠️), SVM (⚠️), ANN (❌), CNN (❌), ARIMA (❌), Autoencoder (❌).
+9 algorithms: Linear Regression, Random Forest, Decision Tree, KNN, SVM, ANN, CNN, ARIMA, Autoencoder (all ready for training, 0/9 trained).
 
 **50+ Technical Indicators** (OHLC only): Moving Averages (SMA 5,10,20,50,200, EMA 12,26), Momentum (RSI 14, MACD 12,26,9, Price momentum 1,5,10d), Volatility (Bollinger Bands 20,2σ, ATR 14, Rolling std 5,10,20d), Price Patterns (High/Low, Open/Close ratios), Lagged (1,2,3,5,10d prices), Rolling Stats (Min/Max/Std 5,10,20d), Time features (day/month/quarter).
 
@@ -323,7 +345,7 @@ Logs in `backend/logs/`: `app.log`, `training.log`, `prediction.log`, `error.log
 
 ## ⚡ Performance
 
-API: <100ms | Prediction: <1s (RF/DT) | Training: 5-60min (RF:5min, ANN:60min) | Memory: 2-8GB peak | Data load: 10-30s (1000+ stocks) | Model size: 1-50MB
+API: <100ms | Prediction: <1s (RF/DT) | Training: 5-180min (LR:5-10min, RF:10-15min, DT:5-10min, KNN:15-25min, SVM:20-30min, ANN:30-45min, CNN:45-75min, Autoencoder:40-60min, ARIMA:90-180min) | Memory: 2-8GB peak | Data load: 10-30s (1000+ stocks) | Model size: 1-50MB
 
 **Tips**: Batch processing, enable caching, permanent storage fallback, limit stocks for testing (`--max-stocks` flag)
 
@@ -345,9 +367,9 @@ See [Main README](../README.md) for overview | [Documentation Hub](../documentat
 
 ## ⚠️ Important Notes
 
-- **Model Reliability**: Only Random Forest & Decision Tree reliable (2/9 models)
+- **Model Status**: All 9 models ready for training - 0/9 currently trained
 - **API Limits**: Finnhub 60 calls/min (free tier), Upstox tokens expire daily
 - **Educational Use**: For learning and research only, verify data before financial decisions
 
 ---
-**Version**: 0.1.0 | **Status**: Development (2/9 models working) | **Updated**: Oct 21, 2025
+**Version**: 0.1.0 | **Status**: Development (0/9 models trained, ready for training) | **Updated**: Oct 22, 2025

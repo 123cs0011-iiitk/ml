@@ -68,7 +68,9 @@ class PredictionGenerator:
         model_names = [specific_model] if specific_model else self.trainer.model_configs.keys()
         
         for model_name in model_names:
-            model_path = os.path.join(self.models_dir, f"{model_name}_model.pkl")
+            # Load from model-specific subdirectory
+            model_subdir = os.path.join(self.models_dir, model_name)
+            model_path = os.path.join(model_subdir, f"{model_name}_model.pkl")
             
             if not os.path.exists(model_path):
                 logger.warning(f"Model file not found: {model_path}")

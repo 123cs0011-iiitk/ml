@@ -18,7 +18,7 @@ from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import Input, Dense, Dropout, BatchNormalization
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 import joblib
@@ -34,7 +34,7 @@ class AutoencoderModel(ModelInterface):
     then applies linear regression on the encoded features for prediction.
     """
     
-    def __init__(self, encoding_dim: int = 16, hidden_layers: List[int] = [32, 16], 
+    def __init__(self, encoding_dim: int = 24, hidden_layers: List[int] = [64, 48, 32], 
                  dropout_rate: float = 0.3, **kwargs):
         """
         Initialize Autoencoder model.
@@ -82,8 +82,8 @@ class AutoencoderModel(ModelInterface):
             decoded = BatchNormalization()(decoded)
             decoded = Dropout(self.dropout_rate)(decoded)
         
-        # Output layer
-        decoded = Dense(input_dim, activation='sigmoid')(decoded)
+        # Output layer - use linear activation for regression (not sigmoid)
+        decoded = Dense(input_dim, activation='linear')(decoded)
         
         # Create models
         autoencoder = Model(inputs=input_layer, outputs=decoded)
@@ -102,8 +102,8 @@ class AutoencoderModel(ModelInterface):
         self.validate_input(X, y)
         
         try:
-            # Scale features
-            self.scaler = MinMaxScaler()
+            # Scale features using StandardScaler for better performance with regression
+            self.scaler = StandardScaler()
             X_scaled = self.scaler.fit_transform(X)
             
             # Build autoencoder
@@ -256,10 +256,12 @@ class AutoencoderModel(ModelInterface):
     
     def load(self, path: str) -> 'ModelInterface':
         """Load a previously saved model from disk."""
+        from tensorflow.keras.models import load_model
+        
         try:
             # Load autoencoder and encoder
-            self.autoencoder = Model.load_model(f"{path}_autoencoder.h5")
-            self.encoder = Model.load_model(f"{path}_encoder.h5")
+            self.autoencoder = load_model(f"{path}_autoencoder.h5")
+            self.encoder = load_model(f"{path}_encoder.h5")
             
             # Load metadata
             metadata = joblib.load(f"{path}_metadata.pkl")

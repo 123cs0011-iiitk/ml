@@ -122,6 +122,34 @@ class MemoryManager:
         
         return current_size
     
+    def adjust_batch_size_dynamically(self, current_size: int, memory_threshold: float = 0.75) -> int:
+        """
+        Dynamically adjust batch size based on current memory usage.
+        
+        Args:
+            current_size: Current batch size
+            memory_threshold: Threshold (0-1) for triggering reduction
+            
+        Returns:
+            Adjusted batch size
+        """
+        current_usage = self.get_memory_usage_percent()
+        
+        if current_usage > memory_threshold:
+            # Reduce batch size proportionally
+            reduction_factor = memory_threshold / current_usage
+            new_size = max(1, int(current_size * reduction_factor * 0.8))  # 20% buffer
+            logger.warning(f"Memory usage {current_usage:.1%} exceeds threshold {memory_threshold:.1%}")
+            logger.warning(f"Reducing batch size from {current_size} to {new_size}")
+            return new_size
+        elif current_usage < memory_threshold * 0.5 and current_size < 10000:
+            # Can increase batch size if memory is underutilized
+            new_size = min(10000, int(current_size * 1.5))
+            logger.info(f"Memory usage {current_usage:.1%} is low, increasing batch size to {new_size}")
+            return new_size
+        
+        return current_size
+    
     def should_reduce_batch_size(self) -> bool:
         """Check if batch size should be reduced due to memory pressure."""
         return self.get_memory_usage_percent() > self.max_memory_usage
@@ -296,7 +324,41 @@ class BatchProgressTracker:
         self.start_time = time.time()
         self.batch_times = []
         self.last_update_time = time.time()
-        self.update_interval = 30  # Update every 30 seconds
+        self.update_interval = 20  # Update every 20 seconds
+        self.current_stage = 'loading'  # Track current stage
+        self.us_stock_count = 0  # Track US stocks in current batch
+        self.ind_stock_count = 0  # Track Indian stocks in current batch
+        self.sample_stocks = []  # Track sample stock symbols
+    
+    def set_stage(self, stage: str):
+        """Set current processing stage."""
+        self.current_stage = stage
+    
+    def set_batch_stocks(self, stock_symbols: List[str], sample_count: int = 8):
+        """
+        Set current batch stock information.
+        
+        Args:
+            stock_symbols: List of stock symbols in format 'SYMBOL_category'
+            sample_count: Number of sample stocks to keep for display
+        """
+        self.us_stock_count = 0
+        self.ind_stock_count = 0
+        clean_symbols = []
+        
+        for symbol in stock_symbols:
+            # Parse symbol and category
+            if '_us_stocks' in symbol:
+                self.us_stock_count += 1
+                clean_symbols.append(symbol.replace('_us_stocks', ''))
+            elif '_ind_stocks' in symbol:
+                self.ind_stock_count += 1
+                clean_symbols.append(symbol.replace('_ind_stocks', ''))
+            else:
+                clean_symbols.append(symbol)
+        
+        # Keep first N symbols as samples
+        self.sample_stocks = clean_symbols[:sample_count]
     
     def update_batch_progress(self, batch_num: int, batch_size: int, 
                              stocks_in_batch: int) -> Dict[str, Any]:
@@ -317,8 +379,8 @@ class BatchProgressTracker:
         current_time = time.time()
         elapsed = current_time - self.start_time
         
-        # Calculate progress metrics
-        batch_progress = (batch_num / self.total_batches) * 100
+        # Calculate progress metrics (batch_num is 0-indexed, so add 1 for percentage)
+        batch_progress = ((batch_num + 1) / self.total_batches) * 100
         stock_progress = (self.current_stock / self.total_stocks) * 100
         
         # Calculate batch timing
@@ -350,7 +412,11 @@ class BatchProgressTracker:
             'stocks_processed': self.current_stock,
             'total_stocks': self.total_stocks,
             'elapsed_time': elapsed,
-            'estimated_remaining': estimated_remaining
+            'estimated_remaining': estimated_remaining,
+            'current_stage': self.current_stage,
+            'us_stock_count': self.us_stock_count,
+            'ind_stock_count': self.ind_stock_count,
+            'sample_stocks': self.sample_stocks
         }
     
     def _display_batch_status_update(self, batch_num: int, batch_progress: float,
@@ -419,7 +485,7 @@ def calculate_batch_metrics(batch_num: int, total_batches: int,
     Calculate metrics for a specific batch.
     
     Args:
-        batch_num: Current batch number
+        batch_num: Current batch number (0-indexed)
         total_batches: Total number of batches
         batch_size: Size of current batch
         total_samples: Total number of samples
@@ -427,8 +493,9 @@ def calculate_batch_metrics(batch_num: int, total_batches: int,
     Returns:
         Dictionary with batch metrics
     """
-    progress_percent = (batch_num / total_batches) * 100
-    samples_processed = batch_num * batch_size
+    # batch_num is 0-indexed, so add 1 for percentage calculation
+    progress_percent = ((batch_num + 1) / total_batches) * 100
+    samples_processed = (batch_num + 1) * batch_size
     remaining_samples = total_samples - samples_processed
     
     return {

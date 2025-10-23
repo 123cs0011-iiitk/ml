@@ -45,18 +45,18 @@ const HORIZON_OPTIONS = [
 ];
 
 const MODEL_OPTIONS = {
-  supervised: [
-    { key: 'ann', label: 'Artificial Neural Network' },
-    { key: 'arima', label: 'AutoRegressive Integrated Moving Average' },
-    { key: 'cnn', label: 'Convolutional Neural Network' },
+  basic: [
     { key: 'decision_tree', label: 'Decision Tree' },
-    { key: 'knn', label: 'K-Nearest Neighbors' },
     { key: 'linear_regression', label: 'Linear Regression' },
     { key: 'random_forest', label: 'Random Forest' },
     { key: 'svm', label: 'Support Vector Machine' },
   ],
-  unsupervised: [
+  advanced: [
+    { key: 'ann', label: 'Artificial Neural Network' },
+    { key: 'arima', label: 'AutoRegressive Integrated Moving Average' },
     { key: 'autoencoders', label: 'Autoencoders' },
+    { key: 'cnn', label: 'Convolutional Neural Network' },
+    { key: 'knn', label: 'K-Nearest Neighbors' },
   ]
 };
 
@@ -72,8 +72,8 @@ export function StockPrediction({
 }: StockPredictionProps) {
   const [selectedHorizon, setSelectedHorizon] = useState('5y');
   const [selectedModel, setSelectedModel] = useState<string>('knn');
-  const [showSupervised, setShowSupervised] = useState(true);
-  const [showUnsupervised, setShowUnsupervised] = useState(false);
+  const [showBasic, setShowBasic] = useState(true);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const handleHorizonChange = (horizon: string) => {
     setSelectedHorizon(horizon);
@@ -88,45 +88,7 @@ export function StockPrediction({
       onModelChange(model);
     }
   };
-  // Skip loading state for testing - always show dummy data
-  // if (loading) {
-  //   return (
-  //     <Card>
-  //       <CardHeader>
-  //         <CardTitle className="card-title-scaled card-title-with-icon flex items-center justify-between">
-  //           <div className="flex items-center gap-4">
-  //             <Brain className="card-icon-scaled" />
-  //             <span>AI Price Prediction</span>
-  //           </div>
-  //           <div className="flex gap-1">
-  //             {HORIZON_OPTIONS.map(option => (
-  //               <Button
-  //                 key={option.key}
-  //                 variant={selectedHorizon === option.key ? 'default' : 'outline'}
-  //                 size="sm"
-  //                 onClick={() => handleHorizonChange(option.key)}
-  //               >
-  //                 {option.label}
-  //               </Button>
-  //             ))}
-  //           </div>
-  //         </CardTitle>
-  //       </CardHeader>
-  //       <CardContent className="space-y-6">
-  //         <div className="space-y-2">
-  //           <Skeleton className="h-6 w-32" />
-  //           <Skeleton className="h-8 w-24" />
-  //         </div>
-  //         <Skeleton className="h-4 w-full" />
-  //         <div className="grid grid-cols-2 gap-4">
-  //           <Skeleton className="h-16 w-full" />
-  //           <Skeleton className="h-16 w-full" />
-  //         </div>
-  //       </CardContent>
-  //     </Card>
-  //   );
-  // }
-
+  
   // Use dummy data for testing - log error to console for debugging
   if (error) {
     console.warn('Prediction error (using dummy data):', error);
@@ -137,8 +99,6 @@ export function StockPrediction({
   
   // Debug logging
   console.log('StockPrediction component rendering with dummy data:', displayPrediction);
-
-  // Always show dummy data for testing
   const isPositiveChange = displayPrediction.predictedPrice > (currentPrice || 0);
   const change = (currentPrice && displayPrediction.predictedPrice) ? displayPrediction.predictedPrice - currentPrice : 0;
   const changePercent = (currentPrice && change !== 0) ? ((change / currentPrice) * 100) : 0;
@@ -159,9 +119,16 @@ export function StockPrediction({
 
   const getProgressBarColor = (confidence: number | undefined | null) => {
     if (!confidence || isNaN(confidence)) return 'bg-gray-400';
-    if (confidence >= 70) return 'bg-green-500';
-    if (confidence >= 50) return 'bg-orange-500';  // Changed from yellow to orange
+    if (confidence >= 70) return 'bg-green-600';
+    if (confidence >= 50) return 'bg-orange-500';
     return 'bg-red-500';
+  };
+
+  const getProgressBarStyle = (confidence: number | undefined | null) => {
+    if (!confidence || isNaN(confidence)) return { backgroundColor: '#9ca3af' };
+    if (confidence >= 70) return { backgroundColor: '#16a34a' }; // green-600
+    if (confidence >= 50) return { backgroundColor: '#f97316' }; // orange-500
+    return { backgroundColor: '#ef4444' }; // red-500
   };
 
   return (
@@ -234,11 +201,15 @@ export function StockPrediction({
               {displayPrediction.confidence ? displayPrediction.confidence.toFixed(1) : '0.0'}%
             </span>
           </div>
-          <Progress 
-            value={displayPrediction.confidence || 0} 
-            indicatorClassName={getProgressBarColor(displayPrediction.confidence)}
-            className="h-2" 
-          />
+          <div className="w-full bg-gray-200 rounded-full h-2" style={{ backgroundColor: '#e5e7eb' }}>
+            <div 
+              className={`h-2 rounded-full transition-all duration-300 ${getProgressBarColor(displayPrediction.confidence)}`}
+              style={{ 
+                width: `${displayPrediction.confidence || 0}%`,
+                ...getProgressBarStyle(displayPrediction.confidence)
+              }}
+            />
+          </div>
         </div>
 
         {/* Additional Metrics - Removed Price Range section */}
@@ -250,48 +221,20 @@ export function StockPrediction({
         <div className="space-y-4">
           <h3 className="text-2xl font-bold text-foreground">Models</h3>
           
-          {/* Supervised Models */}
+          {/* Basic Models */}
           <div className="space-y-2">
             <button
-              onClick={() => setShowSupervised(!showSupervised)}
+              onClick={() => setShowBasic(!showBasic)}
               className="flex items-center gap-2 text-base font-medium text-muted-foreground uppercase tracking-wide hover:text-foreground transition-colors"
             >
-              {showSupervised ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-              Supervised Models
+              {showBasic ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              Basic Models
             </button>
-            {showSupervised && (
+            {showBasic && (
               <div className="space-y-2">
-                {/* First row - 3 buttons */}
+                {/* Single row - all 4 buttons */}
                 <div className="flex flex-wrap gap-6">
-                  {MODEL_OPTIONS.supervised.slice(0, 3).map(model => (
-                    <Button
-                      key={model.key}
-                      variant={selectedModel === model.key ? 'default' : 'outline'}
-                      size="default"
-                      onClick={() => handleModelToggle(model.key)}
-                      className="text-lg model-toggle-button"
-                    >
-                      {model.label}
-                    </Button>
-                  ))}
-                </div>
-                {/* Second row - 4 buttons */}
-                <div className="flex flex-wrap gap-6">
-                  {MODEL_OPTIONS.supervised.slice(3, 7).map(model => (
-                    <Button
-                      key={model.key}
-                      variant={selectedModel === model.key ? 'default' : 'outline'}
-                      size="default"
-                      onClick={() => handleModelToggle(model.key)}
-                      className="text-lg model-toggle-button"
-                    >
-                      {model.label}
-                    </Button>
-                  ))}
-                </div>
-                {/* Third row - 3 buttons */}
-                <div className="flex flex-wrap gap-6">
-                  {MODEL_OPTIONS.supervised.slice(7).map(model => (
+                  {MODEL_OPTIONS.basic.map(model => (
                     <Button
                       key={model.key}
                       variant={selectedModel === model.key ? 'default' : 'outline'}
@@ -307,20 +250,20 @@ export function StockPrediction({
             )}
           </div>
           
-          {/* Unsupervised Models */}
+          {/* Advanced Models */}
           <div className="space-y-2 mb-12">
             <button
-              onClick={() => setShowUnsupervised(!showUnsupervised)}
+              onClick={() => setShowAdvanced(!showAdvanced)}
               className="flex items-center gap-2 text-base font-medium text-muted-foreground uppercase tracking-wide hover:text-foreground transition-colors"
             >
-              {showUnsupervised ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-              Unsupervised Models
+              {showAdvanced ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              Advanced Models
             </button>
-            {showUnsupervised && (
+            {showAdvanced && (
               <div className="space-y-2">
-                {/* First row - 4 buttons */}
+                {/* First row - 3 buttons */}
                 <div className="flex flex-wrap gap-6">
-                  {MODEL_OPTIONS.unsupervised.slice(0, 4).map(model => (
+                  {MODEL_OPTIONS.advanced.slice(0, 3).map(model => (
                     <Button
                       key={model.key}
                       variant={selectedModel === model.key ? 'default' : 'outline'}
@@ -332,23 +275,9 @@ export function StockPrediction({
                     </Button>
                   ))}
                 </div>
-                {/* Second row - 4 buttons */}
+                {/* Second row - 2 buttons */}
                 <div className="flex flex-wrap gap-6">
-                  {MODEL_OPTIONS.unsupervised.slice(4, 8).map(model => (
-                    <Button
-                      key={model.key}
-                      variant={selectedModel === model.key ? 'default' : 'outline'}
-                      size="default"
-                      onClick={() => handleModelToggle(model.key)}
-                      className="text-lg model-toggle-button"
-                    >
-                      {model.label}
-                    </Button>
-                  ))}
-                </div>
-                {/* Third row - 1 button */}
-                <div className="flex flex-wrap gap-6">
-                  {MODEL_OPTIONS.unsupervised.slice(8).map(model => (
+                  {MODEL_OPTIONS.advanced.slice(3).map(model => (
                     <Button
                       key={model.key}
                       variant={selectedModel === model.key ? 'default' : 'outline'}

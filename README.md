@@ -12,7 +12,7 @@ A comprehensive full-stack web application for real-time stock price analysis an
 
 ## 🛠️ Technology Stack
 
-**Backend**: Flask 2.3.3, Python 3.8+, TensorFlow 2.15, scikit-learn 1.3.2, statsmodels 0.14.0, pandas, numpy  
+**Backend**: Flask 2.3.3, Python 3.8+, TensorFlow 2.20, scikit-learn 1.5.2, statsmodels 0.14.4, pandas, numpy  
 **Frontend**: React 18.3.1, TypeScript, Vite 6.4.0, Tailwind CSS, Radix UI, Recharts 2.15.2  
 **APIs**: Finnhub (US stocks), Upstox (Indian stocks), yfinance (historical data)
 
@@ -58,7 +58,7 @@ npm run dev
 
 **✅ Working**: Data fetching, Historical (5yr), Search (1000+ stocks), Currency, Dashboard, 50+ indicators
 
-**ML Models** (Oct 21/2025): ✅ Random Forest (0.994), Decision Tree (0.85) | ⚠️ SVM, KNN, ANN (poor) | ❌ Linear Reg, CNN, ARIMA, Autoencoder | **Note**: Only 2/9 reliable
+**ML Models** (Oct 22/2025): 🔄 All 9 models ready for training | 0/9 trained | Models: Linear Reg, Random Forest, Decision Tree, KNN, SVM, ANN, CNN, ARIMA, Autoencoder
 
 **Docs**: [Backend API](backend/README.md) | [Documentation Hub](documentation/README.md) | [Upstox Setup](documentation/UPSTOX_INTEGRATION.md)
 

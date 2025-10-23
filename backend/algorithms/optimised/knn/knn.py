@@ -11,10 +11,13 @@ from typing import Dict, Any, Tuple, List
 import sys
 import os
 import joblib
+import logging
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 from sklearn.model_selection import cross_val_score, GridSearchCV
 from sklearn.preprocessing import StandardScaler
+
+logger = logging.getLogger(__name__)
 
 # Add parent directories to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -30,9 +33,9 @@ class KNNModel(ModelInterface):
     future stock prices. Volume is excluded from all calculations.
     """
     
-    def __init__(self, n_neighbors: int = 5, weights: str = 'uniform',
-                 algorithm: str = 'auto', metric: str = 'minkowski',
-                 p: int = 2, **kwargs):
+    def __init__(self, n_neighbors: int = 15, weights: str = 'distance',
+                 algorithm: str = 'ball_tree', metric: str = 'minkowski',
+                 p: int = 2, max_samples: int = 50000, **kwargs):
         super().__init__('K-Nearest Neighbors', **kwargs)
         self.model = None
         self.scaler = None
@@ -44,6 +47,7 @@ class KNNModel(ModelInterface):
         self.algorithm = algorithm
         self.metric = metric
         self.p = p
+        self.max_samples = max_samples  # Maximum samples to store (KNN stores all training data)
         
     def _create_technical_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """Calculate technical indicators from OHLC data (no volume)."""
@@ -91,6 +95,14 @@ class KNNModel(ModelInterface):
         
         if len(X_clean) == 0:
             raise ValueError("No valid data points after cleaning infinity and NaN values")
+        
+        # Subsample for large datasets (KNN stores all training data in memory)
+        original_size = len(X_clean)
+        if original_size > self.max_samples:
+            logger.info(f"Subsampling from {original_size:,} to {self.max_samples:,} samples for KNN efficiency")
+            indices = np.random.choice(original_size, self.max_samples, replace=False)
+            X_clean = X_clean[indices]
+            y_clean = y_clean[indices]
         
         # Initialize model
         self.model = KNeighborsRegressor(

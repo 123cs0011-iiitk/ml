@@ -40,6 +40,7 @@ class BatchStrategy(ABC):
         self.model_name = model_name
         self.memory_manager = memory_manager or MemoryManager()
         self.data_loader = DataLoader()
+        self.current_stage = 'loading'  # Track current processing stage
         
     @abstractmethod
     def train_on_stock_batch(self, model, stock_batch: List[str], 
@@ -96,16 +97,21 @@ class IncrementalStrategy(BatchStrategy):
             'samples_processed': 0,
             'batch_time': 0,
             'success': False,
-            'error': None
+            'error': None,
+            'current_stage': 'loading'
         }
         
         try:
-            # Load and combine data for stocks in this batch
+            # Load and combine data for stocks in this batch (stages tracked internally)
             X_batch, y_batch, symbols_processed = self._load_stock_batch_data(stock_batch)
             
             if len(X_batch) == 0:
                 logger.warning(f"No data loaded for batch {batch_info['batch_num']}")
                 return batch_results
+            
+            # Stage 5: Training
+            self.current_stage = 'training'
+            batch_results['current_stage'] = self.current_stage
             
             # Check if model supports incremental learning
             if hasattr(model, 'partial_fit'):
@@ -133,7 +139,8 @@ class IncrementalStrategy(BatchStrategy):
                 'stocks_processed': len(symbols_processed),
                 'samples_processed': len(X_batch),
                 'batch_time': time.time() - start_time,
-                'success': True
+                'success': True,
+                'current_stage': self.current_stage
             })
             
             logger.info(f"[SUCCESS] Incremental training completed for batch {batch_info['batch_num']}: "
@@ -146,7 +153,7 @@ class IncrementalStrategy(BatchStrategy):
         return batch_results
     
     def _load_stock_batch_data(self, stock_batch: List[str]) -> Tuple[np.ndarray, np.ndarray, List[str]]:
-        """Load and combine data for a batch of stocks."""
+        """Load and combine data for a batch of stocks with stage tracking."""
         all_X = []
         all_y = []
         symbols_processed = []
@@ -164,16 +171,19 @@ class IncrementalStrategy(BatchStrategy):
                 continue
             
             try:
-                # Load stock data from correct category only
+                # Stage 1: Loading
+                self.current_stage = 'loading'
                 df = self.data_loader.load_stock_data(symbol, category)
                 if df is None or len(df) < config.MIN_TRAINING_DAYS:
                     continue
                 
-                # Validate data quality
+                # Stage 2: Validation
+                self.current_stage = 'validation'
                 if not self.data_loader.validate_data_quality(df, symbol):
                     continue
                 
-                # Create features
+                # Stage 3: Feature Engineering
+                self.current_stage = 'feature_engineering'
                 df_with_features = self.data_loader.create_features(df)
                 if df_with_features is None or len(df_with_features) == 0:
                     continue
@@ -194,6 +204,9 @@ class IncrementalStrategy(BatchStrategy):
         
         if not all_X:
             return np.array([]), np.array([]), []
+        
+        # Stage 4: Preprocessing
+        self.current_stage = 'preprocessing'
         
         # Combine data for this batch
         X_combined = np.vstack(all_X)
@@ -861,16 +874,20 @@ def get_batch_strategy(model_name: str, config_params: Dict[str, Any] = None) ->
         config_params = {}
     
     # Model-strategy mapping
+    # - AccumulateStrategy: For models requiring all data (no partial_fit support)
+    #   Loads in batches for memory efficiency, trains once on accumulated data
+    # - KerasMiniBatchStrategy: For neural networks with true incremental learning
+    #   Processes data in mini-batches with multiple epochs
     strategy_mapping = {
-        'linear_regression': IncrementalStrategy,
-        'decision_tree': AccumulateStrategy,
-        'random_forest': AccumulateStrategy,
-        'svm': SubsampleStrategy,
-        'knn': SubsampleStrategy,
-        'ann': KerasMiniBatchStrategy,
-        'cnn': KerasMiniBatchStrategy,
-        'arima': SubsampleStrategy,
-        'autoencoder': KerasMiniBatchStrategy
+        'linear_regression': AccumulateStrategy,  # FIX: Changed from IncrementalStrategy
+        'decision_tree': AccumulateStrategy,      # Already correct
+        'random_forest': AccumulateStrategy,      # Already correct
+        'svm': AccumulateStrategy,                # FIX: Changed from SubsampleStrategy
+        'knn': AccumulateStrategy,                # FIX: Changed from SubsampleStrategy
+        'ann': KerasMiniBatchStrategy,            # Correct (supports incremental)
+        'cnn': KerasMiniBatchStrategy,            # Correct (supports incremental)
+        'arima': AccumulateStrategy,              # FIX: Changed from SubsampleStrategy
+        'autoencoder': KerasMiniBatchStrategy     # Correct (supports incremental)
     }
     
     strategy_class = strategy_mapping.get(model_name, SubsampleStrategy)

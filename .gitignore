@@ -90,10 +90,12 @@ temp/
 /inspirations/
 /backend/models/
 
-# Data directory - ignore everything except dynamic index files
+# Data directory - ignore everything except dynamic index files and past data
 /data/*
 !/data/index_us_stocks_dynamic.csv
 !/data/index_ind_stocks_dynamic.csv
+!/data/past/
+!/data/past/**
 
 # Specific files
 IMPLEMENTATION.md

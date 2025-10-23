@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 from .config import config
 from .data_loader import DataLoader
 from .prediction_saver import PredictionSaver
+from .confidence_calculator import confidence_calculator
 
 # Import all algorithms from optimised directory (with fallback handling)
 try:
@@ -126,7 +127,9 @@ class StockPredictor:
                 logger.warning(f"Model class not available: {model_name}")
                 continue
             
-            model_path = os.path.join(models_dir, f"{model_name}_model.pkl")
+            # Load from model-specific subdirectory
+            model_subdir = os.path.join(models_dir, model_name)
+            model_path = os.path.join(model_subdir, f"{model_name}_model.pkl")
             
             if os.path.exists(model_path):
                 try:
@@ -239,6 +242,9 @@ class StockPredictor:
             # Get current price for reference
             current_price = df['close'].iloc[-1]
             
+            # Get historical prices for confidence calculation
+            historical_prices = df['close'].values
+            
             # Get currency
             currency = 'USD' if category == 'us_stocks' else 'INR'
             
@@ -287,10 +293,19 @@ class StockPredictor:
                 model_predictions, ensemble_prediction
             )
             
+            # Calculate confidence score (0-100)
+            ensemble_confidence = confidence_calculator.calculate_ensemble_confidence(
+                model_accuracies=model_accuracies,
+                model_predictions=model_predictions,
+                historical_prices=historical_prices,
+                time_horizon_days=horizon_days
+            )
+            
             # Create prediction dictionary
             prediction_dict = self.prediction_saver.create_prediction_dict(
                 horizon=horizon,
                 predicted_price=ensemble_prediction,
+                confidence=ensemble_confidence,
                 confidence_low=confidence_low,
                 confidence_high=confidence_high,
                 algorithm_used='|'.join(model_predictions.keys()),
@@ -303,9 +318,18 @@ class StockPredictor:
             
             # Store individual model predictions for analysis
             for model_name, pred in model_predictions.items():
+                # Calculate confidence for single model
+                single_model_confidence = confidence_calculator.calculate_single_model_confidence(
+                    model_accuracy=model_accuracies[model_name],
+                    historical_prices=historical_prices,
+                    time_horizon_days=horizon_days,
+                    model_name=model_name
+                )
+                
                 individual_pred = self.prediction_saver.create_prediction_dict(
                     horizon=horizon,
                     predicted_price=pred,
+                    confidence=single_model_confidence,
                     confidence_low=pred * 0.95,  # 5% range
                     confidence_high=pred * 1.05,
                     algorithm_used=model_name,

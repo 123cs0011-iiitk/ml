@@ -297,6 +297,9 @@ class DataLoader:
                     df[f'close_max_{window}'] = df['close'].rolling(window=window).max()
             
             # Time-based features
+            # Ensure date column is datetime type before using .dt accessor
+            # Convert to timezone-naive datetime (remove timezone info)
+            df['date'] = pd.to_datetime(df['date'], utc=True).dt.tz_localize(None)
             df['day_of_week'] = df['date'].dt.dayofweek
             df['month'] = df['date'].dt.month
             df['quarter'] = df['date'].dt.quarter
@@ -413,8 +416,13 @@ class DataLoader:
             # Create feature matrix
             X = df[numeric_columns].values
             
-            # Create target vector (shifted for next-day prediction)
-            y = df[target_column].shift(-1).values
+            # Create target vector as PERCENTAGE CHANGE (not raw price)
+            # This normalizes across different price ranges and is standard in finance
+            current_price = df[target_column].values
+            next_price = df[target_column].shift(-1).values
+            
+            # Calculate percentage change: (next_price - current_price) / current_price * 100
+            y = ((next_price - current_price) / current_price) * 100
             
             # Remove last row (no target for prediction)
             X = X[:-1]
@@ -422,9 +430,10 @@ class DataLoader:
             
             # Handle infinity and NaN values
             X = np.nan_to_num(X, nan=0.0, posinf=1e6, neginf=-1e6)
-            y = np.nan_to_num(y, nan=np.nanmean(y) if not np.isnan(np.nanmean(y)) else 0.0, 
-                             posinf=np.nanmax(y) if not np.isnan(np.nanmax(y)) else 1e6, 
-                             neginf=np.nanmin(y) if not np.isnan(np.nanmin(y)) else -1e6)
+            # For percentage change, typical range is -10% to +10% per day
+            # Clip extreme values to -50% to +50% (rare but possible)
+            y = np.clip(y, -50, 50)
+            y = np.nan_to_num(y, nan=0.0, posinf=50.0, neginf=-50.0)
             
             # Remove any rows with NaN values
             valid_mask = ~(np.isnan(X).any(axis=1) | np.isnan(y))
