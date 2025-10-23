@@ -109,10 +109,6 @@ class DecisionTreeModel(ModelInterface):
             random_state=self.random_state
         )
         
-        # Optional: Scale features (Decision Trees are usually robust to scaling)
-        self.scaler = StandardScaler()
-        X_scaled = self.scaler.fit_transform(X_clean)
-        
         # Train model with progress updates
         print(f"[TRAINING] Starting decision tree training on {len(X_clean)} samples...")
         print(f"[TRAINING] Features: {X_clean.shape[1]}, Samples: {X_clean.shape[0]:,}")
@@ -121,12 +117,12 @@ class DecisionTreeModel(ModelInterface):
         # Train the model
         import time
         start_time = time.time()
-        self.model.fit(X_scaled, y_clean)
+        self.model.fit(X_clean, y_clean)
         training_time = time.time() - start_time
         print(f"[COMPLETED] Decision tree training completed in {training_time:.1f} seconds")
         
         # Calculate training metrics
-        y_pred = self.model.predict(X_scaled)
+        y_pred = self.model.predict(X_clean)
         mse = mean_squared_error(y_clean, y_pred)
         rmse = np.sqrt(mse)
         r2 = r2_score(y_clean, y_pred)
@@ -162,11 +158,8 @@ class DecisionTreeModel(ModelInterface):
         # Clean data
         X_clean = self._clean_data(X)
         
-        # Scale features
-        X_scaled = self.scaler.transform(X_clean)
-        
         # Make predictions
-        predictions = self.model.predict(X_scaled)
+        predictions = self.model.predict(X_clean)
         
         return predictions
     
@@ -239,7 +232,6 @@ class DecisionTreeModel(ModelInterface):
         
         joblib.dump({
             'model': self.model,
-            'scaler': self.scaler,
             'metrics': self.training_metrics,
             'params': self.model_params,
             'feature_columns': self.feature_columns,
@@ -258,7 +250,6 @@ class DecisionTreeModel(ModelInterface):
         """
         data = joblib.load(path)
         self.model = data['model']
-        self.scaler = data['scaler']
         self.training_metrics = data['metrics']
         self.model_params = data['params']
         self.feature_columns = data.get('feature_columns')
@@ -295,22 +286,20 @@ class DecisionTreeModel(ModelInterface):
         # Grid search
         grid_search = GridSearchCV(
             base_model, param_grid, cv=cv, scoring='neg_mean_squared_error',
-            n_jobs=-1, verbose=0
+            n_jobs=-1, verbose=2  # Verbose output to show progress
         )
         
-        # Clean and scale features
+        # Clean features
         X_clean = self._clean_data(X)
-        self.scaler = StandardScaler()
-        X_scaled = self.scaler.fit_transform(X_clean)
         
         # Fit grid search
-        grid_search.fit(X_scaled, y)
+        grid_search.fit(X_clean, y)
         
         # Update model with best parameters
         self.model = grid_search.best_estimator_
         
         # Calculate metrics
-        y_pred = self.model.predict(X_scaled)
+        y_pred = self.model.predict(X_clean)
         mse = mean_squared_error(y, y_pred)
         rmse = np.sqrt(mse)
         r2 = r2_score(y, y_pred)

@@ -99,6 +99,11 @@ class DecisionTreeTrainer(CommonTrainerMixin):
             model = self.train_model(X, y, display_manager)
             training_duration = time.time() - training_start
             
+            # Show Training R² (memorization score)
+            train_metrics = model.get_training_metrics()
+            train_r2 = train_metrics.get('r2_score', 0)
+            print(f"\n--- [METRIC] Training R² (Memorization Score): {train_r2:.4f} ---")
+            
             model_path = self.save_model(model)
             
             print(f"\nRunning validation...")
