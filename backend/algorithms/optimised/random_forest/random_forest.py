@@ -36,7 +36,6 @@ class RandomForestModel(ModelInterface):
                  warm_start: bool = False, **kwargs):
         super().__init__('Random Forest', **kwargs)
         self.model = None
-        self.scaler = None
         self.feature_columns = None
         self.feature_importance_ = None
         
@@ -79,15 +78,11 @@ class RandomForestModel(ModelInterface):
             warm_start=self.warm_start
         )
         
-        # Optional: Scale features (Random Forest is usually robust to scaling)
-        self.scaler = StandardScaler()
-        X_scaled = self.scaler.fit_transform(X)
-        
-        # Train model
-        self.model.fit(X_scaled, y)
+        # Train model (Random Forest does not require feature scaling)
+        self.model.fit(X, y)
         
         # Calculate training metrics
-        y_pred = self.model.predict(X_scaled)
+        y_pred = self.model.predict(X)
         mse = mean_squared_error(y, y_pred)
         rmse = np.sqrt(mse)
         r2 = r2_score(y, y_pred)
@@ -121,11 +116,8 @@ class RandomForestModel(ModelInterface):
         
         self.validate_input(X)
         
-        # Scale features
-        X_scaled = self.scaler.transform(X)
-        
         # Make predictions
-        predictions = self.model.predict(X_scaled)
+        predictions = self.model.predict(X)
         
         return predictions
     
@@ -149,14 +141,8 @@ class RandomForestModel(ModelInterface):
         
         self.validate_input(X, y)
         
-        # Scale features (fit scaler on first batch, transform on subsequent)
-        if not hasattr(self.scaler, 'mean_'):
-            X_scaled = self.scaler.fit_transform(X)
-        else:
-            X_scaled = self.scaler.transform(X)
-        
         # Incrementally train model using warm_start
-        self.model.fit(X_scaled, y)
+        self.model.fit(X, y)
         
         # Update training status
         self.is_trained = True
@@ -178,11 +164,8 @@ class RandomForestModel(ModelInterface):
         
         self.validate_input(X)
         
-        # Scale features
-        X_scaled = self.scaler.transform(X)
-        
         # Get predictions from individual trees
-        tree_predictions = np.array([tree.predict(X_scaled) for tree in self.model.estimators_])
+        tree_predictions = np.array([tree.predict(X) for tree in self.model.estimators_])
         
         # Mean prediction
         predictions = np.mean(tree_predictions, axis=0)
@@ -237,7 +220,6 @@ class RandomForestModel(ModelInterface):
         
         joblib.dump({
             'model': self.model,
-            'scaler': self.scaler,
             'metrics': self.training_metrics,
             'params': self.model_params,
             'feature_columns': self.feature_columns,
@@ -256,7 +238,6 @@ class RandomForestModel(ModelInterface):
         """
         data = joblib.load(path)
         self.model = data['model']
-        self.scaler = data['scaler']
         self.training_metrics = data['metrics']
         self.model_params = data['params']
         self.feature_columns = data.get('feature_columns')
@@ -297,18 +278,14 @@ class RandomForestModel(ModelInterface):
             n_jobs=-1, verbose=0
         )
         
-        # Scale features
-        self.scaler = StandardScaler()
-        X_scaled = self.scaler.fit_transform(X)
-        
         # Fit grid search
-        grid_search.fit(X_scaled, y)
+        grid_search.fit(X, y)
         
         # Update model with best parameters
         self.model = grid_search.best_estimator_
         
         # Calculate metrics
-        y_pred = self.model.predict(X_scaled)
+        y_pred = self.model.predict(X)
         mse = mean_squared_error(y, y_pred)
         rmse = np.sqrt(mse)
         r2 = r2_score(y, y_pred)
