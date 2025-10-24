@@ -337,21 +337,27 @@ def predict_stock_price():
         
         # Accept current_price from frontend (if provided) to avoid duplicate fetching
         current_price_param = request.args.get('current_price')
+        data_source = 'live_api'  # Track data source for sync validation
+        data_date = None  # Track data date when using stored data
         
         if current_price_param:
             # Use live price passed from frontend
             current_price = float(current_price_param)
+            data_source = 'live_api'
             logger.info(f"Using live price from frontend for {symbol}: ${current_price:.2f}")
         else:
-            # Fallback: Fetch from latest stored data
+            # Fallback: Fetch from stored data (data/past → permanent fallback)
             from prediction.data_loader import DataLoader
             data_loader = DataLoader()
             df = data_loader.load_stock_data(symbol, category)
             if df is None or len(df) == 0:
-                return jsonify({'error': 'Could not load stock data'}), 500
+                return jsonify({'error': 'Could not load stock data for prediction'}), 500
             
             current_price = float(df['close'].iloc[-1])
-            logger.info(f"Using latest stored price for {symbol}: ${current_price:.2f} (fallback)")
+            data_date = str(df['date'].iloc[-1]) if 'date' in df.columns else None
+            # Note: data_loader logs whether it used 'past' or 'permanent' directory
+            data_source = 'stored_data'  # Could be from data/past or permanent (fallback)
+            logger.info(f"Using stored price for {symbol}: ${current_price:.2f} from {data_date}")
         
         # Generate prediction using selected model only (not ensemble)
         if model_name == 'ensemble':
@@ -394,7 +400,9 @@ def predict_stock_price():
             'last_updated': result.get('last_updated'),
             'currency': 'USD',  # Model currency
             'exchange_rate': exchange_rate,  # For INR conversion
-            'original_category': category  # 'us_stocks' or 'ind_stocks'
+            'original_category': category,  # 'us_stocks' or 'ind_stocks'
+            'data_source': data_source,  # 'live_api' or 'stored_data'
+            'data_date': data_date  # Date of stored data (None for live_api)
         }
         
         return jsonify(response)
@@ -652,6 +660,25 @@ def get_historical_data():
                 logger.info(f"Loaded {len(df_latest)} records from latest data")
             except Exception as e:
                 logger.warning(f"Could not read latest data for {symbol}: {e}")
+        
+        # If no data found in data/past or data/latest, try permanent directory as fallback
+        if not historical_data:
+            logger.info(f"Trying permanent directory for {symbol}")
+            permanent_file = os.path.join(config.permanent_dir, category, 'individual_files', f'{symbol}.csv')
+            
+            if os.path.exists(permanent_file):
+                try:
+                    import pandas as pd
+                    df_perm = pd.read_csv(permanent_file)
+                    # Handle date parsing for permanent data
+                    try:
+                        df_perm['date'] = pd.to_datetime(df_perm['date'], utc=True).dt.tz_localize(None).dt.date
+                    except:
+                        df_perm['date'] = pd.to_datetime(df_perm['date']).dt.date
+                    historical_data.append(df_perm)
+                    logger.info(f"✅ Loaded {len(df_perm)} records from permanent directory (offline mode)")
+                except Exception as e:
+                    logger.warning(f"Could not read permanent data for {symbol}: {e}")
         
         if not historical_data:
             return jsonify({

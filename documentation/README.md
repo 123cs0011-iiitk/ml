@@ -4,11 +4,23 @@ Navigation for Stock Price Prediction System documentation.
 
 ## 📚 Available Guides
 
+### Core Documentation
 - **[Main README](../README.md)** - Project overview, quick start, system status
 - **[Backend API](../backend/README.md)** - API endpoints, training system, configuration
+- **[Offline Mode](OFFLINE_MODE.md)** - Running without API keys using permanent directory
+
+### API Integration
 - **[Upstox Integration](UPSTOX_INTEGRATION.md)** - Indian stock market API setup
+- **[Quick Auth Guide](QUICK_AUTH_GUIDE.md)** - Daily Upstox authentication (30 seconds)
 - **[Currency Conversion](CURRENCY_CONVERSION.md)** - USD/INR conversion implementation
+
+### Training & Development
 - **[Model Training](MODEL_TRAINING.md)** - ML training system documentation
+- **[Training Guide](TRAINING_GUIDE.md)** - Step-by-step training instructions
+- **[Pre-Flight Checklist](PRE_FLIGHT_CHECKLIST.md)** - Ready-to-train verification
+
+### Technical References
+- **[Sync Fixes Summary](SYNC_FIXES_SUMMARY.md)** - Import and data format fixes
 
 ## 🔍 Quick Commands
 
@@ -44,13 +56,23 @@ python backend/scripts/verify_indian_isins.py --count 25
 **US Stocks**: 501 stocks use ticker symbols only (NO ISINs)
 - Finnhub API doesn't require ISINs
 
-## 🤖 Model Training Status (Oct 23, 2025)
+## 🤖 Model Training Status (Oct 24, 2025)
 
-**Progress**: 2/7 models trained
-- ✅ Linear Regression (R²=-0.002 - needs investigation)
-- ✅ Decision Tree (R²=0.001 - needs investigation)
-- 🔄 Random Forest (next to train - expected R²>0.90)
-- ⏳ SVM, KNN, ARIMA, Autoencoder (pending)
+**Progress**: 4/7 models trained
+- ✅ Linear Regression (R²=-0.002)
+- ✅ Decision Tree (R²=0.001)
+- ✅ Random Forest (R²=0.024) - Best performer
+- ✅ SVM (R²=-0.0055) - Working via UI
+- ⏳ **KNN** - Next to train
+- ⏳ ARIMA - Pending
+- ⏳ Autoencoder - Pending
+
+## 🆕 Recent Updates (Oct 24, 2025)
+
+- ✅ **Offline Mode**: System works without API keys using permanent directory
+- ✅ **Card Synchronization**: Info and prediction cards always use same data source
+- ✅ **Visual Indicators**: Amber warnings show when using offline data
+- ✅ **SVM Integration**: Fixed predictor to allow explicit model selection
 
 **Architecture**: Standalone trainers in `backend/training/basic_models/` and `advanced_models/`
 

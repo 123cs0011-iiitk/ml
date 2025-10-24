@@ -14,7 +14,6 @@ import joblib
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 from sklearn.model_selection import GridSearchCV
-from sklearn.preprocessing import StandardScaler
 
 # Add parent directories to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -35,7 +34,6 @@ class DecisionTreeModel(ModelInterface):
                  random_state: int = 42, **kwargs):
         super().__init__('Decision Tree', **kwargs)
         self.model = None
-        self.scaler = None
         self.feature_columns = None
         self.feature_importance_ = None
         

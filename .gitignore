@@ -92,11 +92,10 @@ temp/
 # Excluded Directories
 /inspirations/
 
-# Models - ignore large model directories (linear_regression, decision_tree, and random_forest are small enough for GitHub)
+# Models - ignore large model directories (linear_regression, decision_tree, random_forest, and svm are small enough for GitHub)
 /backend/models/arima/
 /backend/models/autoencoder/
 /backend/models/knn/
-/backend/models/svm/
 
 # Data directory - ignore everything except dynamic index files and past data
 /data/*

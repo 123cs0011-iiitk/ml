@@ -80,8 +80,8 @@ class CurrentFetcher:
         """Categorize stock based on symbol suffix"""
         return categorize_stock(symbol)
     
-    def _fetch_from_finnhub(self, symbol: str) -> Tuple[float, str]:
-        """Fetch stock price from Finnhub API"""
+    def _fetch_from_finnhub(self, symbol: str) -> Tuple[float, str, None]:
+        """Fetch stock price from Finnhub API (live data, no date)"""
         if not self.finnhub_api_key:
             raise ValueError("Finnhub API key not configured")
         
@@ -103,7 +103,7 @@ class CurrentFetcher:
                     profile_data = profile_response.json()
                     company_name = profile_data.get('name', symbol)
                 
-                return float(price), company_name
+                return float(price), company_name, None  # None for live data (no historical date)
             else:
                 raise ValueError(f"No price data available for {symbol}")
                 
@@ -271,6 +271,14 @@ class CurrentFetcher:
                     price = df['Close'].iloc[-1]
                 else:
                     raise ValueError(f"Missing 'close' or 'Close' column in permanent file for {symbol}")
+                
+                # Get the date of last data point
+                if 'date' in df.columns:
+                    last_date = str(df['date'].iloc[-1])
+                elif 'Date' in df.columns:
+                    last_date = str(df['Date'].iloc[-1])
+                else:
+                    last_date = 'unknown'
             else:
                 # Fallback to csv module
                 import csv
@@ -290,9 +298,12 @@ class CurrentFetcher:
                     price = float(last_row['Close'])
                 else:
                     raise ValueError(f"Missing 'close' or 'Close' column in permanent file for {symbol}")
+                
+                # Get date from last row
+                last_date = last_row.get('date', last_row.get('Date', 'unknown'))
             
-            logger.info(f"Fetched {symbol} from permanent directory: ${price} ({company_name})")
-            return float(price), company_name
+            logger.info(f"✅ Fetched {symbol} from permanent directory (READ-ONLY fallback): ${price} from {last_date}")
+            return float(price), company_name, last_date
             
         except Exception as e:
             logger.error(f"Permanent directory error for {symbol}: {str(e)}")
@@ -347,7 +358,7 @@ class CurrentFetcher:
         for api_name, api_func in apis:
             try:
                 logger.info(f"Trying {api_name} for symbol {symbol}")
-                price, company_name = api_func(symbol)
+                price, company_name, data_date = api_func(symbol)
                 
                 # Get currency for the category
                 category = self._categorize_stock(symbol)
@@ -365,6 +376,7 @@ class CurrentFetcher:
                     'timestamp': timestamp,
                     'source': api_name,
                     'source_reliable': api_name == 'finnhub',  # Indicate if real-time
+                    'data_date': data_date,  # Date of data (None for live, date for permanent)
                     'company_name': company_name,
                     'currency': currency,
                     'sector': metadata['sector'],

@@ -33,8 +33,9 @@ class SVMModel(ModelInterface):
     future stock prices. Volume is excluded from all calculations.
     """
     
-    def __init__(self, kernel: str = 'rbf', C: float = 100.0, gamma: str = 'scale',
-                 epsilon: float = 0.01, degree: int = 3, max_samples: int = 10000, **kwargs):
+    def __init__(self, kernel: str = 'rbf', C: float = 1.0, gamma: str = 'scale',
+                 epsilon: float = 0.1, degree: int = 3, max_samples: int = 10000,
+                 max_iter: int = -1, cache_size: int = 200, verbose: bool = False, **kwargs):
         super().__init__('Support Vector Regression', **kwargs)
         self.model = None
         self.scaler = None
@@ -47,6 +48,9 @@ class SVMModel(ModelInterface):
         self.epsilon = epsilon
         self.degree = degree
         self.max_samples = max_samples  # Maximum samples for SVM (doesn't scale well beyond 10K)
+        self.max_iter = max_iter
+        self.cache_size = cache_size
+        self.verbose = verbose
         
     def _create_technical_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """Calculate technical indicators from OHLC data (no volume)."""
@@ -65,13 +69,8 @@ class SVMModel(ModelInterface):
         """
         self.validate_input(X, y)
         
-        # Subsample for large datasets (SVM doesn't scale well beyond 10K samples)
+        # Get dataset size for model selection
         original_size = len(X)
-        if original_size > self.max_samples:
-            logger.info(f"Subsampling from {original_size:,} to {self.max_samples:,} samples for SVM efficiency")
-            indices = np.random.choice(original_size, self.max_samples, replace=False)
-            X = X[indices]
-            y = y[indices]
         
         # For very large datasets, use LinearSVR which is more efficient
         if original_size > 50000:
