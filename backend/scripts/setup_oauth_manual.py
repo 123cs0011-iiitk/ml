@@ -20,9 +20,10 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from shared.upstox_token_manager import UpstoxTokenManager
 
-# Your credentials (from your .env file)
-CLIENT_ID = "73d5a375-8ec1-472b-8a7b-33d3a88ed750"
-CLIENT_SECRET = "89sgkrjdrm"
+# Your credentials - Load from cache or enter manually
+# Get these from: https://upstox.com/developer/apps
+CLIENT_ID = "your_client_id_here"  # Replace with your actual client ID
+CLIENT_SECRET = "your_client_secret_here"  # Replace with your actual client secret
 REDIRECT_URI = "http://localhost:3000"
 
 class OAuthCallbackHandler(http.server.BaseHTTPRequestHandler):

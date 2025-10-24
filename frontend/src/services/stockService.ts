@@ -42,7 +42,8 @@ export interface PredictionResult {
   dataPointsUsed?: number;
   lastUpdated?: string;
   currency?: string;
-  dataSource?: string;  // 'upstox', 'permanent', etc.
+  dataSource?: string;  // 'live_api' or 'stored_data'
+  dataDate?: string | null;  // Date of stored data (null for live_api)
   sourceReliable?: boolean;  // true if real-time, false if historical
 }
 
@@ -53,6 +54,7 @@ export interface LivePriceResponse {
   timestamp: string;
   source: string;
   source_reliable?: boolean;  // true if real-time, false if historical
+  data_date?: string | null;  // Date of data (null for live, date string for permanent fallback)
   company_name: string;
   currency: string;
   exchange_rate?: number;
@@ -515,7 +517,10 @@ export const stockService = {
         modelInfo: result.model_info,
         dataPointsUsed: result.data_points_used,
         lastUpdated: result.last_updated,
-        currency: result.currency
+        currency: result.currency,
+        dataSource: result.data_source,  // 'live_api' or 'stored_data'
+        dataDate: result.data_date,  // Date of stored data (null for live)
+        sourceReliable: result.data_source === 'live_api'  // true if live, false if stored
       };
 
       return prediction;

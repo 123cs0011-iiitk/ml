@@ -180,6 +180,16 @@ export function StockPrediction({
               </AlertDescription>
             </Alert>
 
+            {/* Data source sync indicator */}
+            {displayPrediction && !displayPrediction.sourceReliable && displayPrediction.dataDate && (
+              <div className="mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md">
+                <div className="flex items-center gap-2 text-sm text-amber-700">
+                  <Database className="h-4 w-4" />
+                  <span>Prediction based on offline data from {displayPrediction.dataDate}</span>
+                </div>
+              </div>
+            )}
+
             {/* Main Prediction */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">

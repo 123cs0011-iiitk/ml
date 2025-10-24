@@ -28,8 +28,9 @@ class SVMConfig:
     C = 1.0
     EPSILON = 0.1
     GAMMA = 'scale'
-    MAX_ITER = 1000
-    CACHE_SIZE = 500  # MB
+    MAX_ITER = 2000  # For LinearSVR
+    CACHE_SIZE = 500  # MB (ignored by LinearSVR)
+    MAX_SAMPLES = 10000  # Subsampling threshold for large datasets
     
     @classmethod
     def get_model_params(cls) -> Dict[str, Any]:
@@ -41,7 +42,8 @@ class SVMConfig:
             'gamma': cls.GAMMA,
             'max_iter': cls.MAX_ITER,
             'cache_size': cls.CACHE_SIZE,
-            'verbose': cls.VERBOSE
+            'max_samples': cls.MAX_SAMPLES,
+            'verbose': 1 if cls.VERBOSE else 0
         }
     
     @classmethod

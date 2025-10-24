@@ -169,8 +169,9 @@ class DataLoader:
             return None
     
     def _load_historical_data(self, symbol: str, category: str) -> Optional[pd.DataFrame]:
-        """Load historical data from data/past directory."""
+        """Load historical data from data/past directory with permanent fallback."""
         try:
+            # Try data/past first (updated data takes precedence)
             file_path = os.path.join(
                 self.config.PAST_DATA_DIR,
                 category,
@@ -178,9 +179,24 @@ class DataLoader:
                 f'{symbol}.csv'
             )
             
+            data_source = 'past'
+            
             if not os.path.exists(file_path):
-                logger.debug(f"Historical file not found: {file_path}")
-                return None
+                # Fallback to permanent directory for offline mode
+                logger.debug(f"Historical file not found in data/past for {symbol}, trying permanent...")
+                file_path = os.path.join(
+                    self.config.PERMANENT_DATA_DIR,
+                    category,
+                    'individual_files',
+                    f'{symbol}.csv'
+                )
+                data_source = 'permanent'
+                
+                if not os.path.exists(file_path):
+                    logger.debug(f"File not found in either data/past or permanent: {symbol}")
+                    return None
+            
+            logger.info(f"Loading {symbol} from {data_source} directory")
             
             df = pd.read_csv(file_path)
             

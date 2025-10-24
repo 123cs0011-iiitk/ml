@@ -195,8 +195,14 @@ class StockPredictor:
                 try:
                     # Get model weight
                     weight = self.config.MODEL_WEIGHTS.get(model_name, 0.0)
-                    if weight == 0:
+                    
+                    # Skip models with weight 0 ONLY in ensemble mode (no filter specified)
+                    if weight == 0 and model_filter is None:
                         continue
+                    
+                    # For explicitly requested models with weight 0, use weight 1.0
+                    if model_filter and weight == 0:
+                        weight = 1.0
                     
                     # Make prediction (returns percentage change)
                     if horizon_days == 1:

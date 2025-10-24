@@ -539,6 +539,9 @@ class IndianCurrentFetcher:
                     # Try different column name formats (Close or close)
                     close_price = latest_row.get('Close', latest_row.get('close', latest_row.get('adjusted_close')))
                     
+                    # Get the date of last data point
+                    last_date = latest_row.get('date', latest_row.get('Date', 'unknown'))
+                    
                     # Get additional metadata from index files
                     metadata = self._get_stock_metadata(symbol)
                     
@@ -549,6 +552,7 @@ class IndianCurrentFetcher:
                         'currency': self.currency,
                         'source': 'permanent',
                         'source_reliable': False,  # Historical data, not real-time
+                        'data_date': str(last_date),  # Date of last data in permanent (READ-ONLY fallback)
                         'timestamp': get_current_timestamp(),
                         'sector': metadata['sector'],
                         'market_cap': metadata['market_cap'],
@@ -629,6 +633,7 @@ class IndianCurrentFetcher:
                     'timestamp': timestamp,
                     'source': api_name,
                     'source_reliable': api_name == 'upstox',  # Indicate if real-time
+                    'data_date': None,  # None for live API data (not from permanent fallback)
                     'company_name': company_name,
                     'currency': self.currency,
                     'sector': metadata['sector'],

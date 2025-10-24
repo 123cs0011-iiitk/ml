@@ -196,22 +196,39 @@ export function StockInfo({ data, loading, error, currency, onCurrencyChange, li
             </span>
           </div>
 
-          {/* Live price indicator */}
+          {/* Data source indicator */}
           {livePriceData && (
-            <div className="space-y-1 mt-2 stock-live-data text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <Database className="stock-live-data-icon" />
-                <span>Live data from {livePriceData.source}</span>
-                <Clock className="stock-live-data-icon ml-2" />
-                <span>{new Date(livePriceData.timestamp).toLocaleTimeString()}</span>
-              </div>
-              {livePriceData.exchange_rate && (
-                <div className="flex items-center gap-2">
-                  <span>Exchange Rate: 1 USD = ₹{livePriceData.exchange_rate.toFixed(2)}</span>
-                  <span className="stock-live-data opacity-75">({livePriceData.exchange_source})</span>
+            <>
+              {/* Show warning for offline/stored data */}
+              {!livePriceData.source_reliable && livePriceData.data_date && (
+                <div className="mt-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md">
+                  <div className="flex items-center gap-2 text-sm text-amber-700">
+                    <Database className="h-4 w-4" />
+                    <span>Using offline data from {livePriceData.data_date}</span>
+                  </div>
                 </div>
               )}
-            </div>
+              
+              {/* Show live data indicator */}
+              {livePriceData.source_reliable && (
+                <div className="space-y-1 mt-2 stock-live-data text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <Database className="stock-live-data-icon" />
+                    <span>Live data from {livePriceData.source}</span>
+                    <Clock className="stock-live-data-icon ml-2" />
+                    <span>{new Date(livePriceData.timestamp).toLocaleTimeString()}</span>
+                  </div>
+                </div>
+              )}
+              
+              {/* Exchange rate (show for both live and offline) */}
+              {livePriceData.exchange_rate && (
+                <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                  <span>Exchange Rate: 1 USD = ₹{livePriceData.exchange_rate.toFixed(2)}</span>
+                  <span className="opacity-75">({livePriceData.exchange_source})</span>
+                </div>
+              )}
+            </>
           )}
         </div>
 

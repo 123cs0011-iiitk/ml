@@ -99,6 +99,7 @@ class PredictionConfig:
         self.PAST_DATA_DIR = os.path.join(self.DATA_DIR, 'past')  # Used for TRAINING (5 years historical)
         self.LATEST_DATA_DIR = os.path.join(self.DATA_DIR, 'latest')  # Not used for training; for live predictions
         self.FUTURE_DATA_DIR = os.path.join(self.DATA_DIR, 'future')  # Output predictions
+        self.PERMANENT_DATA_DIR = os.path.join(self.BASE_DIR, 'permanent')  # Fallback data for offline mode
         
         # Index files
         self.US_INDEX_FILE = os.path.join(self.DATA_DIR, 'index_us_stocks_dynamic.csv')
