@@ -187,9 +187,16 @@ class ConfidenceCalculator:
             else:
                 accuracy = model_accuracies if model_accuracies else 0.5
             
-            # Apply complexity multiplier
-            multiplier = self.MODEL_COMPLEXITY_MULTIPLIERS.get(model_name, 1.0)
-            score = (accuracy * 100) * multiplier
+            # CRITICAL FIX: Handle negative R² scores (model worse than baseline)
+            # Negative R² means the model performs worse than just predicting the mean
+            if accuracy < 0:
+                # Map negative R² to very low confidence (0-10%)
+                # R² of -1.0 → 0%, R² of 0.0 → 10%
+                score = max(0.0, 10.0 * (1.0 + accuracy))
+            else:
+                # Apply complexity multiplier for positive R² scores
+                multiplier = self.MODEL_COMPLEXITY_MULTIPLIERS.get(model_name, 1.0)
+                score = (accuracy * 100) * multiplier
             
             return max(0.0, min(100.0, score))
         
@@ -197,12 +204,19 @@ class ConfidenceCalculator:
         if not model_accuracies:
             return 50.0
         
-        # Apply multipliers to individual model R² scores before averaging
-        weighted_accuracies = [
-            accuracy * self.MODEL_COMPLEXITY_MULTIPLIERS.get(name, 1.0)
-            for name, accuracy in model_accuracies.items()
-        ]
-        avg_accuracy = np.mean(weighted_accuracies)
+        # Process each model's R² score, handling negative values
+        processed_accuracies = []
+        for name, accuracy in model_accuracies.items():
+            if accuracy < 0:
+                # Negative R² scores get mapped to 0-0.1 range (0-10% contribution)
+                processed_accuracy = max(0.0, 0.1 * (1.0 + accuracy))
+            else:
+                # Positive R² scores get complexity multiplier
+                multiplier = self.MODEL_COMPLEXITY_MULTIPLIERS.get(name, 1.0)
+                processed_accuracy = accuracy * multiplier
+            processed_accuracies.append(processed_accuracy)
+        
+        avg_accuracy = np.mean(processed_accuracies)
         
         # Convert to 0-100 scale
         score = avg_accuracy * 100
