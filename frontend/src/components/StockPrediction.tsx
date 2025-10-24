@@ -41,7 +41,7 @@ const MODEL_OPTIONS = {
   ],
   advanced: [
     { key: 'arima', label: 'AutoRegressive Integrated Moving Average' },
-    { key: 'autoencoders', label: 'Autoencoders' },
+    { key: 'autoencoder', label: 'Autoencoder' },
     { key: 'knn', label: 'K-Nearest Neighbors' },
   ]
 };
