@@ -69,8 +69,18 @@ class AutoencoderTrainer(CommonTrainerMixin):
         model_path = os.path.join(model_subdir, f"{self.config.MODEL_NAME}_model.pkl")
         model.save(model_path)
         
-        file_size_mb = os.path.getsize(model_path) / (1024 * 1024)
-        logger.info(f"Model saved to {model_path} ({file_size_mb:.2f} MB)")
+        # --- FIX: Calculate total size of all 3 files ---
+        try:
+            total_size = 0
+            total_size += os.path.getsize(f"{model_path}_autoencoder.h5")
+            total_size += os.path.getsize(f"{model_path}_encoder.h5")
+            total_size += os.path.getsize(f"{model_path}_metadata.pkl")
+            file_size_mb = total_size / (1024 * 1024)
+            logger.info(f"Model saved to {model_path} (3 files, {file_size_mb:.2f} MB total)")
+        except FileNotFoundError:
+            logger.warning(f"Could not calculate total size for {model_path}. Main metadata file not found.")
+            file_size_mb = 0
+        # --- END FIX ---
         
         return model_path
     
@@ -105,6 +115,11 @@ class AutoencoderTrainer(CommonTrainerMixin):
             training_duration = time.time() - training_start
             
             model_path = self.save_model(model)
+            file_size_mb = sum([
+                os.path.getsize(f"{model_path}_autoencoder.h5"),
+                os.path.getsize(f"{model_path}_encoder.h5"),
+                os.path.getsize(f"{model_path}_metadata.pkl")
+            ]) / (1024 * 1024)
             
             print(f"\nRunning validation...")
             validation_metrics = self.validate_model_generic(model, self.config.MODEL_DISPLAY_NAME, self.validation_stocks)
@@ -113,7 +128,7 @@ class AutoencoderTrainer(CommonTrainerMixin):
                 'model_name': self.config.MODEL_DISPLAY_NAME,
                 'file_type': '.pkl',
                 'model_path': model_path,
-                'file_size_mb': os.path.getsize(model_path) / (1024 * 1024),
+                'file_size_mb': file_size_mb,
                 'stocks_processed': len(stock_symbols),
                 'total_samples': len(X),
                 'total_time': training_duration,

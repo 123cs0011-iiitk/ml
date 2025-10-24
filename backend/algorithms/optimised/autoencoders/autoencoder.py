@@ -187,7 +187,8 @@ class AutoencoderModel(ModelInterface):
             # Make predictions
             predictions = self.regressor.predict(encoded_features)
             
-            return predictions
+            # Convert numpy float32 to Python float for JSON serialization
+            return predictions.astype(float)
             
         except Exception as e:
             logger.error(f"Error making predictions: {str(e)}")
@@ -259,9 +260,9 @@ class AutoencoderModel(ModelInterface):
         from tensorflow.keras.models import load_model
         
         try:
-            # Load autoencoder and encoder
-            self.autoencoder = load_model(f"{path}_autoencoder.h5")
-            self.encoder = load_model(f"{path}_encoder.h5")
+            # Load autoencoder and encoder (compile=False to avoid metric deserialization issues)
+            self.autoencoder = load_model(f"{path}_autoencoder.h5", compile=False)
+            self.encoder = load_model(f"{path}_encoder.h5", compile=False)
             
             # Load metadata
             metadata = joblib.load(f"{path}_metadata.pkl")

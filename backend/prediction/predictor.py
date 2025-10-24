@@ -108,7 +108,14 @@ class StockPredictor:
             model_subdir = os.path.join(models_dir, model_name)
             model_path = os.path.join(model_subdir, f"{model_name}_model.pkl")
             
-            if os.path.exists(model_path):
+            # Special handling for autoencoder (3-file structure)
+            if model_name == 'autoencoder':
+                # Check for metadata file instead of base .pkl file
+                check_path = f"{model_path}_metadata.pkl"
+            else:
+                check_path = model_path
+            
+            if os.path.exists(check_path):
                 try:
                     # Load pre-trained model
                     model = model_class().load(model_path)
@@ -117,7 +124,7 @@ class StockPredictor:
                 except Exception as e:
                     logger.error(f"Error loading {model_name}: {e}")
             else:
-                logger.warning(f"Pre-trained model not found: {model_path}")
+                logger.warning(f"Pre-trained model not found: {check_path}")
         
         logger.info(f"Loaded {len(models)} pre-trained models: {list(models.keys())}")
         return models
@@ -227,7 +234,7 @@ class StockPredictor:
                     logger.info(f"  {model_name}: {predicted_price:.2f} ({prediction_pct:+.2f}%)")
                     
                 except Exception as e:
-                    logger.warning(f"  {model_name} prediction failed: {e}")
+                    logger.error(f"  {model_name} prediction failed: {e}", exc_info=True)
                     continue
             
             if not model_predictions:
