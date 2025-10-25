@@ -104,6 +104,16 @@ class StockPredictor:
                 logger.warning(f"Model class not available: {model_name}")
                 continue
             
+            # Special handling for ARIMA (per-stock specialist models)
+            if model_name == 'arima':
+                model_subdir = os.path.join(models_dir, model_name)
+                if os.path.isdir(model_subdir):
+                    models[model_name] = model_class  # Register class, not instance
+                    logger.info(f"Registered {model_name} (per-stock specialist model)")
+                else:
+                    logger.warning(f"ARIMA model directory not found: {model_subdir}")
+                continue  # Skip normal loading for ARIMA
+            
             # Load from model-specific subdirectory
             model_subdir = os.path.join(models_dir, model_name)
             model_path = os.path.join(model_subdir, f"{model_name}_model.pkl")
@@ -198,7 +208,7 @@ class StockPredictor:
             
             # Collect predictions from each model
             model_predictions = []
-            for model_name, model in models_to_use.items():
+            for model_name, model_or_class in models_to_use.items():
                 try:
                     # Get model weight
                     weight = self.config.MODEL_WEIGHTS.get(model_name, 0.0)
@@ -211,18 +221,49 @@ class StockPredictor:
                     if model_filter and weight == 0:
                         weight = 1.0
                     
-                    # Make prediction (returns percentage change)
-                    if horizon_days == 1:
-                        # Direct next-day prediction
-                        prediction_pct = model.predict(X[-1:].reshape(1, -1))[0]
-                    else:
-                        # Extrapolate for longer horizons
-                        prediction_pct = self._extrapolate_prediction(
-                            model, X, y, horizon_days, current_price
-                        )
+                    # Special handling for ARIMA (per-stock specialist models)
+                    if model_name == 'arima':
+                        logger.info(f"--- Processing ARIMA specialist model for {symbol} ---")
+                        models_dir = os.path.join(os.path.dirname(__file__), '..', 'models')
+                        model_path = os.path.join(models_dir, 'arima', f"{symbol}_model.pkl")
+                        
+                        if not os.path.exists(model_path):
+                            logger.warning(f"ARIMA model for {symbol} not found at {model_path}. Skipping.")
+                            continue
+                        
+                        # Load the specialist model for this stock
+                        model = model_or_class().load(model_path)
+                        logger.info(f"Loaded ARIMA specialist model for {symbol}")
+                        
+                        # Update models_to_use so confidence calculation can access training_metrics
+                        models_to_use[model_name] = model
+                        
+                        # ARIMA predict_with_confidence() returns (predictions, lower_bounds, upper_bounds)
+                        # Each is an array of forecasts for 'steps' days ahead
+                        forecast_result = model.predict_with_confidence(X, steps=horizon_days)
+                        
+                        # Get the final prediction for the requested horizon (last day in forecast)
+                        predicted_price = forecast_result[0][-1]
+                        prediction_pct = (predicted_price - current_price) / current_price * 100
+                        
+                        logger.info(f"ARIMA prediction for {symbol}: ${predicted_price:.2f} ({prediction_pct:+.2f}%)")
                     
-                    # Convert percentage to price
-                    predicted_price = current_price * (1 + prediction_pct / 100)
+                    else:
+                        # Original logic for all other models (they're already loaded instances)
+                        model = model_or_class  # Use the pre-loaded model instance
+                        
+                        # Make prediction (returns percentage change)
+                        if horizon_days == 1:
+                            # Direct next-day prediction
+                            prediction_pct = model.predict(X[-1:].reshape(1, -1))[0]
+                        else:
+                            # Extrapolate for longer horizons
+                            prediction_pct = self._extrapolate_prediction(
+                                model, X, y, horizon_days, current_price
+                            )
+                        
+                        # Convert percentage to price
+                        predicted_price = current_price * (1 + prediction_pct / 100)
                     
                     model_predictions.append({
                         'model': model_name,
