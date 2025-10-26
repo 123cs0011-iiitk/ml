@@ -7,10 +7,16 @@ A comprehensive full-stack web application for real-time stock price analysis an
 - **7 ML Algorithms**: Linear Regression, Decision Tree, Random Forest, SVM (basic models) + KNN, ARIMA, Autoencoder (advanced models)
 - **Real-time Data**: US stocks via Finnhub API, Indian stocks via Upstox API with permanent storage fallback
 - **Modern Dashboard**: React 18 + TypeScript + Tailwind CSS with interactive Recharts for 5-year historical analysis
-- **1000+ Stocks**: 501 US + 500 Indian stocks with OHLC data and 38 technical indicators
+- **1000+ Stocks**: 1,001 total stocks available (501 US + 500 Indian), 936 used for training after filtering insufficient data
 - **Currency Support**: Real-time USD/INR conversion via forex-python
 - **Smart Training**: Percentage-based predictions with proper price conversion and confidence scoring
 - **Standalone Trainers**: Independent training scripts for each model with progress tracking
+
+## 💱 Currency Conversion
+
+Automatic USD/INR conversion for all stocks:
+- **Sources**: Live forex APIs → Cached rates → Static rate (83.5 USD/INR)
+- **Display**: Original currency + converted price shown for all stocks
 
 ## 🛠️ Technology Stack
 
@@ -18,155 +24,214 @@ A comprehensive full-stack web application for real-time stock price analysis an
 **Frontend**: React 18.3.1, TypeScript, Vite 6.4.0, Tailwind CSS, Radix UI, Recharts 2.15.2  
 **APIs**: Finnhub (US stocks), Upstox (Indian stocks), yfinance (historical data)
 
-## 📋 Data Structure
+## 🚀 Offline Mode First
 
-**Indian Stocks** (500): Include ISIN codes (12-char format: INExxxxxxxx) required for Upstox API
-- ✅ **100% Verified**: All 500 ISINs tested and validated with live Upstox data
-- Format: 12 characters starting with "INE" (e.g., INE009A01021 for Infosys)
-- Location: `permanent/ind_stocks/`
-
-**US Stocks** (501): Use ticker symbols only - **NO ISINs**
-- Identified by exchange (NYSE/NASDAQ) and ticker symbol only
-- ISINs not required for Finnhub API
-- Location: `permanent/us_stocks/`
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Python 3.8+, Node.js 16+, Git
-
-### Setup
-```bash
-# Clone and setup backend
-cd backend
-python -m venv venv
-venv\Scripts\activate  # Windows
-pip install -r requirements.txt
-python main.py
-
-# Setup frontend (new terminal)
-cd frontend
-npm install
-npm run dev
-```
-
-### Access
-- **Frontend**: http://localhost:5173
-- **Backend API**: http://localhost:5000
-
-## 🔌 Offline Mode (No API Keys Required)
-
-The system works **completely offline** without any API keys using the permanent directory fallback.
-
-### How It Works
-The system uses a three-tier data loading strategy:
-1. **Primary**: `data/past/` (updated historical data, if available)
-2. **Fallback**: `permanent/` (pre-loaded 1001 stocks with 5-year history 2020-2024)
-3. **Graceful degradation**: Clear error messages if no data available
+**The system works completely offline without any API keys!** This is the recommended way to get started.
 
 ### What Works Offline
-- ✅ **Stock Info Cards**: 500 Indian + 501 US stocks from permanent directory
+- ✅ **Stock Information**: 500 Indian + 501 US stocks (1,001 total) from permanent directory
 - ✅ **Historical Charts**: Complete 5-year OHLCV data (2020-2024)
-- ✅ **ML Predictions**: All trained models work with permanent data
-- ✅ **Search**: Full-text search across 1001 stocks
+- ✅ **ML Predictions**: All trained models work with offline data (trained on 936 stocks with sufficient data)
+- ✅ **Search**: Full-text search across 1,001 stocks
 - ✅ **Technical Indicators**: 38 indicators calculated from historical data
 - ❌ **Live Prices**: Requires API keys (Finnhub for US, Upstox for India)
 
-### Offline Setup (Fresh Clone)
-```bash
-# 1. Clone repository
-git clone <repo-url>
+## 📋 Installation Guide
+
+### Prerequisites
+- **Python**: 3.8 or higher
+- **Node.js**: 16 or higher
+- **Git**: For cloning repository
+- **RAM**: 8GB minimum, 16GB recommended
+- **Storage**: 15GB free space
+
+### Windows Installation
+
+#### 1. Install Python
+```powershell
+# Using winget (Windows Package Manager)
+winget install Python.Python.3.11
+
+# Or download from python.org
+# Verify installation
+python --version
+```
+
+#### 2. Install Node.js
+```powershell
+# Using winget
+winget install OpenJS.NodeJS
+
+# Verify installation
+node --version
+npm --version
+```
+
+#### 3. Clone and Setup
+```powershell
+# Clone repository
+git clone https://github.com/123cs0011-iiitk/ml.git
 cd ml
 
-# 2. Backend setup
+# Backend setup
 cd backend
 python -m venv venv
-
-# Windows
 venv\Scripts\activate
-
-# Mac/Linux
-source venv/bin/activate
-
-# 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. Create empty .env file (REQUIRED - even for offline mode)
-# Windows
+# Create empty .env file (REQUIRED)
 type nul > .env
 
-# Mac/Linux
+# Frontend setup (new terminal)
+cd ../frontend
+npm install
+```
+
+### macOS Installation
+
+#### 1. Install Homebrew (if not installed)
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+#### 2. Install Python and Node.js
+```bash
+# Install Python and Node.js
+brew install python@3.11 node
+
+# Verify installations
+python3 --version
+node --version
+npm --version
+```
+
+#### 3. Clone and Setup
+```bash
+# Clone repository
+git clone https://github.com/123cs0011-iiitk/ml.git
+cd ml
+
+# Backend setup
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Create empty .env file (REQUIRED)
 touch .env
 
-# Leave the .env file empty - no API keys needed for offline mode
-
-# 5. Start backend (uses permanent directory automatically)
-python main.py
-
-# 6. Frontend setup (new terminal)
-cd frontend
+# Frontend setup (new terminal)
+cd ../frontend
 npm install
-npm run dev
-
-# 7. Access application
-# Frontend: http://localhost:5173
-# Backend: http://localhost:5000
 ```
 
-**Important**: The `.env` file must exist (even if empty) for the system to start properly.
+### Linux Installation (Ubuntu/Debian)
 
-### Transitioning to Live Mode
-When ready for live data, add API keys to `backend/.env`:
+#### 1. Update Package List
 ```bash
-# US Stocks (Finnhub)
-FINNHUB_API_KEY=your_finnhub_key_here
-
-# Indian Stocks (Upstox - requires OAuth)
-UPSTOX_API_KEY=your_upstox_key_here
-UPSTOX_CLIENT_ID=your_client_id_here
-UPSTOX_CLIENT_SECRET=your_client_secret_here
+sudo apt update
 ```
 
-**Detailed Setup Guides**:
-- [Upstox Integration](documentation/UPSTOX_INTEGRATION.md) - Indian market API setup
-- [Backend API](backend/README.md) - Full API documentation
-- [Model Training](documentation/MODEL_TRAINING.md) - Training ML models
+#### 2. Install Python and Node.js
+```bash
+# Install Python and pip
+sudo apt install python3.11 python3.11-pip python3.11-venv
 
-### Data Update Strategy
-- **Without APIs**: System uses static permanent directory (2020-2024 data)
-- **With APIs**: New data goes to `data/latest/`, permanent remains as fallback
-- **Best Practice**: Keep permanent directory intact as safety net
+# Install Node.js
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt-get install -y nodejs
 
-## 📊 System Status
+# Verify installations
+python3 --version
+node --version
+npm --version
+```
 
-**Check**: `python status.py` | **Data**: Finnhub (US) + Upstox (India) → Permanent fallback | **Currency**: Real-time USD/INR
+#### 3. Clone and Setup
+```bash
+# Clone repository
+git clone https://github.com/123cs0011-iiitk/ml.git
+cd ml
 
-**✅ Working**: Data fetching, Historical (5yr), Search (1000+ stocks), Currency, Dashboard, 38 technical indicators
+# Backend setup
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 
-**ML Models** (Oct 24/2025): 
-- **Training Progress**: 4/7 models trained
-  - Linear Regression (R²=-0.002) ✅
-  - Decision Tree (R²=0.001) ✅
-  - Random Forest (R²=0.024) ✅ Best performer
-  - SVM (R²=-0.0055) ✅ Working via UI
-- **Next**: KNN (K-Nearest Neighbors)
-- **Remaining**: ARIMA, Autoencoder
-- **Architecture**: Standalone trainers in `basic_models/` and `advanced_models/`
-- **Prediction Method**: Percentage change predictions with price conversion
-- **Features**: 38 technical indicators from OHLC data (volume excluded from calculations)
+# Create empty .env file (REQUIRED)
+touch .env
 
-**Recent Updates** (Oct 24/2025):
-- ✅ Offline mode with permanent directory fallback (Mac/fresh clone support)
-- ✅ Info & prediction card synchronization with visual indicators
-- ✅ Data source tracking (live_api vs stored_data)
-- ✅ SVM model integration fix (explicit model selection)
+# Frontend setup (new terminal)
+cd ../frontend
+npm install
+```
 
-**Docs**: [Backend API](backend/README.md) | [Documentation Hub](documentation/README.md) | [Upstox Setup](documentation/UPSTOX_INTEGRATION.md)
+## 🚀 Quick Start
 
-## ⚠️ Disclaimer
+### 1. Start Backend
+```bash
+cd ml/backend
+venv\Scripts\activate  # Windows
+source venv/bin/activate  # macOS/Linux
+python main.py
+```
 
-This application is for educational and research purposes only. Stock market predictions are inherently uncertain and should not be used as sole investment advice.
+### 2. Start Frontend (New Terminal)
+```bash
+cd ml/frontend
+npm run dev
+```
 
----
+Access: http://localhost:5173 (Backend: http://localhost:5000)
 
-**Ready to start?** Follow the Quick Start guide above!
+## 📊 Data Structure
+
+**Indian Stocks (500)**: Use ISIN codes (INExxxxxxxx) at `permanent/ind_stocks/`  
+**US Stocks (501)**: Use ticker symbols (AAPL, MSFT, etc.) at `permanent/us_stocks/`
+
+## 🤖 Training Models
+
+**Status**: 4/7 trained (Linear Regression ✅, Decision Tree ✅, Random Forest ✅, SVM ✅)
+
+```bash
+# Train: python backend/training/basic_models/{model}/trainer.py
+# Status: python status.py
+# Details: See [Training Guide](documentation/TRAINING.md)
+```
+
+## 🔌 Optional: Live Data Setup
+
+Add API keys to `backend/.env` for real-time data (Finnhub for US, Upstox for India).
+
+**Guides**: [Offline Mode](documentation/OFFLINE_MODE.md) | [Training Guide](documentation/TRAINING.md) | [Backend API](backend/README.md) | [Upstox Integration](documentation/UPSTOX_INTEGRATION.md)
+
+## 🔍 System Status
+
+Check: `python status.py` | Test API: `curl http://localhost:5000/health`
+
+**Working**: Data fetching, 5-year historical charts, search (1000+ stocks), currency conversion, interactive dashboard, 38 indicators, ML predictions (4/7 models trained)
+
+## 🛠️ Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| Backend won't start | Verify `permanent/` directory exists and create empty `.env` file |
+| Frontend build errors | Run `rm -rf node_modules package-lock.json && npm install` |
+| Python import errors | Activate venv: `venv\Scripts\activate` (Windows) or `source venv/bin/activate` (macOS/Linux) |
+| Out of memory | Close other apps, ensure 8GB+ RAM, train one model at a time |
+
+## ⚠️ Important Notes
+
+- **Educational Use**: This application is for learning and research purposes only
+- **Investment Disclaimer**: Stock predictions are inherently uncertain and should not be used as sole investment advice
+- **API Limits**: Finnhub (60 calls/min free), Upstox tokens expire daily
+- **Offline First**: System designed to work without internet or API keys
+
+## 🎯 Quick Commands
+
+```bash
+python status.py  # Check status
+python main.py    # Start backend
+npm run dev       # Start frontend
+```
