@@ -2,8 +2,9 @@
 """
 Full Dataset Training Script
 
-This script trains all 7 ML models on the full dataset of ~1,000 stocks
-with 5 years of historical data by calling individual standalone trainers.
+This script trains all 7 ML models on the full dataset of 936 stocks with sufficient data
+(from 1,001 total available stocks) with 5 years of historical data by calling individual standalone trainers.
+Stocks are automatically filtered during data loading based on data quality and sufficiency.
 
 Usage:
     python backend/training/train_full_dataset.py
@@ -133,7 +134,8 @@ def main():
         logger.info("="*80)
         logger.info("FULL DATASET TRAINING - STANDALONE TRAINERS")
         logger.info("="*80)
-        logger.info("Target: ~1,000 stocks with 5 years of historical data")
+        logger.info("Target: 936 stocks with sufficient data (from 1,001 available)")
+        logger.info("Dataset: 5 years of historical data (2020-2024)")
         logger.info(f"Models to train: {len(MODEL_TRAINERS)}")
         logger.info("")
         

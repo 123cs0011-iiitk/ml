@@ -23,6 +23,15 @@ Complete integration with Upstox API v2 for real-time Indian stock market data. 
 - ✅ **Token Refresh**: Automatic daily refresh (3:30 AM IST)
 - ✅ **Error Recovery**: Graceful handling of API failures
 
+## 🚀 Quick Daily Setup (30 seconds)
+
+```bash
+cd ml/backend
+python scripts/setup_upstox_oauth.py
+```
+
+Enter credentials when prompted → Browser opens → Click "Authorize" → Done!
+
 ## 🔧 Technical Implementation
 
 ### **OAuth2 Flow**
@@ -51,25 +60,6 @@ headers = {
 params = {'symbol': 'NSE_EQ|RELIANCE'}
 ```
 
-## 🚀 Quick Setup
-
-### 1. OAuth Setup (Recommended)
-```bash
-cd backend
-venv\Scripts\activate  # Windows
-python scripts/setup_upstox_oauth.py
-```
-
-- Enter Client ID and Client Secret
-- Complete authorization in browser
-- Tokens automatically saved
-
-### 2. Manual Setup (Legacy)
-```env
-UPSTOX_API_KEY=your_api_key
-UPSTOX_ACCESS_TOKEN=your_access_token
-```
-
 ## 🔑 Token Management
 
 ### **Daily Token Expiration**
@@ -86,25 +76,6 @@ Upstox access tokens have a **unique expiration behavior**:
 2. **API Calls Fail**: Upstox returns 401 Unauthorized
 3. **Fallback Activates**: System uses cached data from `permanent/` directory
 4. **User Gets Data**: Seamless experience with slightly older data
-
-### **Token Generation Options**
-
-**Option 1: Manual Token Generation (Current Approach)**
-```bash
-# Check token status
-python scripts/upstox_daily_token_guide.py
-
-# Generate new token
-python scripts/generate_new_token.py
-
-# Complete OAuth flow
-python scripts/setup_upstox_oauth.py
-```
-
-**Option 2: Automated Token Generation (Production)**
-```bash
-pip install upstox-totp
-```
 
 ## 📊 Data Sources & Fallback Chain
 
@@ -194,31 +165,18 @@ token = token_manager.get_valid_token()  # Auto-refreshes if needed
 
 ## 🔍 Troubleshooting
 
-### **Common Issues**
+### Common Issues
 
-1. **Token Expired (401 Unauthorized)**
-   - **Solution**: Run `python scripts/setup_upstox_oauth.py`
-   - **Prevention**: System automatically falls back to cached data
+| Issue | Solution |
+|-------|----------|
+| Token expired (401) | Run `python scripts/setup_upstox_oauth.py` |
+| Rate limit (429) | Wait 1 minute |
+| Invalid symbol (400) | Check format is `NSE_EQ\|SYMBOL` |
+| Port 3000 busy | Run `netstat -ano \| findstr :3000` then `taskkill /PID <num> /F` |
+| Browser won't open | Copy URL from terminal to browser manually |
+| Python not found | Activate venv first: `venv\Scripts\activate` |
 
-2. **Rate Limit Exceeded (429 Too Many Requests)**
-   - **Solution**: Wait 1 minute, system auto-retries
-   - **Prevention**: Built-in rate limiting
-
-3. **Invalid Symbol (400 Bad Request)**
-   - **Solution**: Check symbol format (`NSE_EQ|SYMBOL`)
-   - **Prevention**: Use hardcoded mappings for major stocks
-
-### **Debug Commands**
-```bash
-# Test API connection
-python scripts/test_upstox_realtime.py
-
-# Check token status
-python scripts/upstox_daily_token_guide.py
-
-# Generate new token
-python scripts/generate_new_token.py
-```
+**Debug**: `python scripts/test_upstox_realtime.py` | `python scripts/generate_new_token.py`
 
 ## 📈 Performance Metrics
 
@@ -240,3 +198,5 @@ python scripts/generate_new_token.py
 - **Upstox API Documentation**: https://upstox.com/developer/api-documentation
 - **OAuth2 Flow**: https://upstox.com/developer/api-documentation/oauth2
 - **Rate Limits**: https://upstox.com/developer/api-documentation/rate-limits
+
+**Run daily after 3:30 AM IST** or when receiving 401 errors.
